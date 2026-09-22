@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --font-pixel: 'Press Start 2P', monospace;
+  --font-sub: 'Silkscreen', monospace;
+  
+  --bg-dark: #0f1423;
+  --panel-bg: rgba(18, 25, 44, 0.88);
+  --panel-border: #3b82f6;
+  --panel-border-dark: #1d4ed8;
+  --accent-gold: #fbbf24;
+  --accent-cyan: #38bdf8;
+  --accent-pink: #f472b6;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-dark);
+  font-family: var(--font-sub);
+  color: var(--text-main);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Retro Pixel Button Styles */
+.pixel-btn {
+  font-family: var(--font-sub);
+  font-size: 11px;
+  padding: 6px 12px;
+  background: #1e293b;
+  color: #f8fafc;
+  border: 2px solid #475569;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.1s ease;
+  box-shadow: 0 3px 0 #0f172a;
+}
+
+.pixel-btn:hover {
+  background: #334155;
+  border-color: #64748b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 #0f172a;
+}
+
+.pixel-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #0f172a;
+}
+
+.pixel-btn-primary {
+  background: #2563eb;
+  border-color: #60a5fa;
+  box-shadow: 0 3px 0 #1d4ed8;
+}
+
+.pixel-btn-primary:hover {
+  background: #3b82f6;
+  border-color: #93c5fd;
+  box-shadow: 0 4px 0 #1d4ed8;
+}
+
+.pixel-btn-accent {
+  background: #d97706;
+  border-color: #fbbf24;
+  box-shadow: 0 3px 0 #b45309;
+}
+
+.pixel-btn-accent:hover {
+  background: #f59e0b;
+  border-color: #fde68a;
+  box-shadow: 0 4px 0 #b45309;
+}
+
+/* Retro Pixel Panel */
+.pixel-panel {
+  background: var(--panel-bg);
+  border: 2px solid #334155;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+/* Hotkey Badge */
+.hotkey-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  font-family: var(--font-pixel);
+  background: #0f172a;
+  color: #fbbf24;
+  border: 1px solid #475569;
+  border-radius: 2px;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}

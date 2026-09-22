@@ -1,0 +1,362 @@
+{
+  "land": {
+    "idle": {
+      "width": 30,
+      "height": 60,
+      "path": "/sprites/land/idle.png"
+    },
+    "walk1": {
+      "width": 32,
+      "height": 61,
+      "path": "/sprites/land/walk1.png"
+    },
+    "walk2": {
+      "width": 34,
+      "height": 58,
+      "path": "/sprites/land/walk2.png"
+    },
+    "wave": {
+      "width": 35,
+      "height": 61,
+      "path": "/sprites/land/wave.png"
+    },
+    "talk": {
+      "width": 39,
+      "height": 58,
+      "path": "/sprites/land/talk.png"
+    },
+    "happy": {
+      "width": 48,
+      "height": 60,
+      "path": "/sprites/land/happy.png"
+    },
+    "thinking": {
+      "width": 36,
+      "height": 81,
+      "path": "/sprites/land/thinking.png"
+    },
+    "sit": {
+      "width": 35,
+      "height": 39,
+      "path": "/sprites/land/sit.png"
+    },
+    "lie": {
+      "width": 59,
+      "height": 28,
+      "path": "/sprites/land/lie.png"
+    },
+    "jump": {
+      "width": 37,
+      "height": 56,
+      "path": "/sprites/land/jump.png"
+    }
+  },
+  "water": {
+    "red": {
+      "idle": {
+        "width": 68,
+        "height": 43,
+        "path": "/sprites/water/red/idle.png"
+      },
+      "swim": {
+        "width": 80,
+        "height": 46,
+        "path": "/sprites/water/red/swim.png"
+      },
+      "wave": {
+        "width": 71,
+        "height": 54,
+        "path": "/sprites/water/red/wave.png"
+      },
+      "talk": {
+        "width": 67,
+        "height": 46,
+        "path": "/sprites/water/red/talk.png"
+      },
+      "happy": {
+        "width": 70,
+        "height": 43,
+        "path": "/sprites/water/red/happy.png"
+      },
+      "relax": {
+        "width": 80,
+        "height": 58,
+        "path": "/sprites/water/red/relax.png"
+      },
+      "surprise": {
+        "width": 72,
+        "height": 64,
+        "path": "/sprites/water/red/surprise.png"
+      }
+    },
+    "blue": {
+      "idle": {
+        "width": 68,
+        "height": 43,
+        "path": "/sprites/water/blue/idle.png"
+      },
+      "swim": {
+        "width": 80,
+        "height": 46,
+        "path": "/sprites/water/blue/swim.png"
+      },
+      "wave": {
+        "width": 71,
+        "height": 54,
+        "path": "/sprites/water/blue/wave.png"
+      },
+      "talk": {
+        "width": 67,
+        "height": 46,
+        "path": "/sprites/water/blue/talk.png"
+      },
+      "happy": {
+        "width": 70,
+        "height": 43,
+        "path": "/sprites/water/blue/happy.png"
+      },
+      "relax": {
+        "width": 80,
+        "height": 58,
+        "path": "/sprites/water/blue/relax.png"
+      },
+      "surprise": {
+        "width": 72,
+        "height": 64,
+        "path": "/sprites/water/blue/surprise.png"
+      }
+    },
+    "pink": {
+      "idle": {
+        "width": 68,
+        "height": 43,
+        "path": "/sprites/water/pink/idle.png"
+      },
+      "swim": {
+        "width": 80,
+        "height": 46,
+        "path": "/sprites/water/pink/swim.png"
+      },
+      "wave": {
+        "width": 71,
+        "height": 54,
+        "path": "/sprites/water/pink/wave.png"
+      },
+      "talk": {
+        "width": 67,
+        "height": 46,
+        "path": "/sprites/water/pink/talk.png"
+      },
+      "happy": {
+        "width": 70,
+        "height": 43,
+        "path": "/sprites/water/pink/happy.png"
+      },
+      "relax": {
+        "width": 80,
+        "height": 58,
+        "path": "/sprites/water/pink/relax.png"
+      },
+      "surprise": {
+        "width": 72,
+        "height": 64,
+        "path": "/sprites/water/pink/surprise.png"
+      }
+    },
+    "yellow": {
+      "idle": {
+        "width": 68,
+        "height": 43,
+        "path": "/sprites/water/yellow/idle.png"
+      },
+      "swim": {
+        "width": 80,
+        "height": 46,
+        "path": "/sprites/water/yellow/swim.png"
+      },
+      "wave": {
+        "width": 71,
+        "height": 54,
+        "path": "/sprites/water/yellow/wave.png"
+      },
+      "talk": {
+        "width": 67,
+        "height": 46,
+        "path": "/sprites/water/yellow/talk.png"
+      },
+      "happy": {
+        "width": 70,
+        "height": 43,
+        "path": "/sprites/water/yellow/happy.png"
+      },
+      "relax": {
+        "width": 80,
+        "height": 58,
+        "path": "/sprites/water/yellow/relax.png"
+      },
+      "surprise": {
+        "width": 72,
+        "height": 64,
+        "path": "/sprites/water/yellow/surprise.png"
+      }
+    },
+    "black": {
+      "idle": {
+        "width": 68,
+        "height": 43,
+        "path": "/sprites/water/black/idle.png"
+      },
+      "swim": {
+        "width": 80,
+        "height": 46,
+        "path": "/sprites/water/black/swim.png"
+      },
+      "wave": {
+        "width": 71,
+        "height": 54,
+        "path": "/sprites/water/black/wave.png"
+      },
+      "talk": {
+        "width": 67,
+        "height": 46,
+        "path": "/sprites/water/black/talk.png"
+      },
+      "happy": {
+        "width": 70,
+        "height": 43,
+        "path": "/sprites/water/black/happy.png"
+      },
+      "relax": {
+        "width": 80,
+        "height": 58,
+        "path": "/sprites/water/black/relax.png"
+      },
+      "surprise": {
+        "width": 72,
+        "height": 64,
+        "path": "/sprites/water/black/surprise.png"
+      }
+    },
+    "green": {
+      "idle": {
+        "width": 67,
+        "height": 43,
+        "path": "/sprites/water/green/idle.png"
+      },
+      "swim": {
+        "width": 80,
+        "height": 46,
+        "path": "/sprites/water/green/swim.png"
+      },
+      "wave": {
+        "width": 71,
+        "height": 54,
+        "path": "/sprites/water/green/wave.png"
+      },
+      "talk": {
+        "width": 67,
+        "height": 46,
+        "path": "/sprites/water/green/talk.png"
+      },
+      "happy": {
+        "width": 70,
+        "height": 43,
+        "path": "/sprites/water/green/happy.png"
+      },
+      "relax": {
+        "width": 80,
+        "height": 58,
+        "path": "/sprites/water/green/relax.png"
+      },
+      "surprise": {
+        "width": 72,
+        "height": 64,
+        "path": "/sprites/water/green/surprise.png"
+      }
+    },
+    "purple": {
+      "idle": {
+        "width": 69,
+        "height": 43,
+        "path": "/sprites/water/purple/idle.png"
+      },
+      "swim": {
+        "width": 80,
+        "height": 46,
+        "path": "/sprites/water/purple/swim.png"
+      },
+      "wave": {
+        "width": 71,
+        "height": 54,
+        "path": "/sprites/water/purple/wave.png"
+      },
+      "talk": {
+        "width": 67,
+        "height": 46,
+        "path": "/sprites/water/purple/talk.png"
+      },
+      "happy": {
+        "width": 70,
+        "height": 43,
+        "path": "/sprites/water/purple/happy.png"
+      },
+      "relax": {
+        "width": 80,
+        "height": 58,
+        "path": "/sprites/water/purple/relax.png"
+      },
+      "surprise": {
+        "width": 72,
+        "height": 64,
+        "path": "/sprites/water/purple/surprise.png"
+      }
+    },
+    "gray": {
+      "idle": {
+        "width": 69,
+        "height": 43,
+        "path": "/sprites/water/gray/idle.png"
+      },
+      "swim": {
+        "width": 80,
+        "height": 46,
+        "path": "/sprites/water/gray/swim.png"
+      },
+      "wave": {
+        "width": 71,
+        "height": 54,
+        "path": "/sprites/water/gray/wave.png"
+      },
+      "talk": {
+        "width": 67,
+        "height": 46,
+        "path": "/sprites/water/gray/talk.png"
+      },
+      "happy": {
+        "width": 70,
+        "height": 43,
+        "path": "/sprites/water/gray/happy.png"
+      },
+      "relax": {
+        "width": 80,
+        "height": 58,
+        "path": "/sprites/water/gray/relax.png"
+      },
+      "surprise": {
+        "width": 72,
+        "height": 64,
+        "path": "/sprites/water/gray/surprise.png"
+      }
+    }
+  },
+  "floatColors": [
+    "red",
+    "blue",
+    "pink",
+    "yellow",
+    "black",
+    "green",
+    "purple",
+    "gray"
+  ]
+}

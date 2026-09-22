@@ -1,0 +1,831 @@
+import type {
+  PlayerData,
+  FloatColor,
+  Particle,
+  ChatMessage
+} from './types';
+import { poolsideRoom } from './rooms/poolside';
+import { sound } from './audio';
+import { NetworkManager } from './network';
+
+interface RemotePlayer {
+  data: PlayerData;
+  targetX: number;
+  targetY: number;
+  lastUpdate: number;
+}
+
+export class GameEngine {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private room = poolsideRoom;
+
+  // Assets
+  private bgImage: HTMLImageElement | null = null;
+  private sprites: Map<string, HTMLImageElement> = new Map();
+  public isAssetsLoaded: boolean = false;
+
+  // Local Player
+  public localPlayer: PlayerData;
+  private walkFrame: number = 0;
+  private walkTimer: number = 0;
+  private isMoving: boolean = false;
+  private clickTarget: { x: number; y: number } | null = null;
+  private emoteTimeout: number | null = null;
+  private lastFootstepTime: number = 0;
+
+  // Remote Players
+  private remotePlayers: Map<string, RemotePlayer> = new Map();
+
+  // Network
+  public network: NetworkManager;
+
+  // Particles
+  private particles: Particle[] = [];
+
+  // Input states
+  private keys: { [key: string]: boolean } = {};
+
+  // Loop control
+  private animId: number = 0;
+  private lastTime: number = 0;
+  private running: boolean = false;
+
+  // Callbacks to UI
+  public onChatMessageReceived?: (msg: ChatMessage) => void;
+  public onPlayerCountChange?: (count: number) => void;
+
+  constructor(canvas: HTMLCanvasElement, playerName: string = 'Swimmer', initialFloat: FloatColor = 'red') {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d')!;
+
+    const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
+    this.localPlayer = {
+      id: playerId,
+      name: playerName,
+      x: this.room.spawnPoint.x,
+      y: this.room.spawnPoint.y,
+      state: 'land',
+      facing: 1,
+      floatColor: initialFloat,
+      currentAction: 'idle',
+      timestamp: Date.now()
+    };
+
+    this.network = new NetworkManager(this.localPlayer.id);
+    this.setupNetworkHandlers();
+    this.setupInputListeners();
+  }
+
+  private setupNetworkHandlers() {
+    this.network.on('player_state', (_, raw) => {
+      const data = raw as PlayerData;
+      if (data.id === this.localPlayer.id) return;
+
+      const existing = this.remotePlayers.get(data.id);
+      if (existing) {
+        existing.targetX = data.x;
+        existing.targetY = data.y;
+        existing.data.facing = data.facing;
+        existing.data.state = data.state;
+        existing.data.floatColor = data.floatColor;
+        existing.data.currentAction = data.currentAction;
+        existing.data.name = data.name;
+        existing.data.lastMessage = data.lastMessage;
+        existing.data.messageTime = data.messageTime;
+        existing.lastUpdate = Date.now();
+      } else {
+        this.remotePlayers.set(data.id, {
+          data,
+          targetX: data.x,
+          targetY: data.y,
+          lastUpdate: Date.now()
+        });
+        if (this.onPlayerCountChange) {
+          this.onPlayerCountChange(this.remotePlayers.size + 1);
+        }
+      }
+    });
+
+    this.network.on('chat_message', (_, raw) => {
+      const msg = raw as ChatMessage;
+      sound.playChatChime();
+      if (this.onChatMessageReceived) {
+        this.onChatMessageReceived(msg);
+      }
+    });
+
+    this.network.on('player_leave', (_, raw) => {
+      const { id } = raw as { id: string };
+      this.remotePlayers.delete(id);
+      if (this.onPlayerCountChange) {
+        this.onPlayerCountChange(this.remotePlayers.size + 1);
+      }
+    });
+  }
+
+  public async loadAssets(): Promise<void> {
+    const bgPromise = new Promise<void>((resolve) => {
+      const img = new Image();
+      img.src = this.room.backgroundImage;
+      img.onload = () => {
+        this.bgImage = img;
+        resolve();
+      };
+      img.onerror = () => resolve();
+    });
+
+    const manifestRes = await fetch('/sprites/character_manifest.json');
+    const manifest = await manifestRes.json();
+
+    const spritePromises: Promise<void>[] = [];
+
+    // Land sprites
+    for (const [action, info] of Object.entries(manifest.land as Record<string, { path: string }>)) {
+      spritePromises.push(new Promise((resolve) => {
+        const img = new Image();
+        img.src = info.path;
+        img.onload = () => {
+          this.sprites.set(`land_${action}`, img);
+          resolve();
+        };
+        img.onerror = () => resolve();
+      }));
+    }
+
+    // Water sprites for all float colors
+    for (const [color, actions] of Object.entries(manifest.water as Record<string, Record<string, { path: string }>>)) {
+      for (const [action, info] of Object.entries(actions)) {
+        spritePromises.push(new Promise((resolve) => {
+          const img = new Image();
+          img.src = info.path;
+          img.onload = () => {
+            this.sprites.set(`water_${color}_${action}`, img);
+            resolve();
+          };
+          img.onerror = () => resolve();
+        }));
+      }
+    }
+
+    await Promise.all([bgPromise, ...spritePromises]);
+    this.isAssetsLoaded = true;
+  }
+
+  private setupInputListeners() {
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+    this.canvas.addEventListener('pointerdown', this.handlePointerDown);
+  }
+
+  public destroy() {
+    this.running = false;
+    cancelAnimationFrame(this.animId);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
+    this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+    this.network.sendPlayerLeave(this.localPlayer.id);
+    this.network.destroy();
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    // If typing inside an input element, do not capture movement
+    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
+      return;
+    }
+
+    this.keys[e.key.toLowerCase()] = true;
+    this.clickTarget = null; // Keyboard overrides click-to-move
+
+    // Hotkeys 1-5 for Emotes
+    if (e.key === '1') this.triggerEmote('wave');
+    if (e.key === '2') {
+      if (this.localPlayer.state === 'land') this.triggerEmote('sit');
+      else this.triggerEmote('relax');
+    }
+    if (e.key === '3') {
+      if (this.localPlayer.state === 'land') this.triggerEmote('lie');
+      else this.triggerEmote('happy');
+    }
+    if (e.key === '4') this.triggerEmote('surprise');
+    if (e.key === '5') {
+      if (this.localPlayer.state === 'land') this.triggerEmote('jump');
+      else this.triggerEmote('wave');
+    }
+  };
+
+  private handleKeyUp = (e: KeyboardEvent) => {
+    this.keys[e.key.toLowerCase()] = false;
+  };
+
+  private handlePointerDown = (e: PointerEvent) => {
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    const clickX = (e.clientX - rect.left) * scaleX;
+    const clickY = (e.clientY - rect.top) * scaleY;
+
+    this.clickTarget = { x: clickX, y: clickY };
+    this.createClickRipple(clickX, clickY);
+  };
+
+  private createClickRipple(x: number, y: number) {
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * 1.5,
+        vy: Math.sin(angle) * 1.5,
+        size: 3,
+        alpha: 1,
+        color: this.localPlayer.state === 'water' ? '#69d2e7' : '#ffd700',
+        life: 0,
+        maxLife: 20
+      });
+    }
+  }
+
+  public triggerEmote(action: string) {
+    if (this.emoteTimeout) {
+      clearTimeout(this.emoteTimeout);
+    }
+    this.localPlayer.currentAction = action;
+    sound.playEmoteSound(action);
+
+    if (action === 'jump') {
+      this.createJumpParticles(this.localPlayer.x, this.localPlayer.y);
+    }
+
+    this.broadcastState();
+
+    this.emoteTimeout = window.setTimeout(() => {
+      if (this.localPlayer.currentAction === action) {
+        this.localPlayer.currentAction = this.isMoving 
+          ? (this.localPlayer.state === 'water' ? 'swim' : 'walk1') 
+          : 'idle';
+        this.broadcastState();
+      }
+    }, 2800);
+  }
+
+  public setFloatColor(color: FloatColor) {
+    this.localPlayer.floatColor = color;
+    this.broadcastState();
+  }
+
+  public setPlayerName(name: string) {
+    this.localPlayer.name = name.trim() || 'Swimmer';
+    this.broadcastState();
+  }
+
+  public sendChat(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const chatMsg: ChatMessage = {
+      id: 'm_' + Math.random().toString(36).substring(2, 9),
+      senderId: this.localPlayer.id,
+      senderName: this.localPlayer.name,
+      text: trimmed,
+      timestamp: Date.now(),
+      floatColor: this.localPlayer.floatColor
+    };
+
+    this.localPlayer.lastMessage = trimmed;
+    this.localPlayer.messageTime = Date.now();
+
+    // Set talk action temporarily if not moving
+    if (!this.isMoving) {
+      this.localPlayer.currentAction = 'talk';
+      setTimeout(() => {
+        if (this.localPlayer.currentAction === 'talk' && !this.isMoving) {
+          this.localPlayer.currentAction = 'idle';
+          this.broadcastState();
+        }
+      }, 2500);
+    }
+
+    sound.playChatChime();
+    this.network.sendChatMessage(chatMsg);
+    this.broadcastState();
+
+    if (this.onChatMessageReceived) {
+      this.onChatMessageReceived(chatMsg);
+    }
+  }
+
+  private broadcastState() {
+    this.localPlayer.timestamp = Date.now();
+    this.network.broadcastPlayerState(this.localPlayer);
+  }
+
+  public start() {
+    this.running = true;
+    this.lastTime = performance.now();
+    this.animId = requestAnimationFrame(this.gameLoop);
+
+    // Heartbeat broadcast every 1.5 seconds
+    setInterval(() => {
+      if (this.running) {
+        this.broadcastState();
+      }
+    }, 1500);
+  }
+
+  private gameLoop = (time: number) => {
+    if (!this.running) return;
+    const dt = Math.min((time - this.lastTime) / 1000, 0.1); // cap dt at 100ms
+    this.lastTime = time;
+
+    this.update(dt);
+    this.render();
+
+    this.animId = requestAnimationFrame(this.gameLoop);
+  };
+
+  private update(dt: number) {
+    this.updateLocalPlayer(dt);
+    this.updateRemotePlayers(dt);
+    this.updateParticles();
+  }
+
+  private updateLocalPlayer(dt: number) {
+    let dx = 0;
+    let dy = 0;
+
+    // Keyboard movement
+    if (this.keys['arrowleft'] || this.keys['a']) dx -= 1;
+    if (this.keys['arrowright'] || this.keys['d']) dx += 1;
+    if (this.keys['arrowup'] || this.keys['w']) dy -= 1;
+    if (this.keys['arrowdown'] || this.keys['s']) dy += 1;
+
+    // Click to move
+    if (this.clickTarget) {
+      const distThreshold = 4;
+      const tdx = this.clickTarget.x - this.localPlayer.x;
+      const tdy = this.clickTarget.y - this.localPlayer.y;
+      const dist = Math.sqrt(tdx * tdx + tdy * tdy);
+
+      if (dist > distThreshold) {
+        dx = tdx / dist;
+        dy = tdy / dist;
+      } else {
+        this.clickTarget = null;
+      }
+    }
+
+    const wasMoving = this.isMoving;
+    this.isMoving = dx !== 0 || dy !== 0;
+
+    if (this.isMoving) {
+      // Clear manual emote when starting to walk
+      if (this.emoteTimeout) {
+        clearTimeout(this.emoteTimeout);
+        this.emoteTimeout = null;
+      }
+
+      // Facing
+      if (dx < 0) this.localPlayer.facing = -1;
+      if (dx > 0) this.localPlayer.facing = 1;
+
+      // Speed (swimming is slightly slower than walking)
+      const speed = this.localPlayer.state === 'water' ? 120 : 160;
+      
+      // Normalize diagonal
+      let moveX = dx;
+      let moveY = dy;
+      const len = Math.sqrt(moveX * moveX + moveY * moveY);
+      if (len > 0) {
+        moveX /= len;
+        moveY /= len;
+      }
+
+      const newX = this.localPlayer.x + moveX * speed * dt;
+      const newY = this.localPlayer.y + moveY * speed * dt;
+
+      // Check collision and clamp inside boundaries
+      this.attemptMove(newX, newY);
+
+      // Walk / Swim animation frame timer
+      this.walkTimer += dt;
+      if (this.walkTimer > 0.16) {
+        this.walkTimer = 0;
+        this.walkFrame = (this.walkFrame + 1) % 2;
+
+        if (this.localPlayer.state === 'land') {
+          // Play soft footstep
+          const now = Date.now();
+          if (now - this.lastFootstepTime > 300) {
+            sound.playFootstep();
+            this.lastFootstepTime = now;
+          }
+        } else {
+          // Water swim ripple
+          this.createSwimRipples(this.localPlayer.x, this.localPlayer.y);
+        }
+      }
+
+      if (this.localPlayer.state === 'land') {
+        this.localPlayer.currentAction = this.walkFrame === 0 ? 'walk1' : 'walk2';
+      } else {
+        this.localPlayer.currentAction = 'swim';
+      }
+
+      this.broadcastState();
+    } else {
+      if (wasMoving) {
+        this.localPlayer.currentAction = 'idle';
+        this.broadcastState();
+      }
+    }
+  }
+
+  private attemptMove(targetX: number, targetY: number) {
+    // Clamp to map boundaries
+    const clampedX = Math.max(25, Math.min(this.room.width - 25, targetX));
+    const clampedY = Math.max(218, Math.min(this.room.height - 25, targetY));
+
+    // Check obstacle collision
+    for (const obs of this.room.obstacles) {
+      if (
+        clampedX >= obs.x &&
+        clampedX <= obs.x + obs.width &&
+        clampedY >= obs.y &&
+        clampedY <= obs.y + obs.height
+      ) {
+        // Obstructed, do not move into obstacle
+        return;
+      }
+    }
+
+    const prevState = this.localPlayer.state;
+    const isInsideWater = this.isPointInWater(clampedX, clampedY);
+
+    if (isInsideWater && prevState === 'land') {
+      // Jump/step into water
+      this.localPlayer.state = 'water';
+      this.localPlayer.currentAction = this.isMoving ? 'swim' : 'idle';
+      sound.playSplash();
+      this.createSplashParticles(clampedX, clampedY);
+    } else if (!isInsideWater && prevState === 'water') {
+      // Step onto land deck
+      this.localPlayer.state = 'land';
+      this.localPlayer.currentAction = this.isMoving ? 'walk1' : 'idle';
+      sound.playFootstep();
+      this.createLandDripParticles(clampedX, clampedY);
+    }
+
+    this.localPlayer.x = clampedX;
+    this.localPlayer.y = clampedY;
+  }
+
+  private isPointInWater(x: number, y: number): boolean {
+    for (const w of this.room.waterZones) {
+      if (x >= w.x && x <= w.x + w.width && y >= w.y && y <= w.y + w.height) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private updateRemotePlayers(dt: number) {
+    const now = Date.now();
+    for (const [id, remote] of this.remotePlayers.entries()) {
+      // Disconnect timeout: 20 seconds
+      if (now - remote.lastUpdate > 20000) {
+        this.remotePlayers.delete(id);
+        if (this.onPlayerCountChange) {
+          this.onPlayerCountChange(this.remotePlayers.size + 1);
+        }
+        continue;
+      }
+
+      // Smooth lerp movement toward network target
+      const lerpFactor = Math.min(1, dt * 10);
+      remote.data.x += (remote.targetX - remote.data.x) * lerpFactor;
+      remote.data.y += (remote.targetY - remote.data.y) * lerpFactor;
+    }
+  }
+
+  private createSplashParticles(x: number, y: number) {
+    for (let i = 0; i < 22; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 3 + 1;
+      this.particles.push({
+        x,
+        y: y - 5,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2.5,
+        size: Math.random() * 3 + 2,
+        alpha: 1,
+        color: Math.random() > 0.4 ? '#ffffff' : '#68d8d6',
+        life: 0,
+        maxLife: 35
+      });
+    }
+  }
+
+  private createSwimRipples(x: number, y: number) {
+    this.particles.push({
+      x: x + (Math.random() * 20 - 10),
+      y: y + 8,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      size: 4,
+      alpha: 0.8,
+      color: '#b2ebf2',
+      life: 0,
+      maxLife: 25
+    });
+  }
+
+  private createJumpParticles(x: number, y: number) {
+    for (let i = 0; i < 12; i++) {
+      this.particles.push({
+        x: x + (Math.random() * 24 - 12),
+        y: y + 2,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -Math.random() * 1.5,
+        size: 2,
+        alpha: 0.8,
+        color: '#c2b280',
+        life: 0,
+        maxLife: 20
+      });
+    }
+  }
+
+  private createLandDripParticles(x: number, y: number) {
+    for (let i = 0; i < 6; i++) {
+      this.particles.push({
+        x: x + (Math.random() * 16 - 8),
+        y: y,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: 0.2,
+        size: 2,
+        alpha: 0.7,
+        color: '#80deea',
+        life: 0,
+        maxLife: 30
+      });
+    }
+  }
+
+  private updateParticles() {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life++;
+      p.alpha = 1 - p.life / p.maxLife;
+
+      if (p.life >= p.maxLife) {
+        this.particles.splice(i, 1);
+      }
+    }
+  }
+
+  // Rendering
+  private render() {
+    this.ctx.imageSmoothingEnabled = false; // Keep pixel art crisp
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // 1. Draw Background Map
+    if (this.bgImage) {
+      this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
+    } else {
+      this.ctx.fillStyle = '#4079d0';
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    // 2. Draw Click Destination Marker if active
+    if (this.clickTarget) {
+      this.renderClickMarker(this.clickTarget.x, this.clickTarget.y);
+    }
+
+    // 3. Draw Particles (Splash / Ripples)
+    this.renderParticles();
+
+    // 4. Collect all players (local + remote) and sort by Y coordinate for proper depth layering
+    const allPlayers: PlayerData[] = [this.localPlayer];
+    for (const r of this.remotePlayers.values()) {
+      allPlayers.push(r.data);
+    }
+    allPlayers.sort((a, b) => a.y - b.y);
+
+    // 5. Draw Players
+    const now = performance.now();
+    for (const player of allPlayers) {
+      this.renderPlayer(player, now);
+    }
+  }
+
+  private renderClickMarker(x: number, y: number) {
+    this.ctx.save();
+    const pulse = (Math.sin(performance.now() * 0.008) + 1) * 0.5;
+    this.ctx.strokeStyle = '#ffd700';
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y, 10 + pulse * 4, 5 + pulse * 2, 0, 0, Math.PI * 2);
+    this.ctx.stroke();
+
+    this.ctx.fillStyle = '#ffd700';
+    this.ctx.fillRect(x - 1, y - 1, 2, 2);
+    this.ctx.restore();
+  }
+
+  private renderParticles() {
+    this.ctx.save();
+    for (const p of this.particles) {
+      this.ctx.fillStyle = p.color;
+      this.ctx.globalAlpha = Math.max(0, p.alpha);
+      this.ctx.fillRect(Math.floor(p.x), Math.floor(p.y), p.size, p.size);
+    }
+    this.ctx.restore();
+  }
+
+  private renderPlayer(player: PlayerData, time: number) {
+    this.ctx.save();
+
+    let spriteKey = '';
+    const isWater = player.state === 'water';
+
+    if (isWater) {
+      const color = player.floatColor || 'red';
+      const action = player.currentAction || 'idle';
+      spriteKey = `water_${color}_${action}`;
+      if (!this.sprites.has(spriteKey)) {
+        spriteKey = `water_${color}_idle`;
+      }
+    } else {
+      const action = player.currentAction || 'idle';
+      spriteKey = `land_${action}`;
+      if (!this.sprites.has(spriteKey)) {
+        spriteKey = `land_idle`;
+      }
+    }
+
+    const spriteImg = this.sprites.get(spriteKey) || this.sprites.get('land_idle');
+    if (!spriteImg) {
+      this.ctx.restore();
+      return;
+    }
+
+    // Buoyancy bobbing in water
+    let drawY = player.y;
+    if (isWater) {
+      drawY += Math.sin((time * 0.0035) + player.x * 0.05) * 3;
+    }
+
+    // Shadow on land
+    if (!isWater) {
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(20, 25, 40, 0.28)';
+      this.ctx.beginPath();
+      this.ctx.ellipse(player.x, player.y - 2, 14, 5, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
+    // Jump height offset
+    if (player.currentAction === 'jump') {
+      const jumpProgress = (time % 600) / 600;
+      const jumpHeight = Math.sin(jumpProgress * Math.PI) * 16;
+      drawY -= jumpHeight;
+    }
+
+    // Draw Character Sprite with horizontal flipping
+    this.ctx.save();
+    this.ctx.translate(player.x, drawY);
+    if (player.facing === -1) {
+      this.ctx.scale(-1, 1);
+    }
+
+    // Anchor: bottom center
+    const w = spriteImg.width;
+    const h = spriteImg.height;
+    this.ctx.drawImage(spriteImg, -Math.floor(w / 2), -h);
+    this.ctx.restore();
+
+    // Player Name Badge
+    this.renderNameTag(player, player.x, drawY - h - 6);
+
+    // Speech Bubble
+    if (player.lastMessage && player.messageTime) {
+      const elapsed = (Date.now() - player.messageTime) / 1000;
+      if (elapsed < 5.0) {
+        const fadeAlpha = elapsed > 4.0 ? 1 - (elapsed - 4.0) : 1;
+        this.renderSpeechBubble(player.lastMessage, player.x, drawY - h - 26, fadeAlpha);
+      }
+    }
+
+    this.ctx.restore();
+  }
+
+  private renderNameTag(player: PlayerData, x: number, y: number) {
+    this.ctx.save();
+    const isMe = player.id === this.localPlayer.id;
+    const nameText = isMe ? `${player.name} (You)` : player.name;
+
+    this.ctx.font = '8px "Silkscreen", monospace';
+    const textWidth = this.ctx.measureText(nameText).width;
+    const paddingX = 6;
+    const boxW = textWidth + paddingX * 2;
+    const boxH = 14;
+
+    const boxX = Math.floor(x - boxW / 2);
+    const boxY = Math.floor(y - boxH);
+
+    // Pill background
+    this.ctx.fillStyle = isMe ? 'rgba(15, 32, 67, 0.85)' : 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(boxX, boxY, boxW, boxH);
+
+    // Outline
+    this.ctx.strokeStyle = isMe ? '#4fc3f7' : '#90a4ae';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+    // Text
+    this.ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(nameText, x, boxY + boxH / 2 + 1);
+
+    this.ctx.restore();
+  }
+
+  private renderSpeechBubble(text: string, x: number, y: number, alpha: number) {
+    this.ctx.save();
+    this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
+    this.ctx.font = '10px "Press Start 2P", monospace';
+    const maxLineWidth = 180;
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = words[0] || '';
+
+    for (let i = 1; i < words.length; i++) {
+      const testLine = currentLine + ' ' + words[i];
+      if (this.ctx.measureText(testLine).width < maxLineWidth) {
+        currentLine = testLine;
+      } else {
+        lines.push(currentLine);
+        currentLine = words[i];
+      }
+    }
+    lines.push(currentLine);
+
+    // Calculate bubble dimensions
+    let maxMeasured = 0;
+    for (const l of lines) {
+      maxMeasured = Math.max(maxMeasured, this.ctx.measureText(l).width);
+    }
+
+    const lineHeight = 14;
+    const padX = 10;
+    const padY = 8;
+    const bw = maxMeasured + padX * 2;
+    const bh = lines.length * lineHeight + padY * 2;
+
+    const bx = Math.floor(x - bw / 2);
+    const by = Math.floor(y - bh);
+
+    // 8-bit Pixel Bubble Background (white with crisp black pixel border)
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(bx, by, bw, bh);
+
+    this.ctx.strokeStyle = '#1a1a24';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(bx, by, bw, bh);
+
+    // Speech bubble tail pointing down
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.beginPath();
+    this.ctx.moveTo(x - 6, by + bh);
+    this.ctx.lineTo(x, by + bh + 6);
+    this.ctx.lineTo(x + 6, by + bh);
+    this.ctx.fill();
+
+    this.ctx.strokeStyle = '#1a1a24';
+    this.ctx.beginPath();
+    this.ctx.moveTo(x - 6, by + bh);
+    this.ctx.lineTo(x, by + bh + 6);
+    this.ctx.lineTo(x + 6, by + bh);
+    this.ctx.stroke();
+
+    // Cover seam between tail and bubble
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(x - 5, by + bh - 2, 10, 3);
+
+    // Text lines
+    this.ctx.fillStyle = '#111827';
+    this.ctx.textAlign = 'left';
+    this.ctx.textBaseline = 'top';
+    for (let idx = 0; idx < lines.length; idx++) {
+      this.ctx.fillText(lines[idx], bx + padX, by + padY + idx * lineHeight);
+    }
+
+    this.ctx.restore();
+  }
+}
