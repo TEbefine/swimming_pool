@@ -99,13 +99,13 @@
         "path": "/sprites/water/red/surprise.webp"
       },
       "swim1": {
-        "width": 65,
-        "height": 36,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/red/swim1.webp"
       },
       "swim2": {
-        "width": 56,
-        "height": 37,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/red/swim2.webp"
       },
       "tread": {
@@ -156,13 +156,13 @@
         "path": "/sprites/water/blue/surprise.webp"
       },
       "swim1": {
-        "width": 65,
-        "height": 36,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/blue/swim1.webp"
       },
       "swim2": {
-        "width": 56,
-        "height": 37,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/blue/swim2.webp"
       },
       "tread": {
@@ -213,13 +213,13 @@
         "path": "/sprites/water/pink/surprise.webp"
       },
       "swim1": {
-        "width": 65,
-        "height": 36,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/pink/swim1.webp"
       },
       "swim2": {
-        "width": 56,
-        "height": 37,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/pink/swim2.webp"
       },
       "tread": {
@@ -270,13 +270,13 @@
         "path": "/sprites/water/yellow/surprise.webp"
       },
       "swim1": {
-        "width": 65,
-        "height": 36,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/yellow/swim1.webp"
       },
       "swim2": {
-        "width": 56,
-        "height": 37,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/yellow/swim2.webp"
       },
       "tread": {
@@ -327,13 +327,13 @@
         "path": "/sprites/water/black/surprise.webp"
       },
       "swim1": {
-        "width": 65,
-        "height": 36,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/black/swim1.webp"
       },
       "swim2": {
-        "width": 56,
-        "height": 37,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/black/swim2.webp"
       },
       "tread": {
@@ -384,13 +384,13 @@
         "path": "/sprites/water/green/surprise.webp"
       },
       "swim1": {
-        "width": 65,
-        "height": 36,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/green/swim1.webp"
       },
       "swim2": {
-        "width": 56,
-        "height": 37,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/green/swim2.webp"
       },
       "tread": {
@@ -441,13 +441,13 @@
         "path": "/sprites/water/purple/surprise.webp"
       },
       "swim1": {
-        "width": 65,
-        "height": 36,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/purple/swim1.webp"
       },
       "swim2": {
-        "width": 56,
-        "height": 37,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/purple/swim2.webp"
       },
       "tread": {
@@ -498,13 +498,13 @@
         "path": "/sprites/water/gray/surprise.webp"
       },
       "swim1": {
-        "width": 65,
-        "height": 36,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/gray/swim1.webp"
       },
       "swim2": {
-        "width": 56,
-        "height": 37,
+        "width": 66,
+        "height": 38,
         "path": "/sprites/water/gray/swim2.webp"
       },
       "tread": {

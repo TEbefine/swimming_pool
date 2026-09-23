@@ -262,8 +262,8 @@ export class GameEngine {
     this.emoteTimeout = window.setTimeout(() => {
       if (this.localPlayer.currentAction === action) {
         this.localPlayer.currentAction = this.isMoving 
-          ? (this.localPlayer.state === 'water' ? 'swim' : 'walk1') 
-          : 'idle';
+          ? (this.localPlayer.state === 'water' ? 'swim1' : 'walk1') 
+          : (this.localPlayer.state === 'water' ? 'tread' : 'idle');
         this.broadcastState();
       }
     }, 2800);
@@ -283,7 +283,7 @@ export class GameEngine {
     if (this.localPlayer.state === 'land') {
       this.localPlayer.state = 'water';
       this.localPlayer.y = 340;
-      this.localPlayer.currentAction = 'idle';
+      this.localPlayer.currentAction = 'tread';
       sound.playSplash();
       this.createSplashParticles(this.localPlayer.x, this.localPlayer.y);
     } else {
@@ -317,7 +317,7 @@ export class GameEngine {
       this.localPlayer.currentAction = 'talk';
       setTimeout(() => {
         if (this.localPlayer.currentAction === 'talk' && !this.isMoving) {
-          this.localPlayer.currentAction = 'idle';
+          this.localPlayer.currentAction = this.localPlayer.state === 'water' ? 'tread' : 'idle';
           this.broadcastState();
         }
       }, 2500);
@@ -505,7 +505,7 @@ export class GameEngine {
     if (isInsideWater && prevState === 'land') {
       // Jump/step into water
       this.localPlayer.state = 'water';
-      this.localPlayer.currentAction = this.isMoving ? 'swim' : 'idle';
+      this.localPlayer.currentAction = this.isMoving ? 'swim1' : 'tread';
       sound.playSplash();
       this.createSplashParticles(clampedX, clampedY);
     } else if (!isInsideWater && prevState === 'water') {

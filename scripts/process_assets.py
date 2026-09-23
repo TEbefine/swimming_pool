@@ -4,7 +4,9 @@ import json
 from PIL import Image
 import numpy as np
 
-WORKSPACE_DIR = "/home/teera/Documents/oldd/swimming_pool"
+# Resolve paths relative to project root
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE_DIR = os.path.dirname(SCRIPT_DIR)
 PUBLIC_DIR = os.path.join(WORKSPACE_DIR, "public")
 MAPS_DIR = os.path.join(PUBLIC_DIR, "maps")
 SPRITES_DIR = os.path.join(PUBLIC_DIR, "sprites")
@@ -12,9 +14,12 @@ LAND_DIR = os.path.join(SPRITES_DIR, "land")
 WATER_DIR = os.path.join(SPRITES_DIR, "water")
 MANIFEST_PATH = os.path.join(SPRITES_DIR, "character_manifest.json")
 
-# New 4x4 Action Sprite Sheet
-UPLOAD_DIR = "/home/teera/.gemini/antigravity-ide/brain/fbf8aaa6-ab9f-4545-b53c-c1294eecffe4/.user_uploaded"
-SPRITE_SRC = os.path.join(UPLOAD_DIR, "media_1790151512787.png")
+# 4x4 Action Sprite Sheet source
+SRC_CANDIDATES = [
+    os.path.join(WORKSPACE_DIR, "src", "assets", "spritesheet.png"),
+    "/Users/teerathongbai/.gemini/antigravity-ide/brain/aa89b6d8-2609-4ee2-83fc-dc5a6f86246a/.user_uploaded/media_1790171789714.png"
+]
+SPRITE_SRC = next((p for p in SRC_CANDIDATES if os.path.exists(p)), SRC_CANDIDATES[-1])
 
 os.makedirs(MAPS_DIR, exist_ok=True)
 os.makedirs(LAND_DIR, exist_ok=True)
@@ -91,16 +96,36 @@ for name in land_actions:
     }
 
 # Extract and save base swimming sprites in public/sprites/water/
+# Note: swim1 is flipped horizontally so both swim1 and swim2 face RIGHT consistently.
 swim_actions = ['swim1', 'swim2', 'tread', 'splash']
+SWIM_CANVAS_W = 66
+SWIM_CANVAS_H = 38
+
 for name in swim_actions:
     box = specs[name]
     crop = im.crop(box)
     tight = crop.crop(crop.getbbox())
+    
+    if name == 'swim1':
+        # Flip swim1 horizontally to match swim2's facing direction
+        tight = tight.transpose(Image.FLIP_LEFT_RIGHT)
+        
     target_w = max(1, int(round(tight.width * scale)))
     target_h = max(1, int(round(tight.height * scale)))
     scaled = tight.resize((target_w, target_h), Image.LANCZOS)
+    
+    if name in ('swim1', 'swim2'):
+        # Align on uniform 66x38 canvas so stroke cycle doesn't jitter
+        canvas = Image.new('RGBA', (SWIM_CANVAS_W, SWIM_CANVAS_H), (0, 0, 0, 0))
+        offset_x = 1 if name == 'swim1' else 2
+        offset_y = 1
+        canvas.paste(scaled, (offset_x, offset_y), scaled)
+        final_img = canvas
+    else:
+        final_img = scaled
+
     dst_path = os.path.join(WATER_DIR, f"{name}.webp")
-    scaled.save(dst_path, "WEBP", lossless=True)
+    final_img.save(dst_path, "WEBP", lossless=True)
 
 # Propagate swimming actions to all float colors
 for color in manifest["floatColors"]:
