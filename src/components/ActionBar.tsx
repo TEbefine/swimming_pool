@@ -4,12 +4,14 @@ interface ActionBarProps {
   playerState: PlayerState;
   currentAction: string;
   onTriggerEmote: (action: string) => void;
+  onToggleState?: () => void;
 }
 
 export const ActionBar: React.FC<ActionBarProps> = ({
   playerState,
   currentAction,
-  onTriggerEmote
+  onTriggerEmote,
+  onToggleState
 }) => {
   const isWater = playerState === 'water';
 
@@ -35,9 +37,13 @@ export const ActionBar: React.FC<ActionBarProps> = ({
 
   return (
     <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 p-1.5 pixel-panel shadow-2xl pointer-events-auto max-w-[95vw] overflow-x-auto">
-      <div className="text-[9px] font-bold text-sky-400 px-2 uppercase tracking-wider hidden sm:block">
-        {isWater ? '🏊 Water' : '🏖️ Land'}
-      </div>
+      <button
+        onClick={onToggleState}
+        className="pixel-btn text-[10px] font-bold text-sky-300 hover:text-white px-2.5 py-1.5 uppercase tracking-wider flex items-center gap-1 bg-sky-950/70 hover:bg-sky-900 border border-sky-600/60 rounded transition-all cursor-pointer"
+        title={isWater ? 'Click to step onto poolside deck' : 'Click to jump into the swimming pool'}
+      >
+        {isWater ? '🏊 In Water' : '🏖️ On Land'}
+      </button>
       {activeList.map((item) => {
         const isActive = currentAction === item.id;
         return (

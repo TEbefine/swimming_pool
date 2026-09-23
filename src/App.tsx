@@ -37,6 +37,8 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!canvasRef.current) return;
 
+    let cancelled = false;
+
     const engine = new GameEngine(canvasRef.current, playerName, floatColor);
     engineRef.current = engine;
 
@@ -51,8 +53,10 @@ export const App: React.FC = () => {
     const init = async () => {
       setLoadProgress(30);
       await engine.loadAssets();
+      if (cancelled) return; // Don't start a destroyed engine
       setLoadProgress(100);
       setTimeout(() => {
+        if (cancelled) return;
         setLoading(false);
         engine.start();
       }, 300);
@@ -69,6 +73,7 @@ export const App: React.FC = () => {
     }, 66);
 
     return () => {
+      cancelled = true;
       clearInterval(syncInterval);
       engine.destroy();
       engineRef.current = null;
@@ -153,6 +158,7 @@ export const App: React.FC = () => {
             playerState={playerState}
             currentAction={currentAction}
             onTriggerEmote={handleTriggerEmote}
+            onToggleState={() => engineRef.current?.toggleWaterLand()}
           />
 
           {/* Bottom Chat Bar */}

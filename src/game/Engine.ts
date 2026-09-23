@@ -279,6 +279,23 @@ export class GameEngine {
     this.broadcastState();
   }
 
+  public toggleWaterLand() {
+    if (this.localPlayer.state === 'land') {
+      this.localPlayer.state = 'water';
+      this.localPlayer.y = 340;
+      this.localPlayer.currentAction = 'idle';
+      sound.playSplash();
+      this.createSplashParticles(this.localPlayer.x, this.localPlayer.y);
+    } else {
+      this.localPlayer.state = 'land';
+      this.localPlayer.y = 470;
+      this.localPlayer.currentAction = 'idle';
+      sound.playFootstep();
+      this.createLandDripParticles(this.localPlayer.x, this.localPlayer.y);
+    }
+    this.broadcastState();
+  }
+
   public sendChat(text: string) {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -409,16 +426,18 @@ export class GameEngine {
 
       // Walk / Swim animation frame timer
       this.walkTimer += dt;
-      if (this.walkTimer > 0.16) {
+      if (this.walkTimer > 0.13) {
         this.walkTimer = 0;
-        this.walkFrame = (this.walkFrame + 1) % 2;
+        this.walkFrame = (this.walkFrame + 1) % 4;
 
         if (this.localPlayer.state === 'land') {
-          // Play soft footstep
-          const now = Date.now();
-          if (now - this.lastFootstepTime > 300) {
-            sound.playFootstep();
-            this.lastFootstepTime = now;
+          // Play soft footstep on contact frames
+          if (this.walkFrame === 0 || this.walkFrame === 2) {
+            const now = Date.now();
+            if (now - this.lastFootstepTime > 260) {
+              sound.playFootstep();
+              this.lastFootstepTime = now;
+            }
           }
         } else {
           // Water swim ripple
@@ -427,15 +446,36 @@ export class GameEngine {
       }
 
       if (this.localPlayer.state === 'land') {
-        this.localPlayer.currentAction = this.walkFrame === 0 ? 'walk1' : 'walk2';
+        if (dx !== 0) {
+          // Horizontal walk: step A -> passing pose (side_idle) -> step B -> passing pose (side_idle)
+          const walkCycle = ['walk1', 'side_idle', 'walk2', 'side_idle'];
+          this.localPlayer.currentAction = walkCycle[this.walkFrame];
+        } else if (dy < 0) {
+          // Moving up: back view
+          this.localPlayer.currentAction = 'back_idle';
+        } else {
+          // Moving down: front view
+          this.localPlayer.currentAction = (this.walkFrame % 2 === 0) ? 'idle' : 'walk1';
+        }
       } else {
-        this.localPlayer.currentAction = 'swim';
+        // Water swimming: alternate swim strokes
+        this.localPlayer.currentAction = (this.walkFrame % 2 === 0) ? 'swim1' : 'swim2';
       }
 
       this.broadcastState();
     } else {
       if (wasMoving) {
-        this.localPlayer.currentAction = 'idle';
+        if (this.localPlayer.state === 'land') {
+          if (this.localPlayer.currentAction === 'back_idle') {
+            this.localPlayer.currentAction = 'back_idle';
+          } else if (this.localPlayer.facing === 1 || this.localPlayer.facing === -1) {
+            this.localPlayer.currentAction = 'side_idle';
+          } else {
+            this.localPlayer.currentAction = 'idle';
+          }
+        } else {
+          this.localPlayer.currentAction = 'tread';
+        }
         this.broadcastState();
       }
     }
@@ -656,7 +696,11 @@ export class GameEngine {
       const action = player.currentAction || 'idle';
       spriteKey = `water_${color}_${action}`;
       if (!this.sprites.has(spriteKey)) {
-        spriteKey = `water_${color}_idle`;
+        if (action.startsWith('swim') && this.sprites.has(`water_${color}_swim`)) {
+          spriteKey = `water_${color}_swim`;
+        } else {
+          spriteKey = `water_${color}_idle`;
+        }
       }
     } else {
       const action = player.currentAction || 'idle';

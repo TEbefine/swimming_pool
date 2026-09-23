@@ -3,10 +3,10 @@ import type { RoomDefinition } from '../types';
 export const poolsideRoom: RoomDefinition = {
   roomId: 'poolside',
   name: 'Sunny Poolside Resort',
-  backgroundImage: '/maps/poolside.png',
+  backgroundImage: '/maps/poolside.webp',
   width: 1024,
   height: 576,
-  spawnPoint: { x: 512, y: 510 },
+  spawnPoint: { x: 512, y: 470 },
   
   // Water pool area: between background deck coping and foreground deck edge
   waterZones: [
