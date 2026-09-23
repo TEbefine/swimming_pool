@@ -45,6 +45,10 @@ export class GameEngine {
 
   // Input states
   private keys: { [key: string]: boolean } = {};
+  private touchMoveEnabled: boolean = true;
+  private virtualDpad: { dx: number; dy: number } = { dx: 0, dy: 0 };
+  private cameraFollow: boolean = false;
+  private currentCamPctX: number = 50;
 
   // Loop control
   private animId: number = 0;
@@ -219,6 +223,7 @@ export class GameEngine {
   };
 
   private handlePointerDown = (e: PointerEvent) => {
+    if (!this.touchMoveEnabled) return;
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.canvas.width / rect.width;
     const scaleY = this.canvas.height / rect.height;
@@ -228,6 +233,51 @@ export class GameEngine {
     this.clickTarget = { x: clickX, y: clickY };
     this.createClickRipple(clickX, clickY);
   };
+
+  public setTouchMoveEnabled(enabled: boolean) {
+    this.touchMoveEnabled = enabled;
+    if (!enabled) {
+      this.clickTarget = null;
+    }
+  }
+
+  public setVirtualDpad(dx: number, dy: number) {
+    this.virtualDpad = { dx, dy };
+    if (dx !== 0 || dy !== 0) {
+      this.clickTarget = null;
+    }
+  }
+
+  public getCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
+  public setCanvas(newCanvas: HTMLCanvasElement) {
+    if (this.canvas === newCanvas) return;
+    this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+    this.canvas = newCanvas;
+    this.ctx = newCanvas.getContext('2d')!;
+    this.canvas.addEventListener('pointerdown', this.handlePointerDown);
+    if (this.cameraFollow && this.canvas) {
+      this.canvas.style.objectFit = 'cover';
+      this.canvas.style.objectPosition = `${this.currentCamPctX.toFixed(2)}% center`;
+    }
+  }
+
+  public setCameraFollow(enabled: boolean) {
+    this.cameraFollow = enabled;
+    if (this.canvas) {
+      if (enabled) {
+        this.canvas.style.objectFit = 'cover';
+        const targetPctX = Math.max(0, Math.min(100, (this.localPlayer.x / this.canvas.width) * 100));
+        this.currentCamPctX = targetPctX;
+        this.canvas.style.objectPosition = `${targetPctX.toFixed(2)}% center`;
+      } else {
+        this.canvas.style.objectFit = 'contain';
+        this.canvas.style.objectPosition = 'center center';
+      }
+    }
+  }
 
   private createClickRipple(x: number, y: number) {
     for (let i = 0; i < 8; i++) {
@@ -358,6 +408,13 @@ export class GameEngine {
     this.update(dt);
     this.render();
 
+    if (this.cameraFollow && this.canvas) {
+      const targetPctX = Math.max(0, Math.min(100, (this.localPlayer.x / this.canvas.width) * 100));
+      this.currentCamPctX += (targetPctX - this.currentCamPctX) * 0.15;
+      this.canvas.style.objectFit = 'cover';
+      this.canvas.style.objectPosition = `${this.currentCamPctX.toFixed(2)}% center`;
+    }
+
     this.animId = requestAnimationFrame(this.gameLoop);
   };
 
@@ -376,6 +433,12 @@ export class GameEngine {
     if (this.keys['arrowright'] || this.keys['d']) dx += 1;
     if (this.keys['arrowup'] || this.keys['w']) dy -= 1;
     if (this.keys['arrowdown'] || this.keys['s']) dy += 1;
+
+    // Virtual D-pad movement (mobile controller)
+    if (this.virtualDpad.dx !== 0 || this.virtualDpad.dy !== 0) {
+      dx += this.virtualDpad.dx;
+      dy += this.virtualDpad.dy;
+    }
 
     // Click to move
     if (this.clickTarget) {
@@ -727,7 +790,9 @@ export class GameEngine {
       this.ctx.save();
       this.ctx.fillStyle = 'rgba(20, 25, 40, 0.28)';
       this.ctx.beginPath();
-      this.ctx.ellipse(player.x, player.y - 2, 14, 5, 0, 0, Math.PI * 2);
+      const shadowRadiusX = Math.max(16, Math.round(spriteImg.width * 0.38));
+      const shadowRadiusY = Math.max(5, Math.round(spriteImg.width * 0.13));
+      this.ctx.ellipse(player.x, player.y - 2, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.restore();
     }

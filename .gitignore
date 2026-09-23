@@ -20,15 +20,20 @@ dist-ssr
 .env.test.local
 .env.production.local
 
-# Python cache (if running asset processing scripts)
+# Python environment & cache (if running asset processing scripts)
+.venv/
+venv/
 __pycache__/
 *.py[cod]
 *$py.class
+public/sprites/water_base/
+
 
 # Editor & OS files
 .vscode/*
 !.vscode/extensions.json
 !.vscode/launch.json
+!.vscode/settings.json
 .idea
 .DS_Store
 Thumbs.db

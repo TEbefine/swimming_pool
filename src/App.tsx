@@ -1,17 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine } from './game/Engine';
 import type { PlayerState, FloatColor, ChatMessage } from './game/types';
 import { HeaderBar } from './components/HeaderBar';
 import { ActionBar } from './components/ActionBar';
 import { ChatBar } from './components/ChatBar';
 import { ChatLogDrawer } from './components/ChatLogDrawer';
+import { GameBoyMobile } from './components/GameBoyMobile';
 import { FloatModal } from './components/FloatModal';
 import { NameModal } from './components/NameModal';
 import { HelpModal } from './components/HelpModal';
 import { Waves } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -29,10 +30,43 @@ export const App: React.FC = () => {
   const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
   const [chatLogOpen, setChatLogOpen] = useState(false);
 
+  // Mobile layout state
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768;
+  });
+  const [forceHandheld, setForceHandheld] = useState<boolean | null>(null);
+
+  const effectiveIsMobile = forceHandheld !== null ? forceHandheld : isMobile;
+
   // Modals
   const [floatModalOpen, setFloatModalOpen] = useState(false);
   const [nameModalOpen, setNameModalOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const setCanvasRef = useCallback((node: HTMLCanvasElement | null) => {
+    canvasRef.current = node;
+    if (node && engineRef.current && node !== engineRef.current.getCanvas()) {
+      engineRef.current.setCanvas(node);
+      engineRef.current.setTouchMoveEnabled(!effectiveIsMobile);
+      engineRef.current.setCameraFollow(effectiveIsMobile);
+    }
+  }, [effectiveIsMobile]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setTouchMoveEnabled(!effectiveIsMobile);
+      engineRef.current.setCameraFollow(effectiveIsMobile);
+    }
+  }, [effectiveIsMobile]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -41,6 +75,8 @@ export const App: React.FC = () => {
 
     const engine = new GameEngine(canvasRef.current, playerName, floatColor);
     engineRef.current = engine;
+    engine.setTouchMoveEnabled(!effectiveIsMobile);
+    engine.setCameraFollow(effectiveIsMobile);
 
     engine.onChatMessageReceived = (msg) => {
       setChatLog((prev) => [...prev.slice(-100), msg]);
@@ -126,61 +162,90 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Main Game Screen with Retro Arcade Border */}
-      <div className="relative w-full h-full max-w-[1280px] max-h-[720px] flex items-center justify-center p-1 sm:p-3">
-        <div className="relative w-full h-full flex items-center justify-center bg-slate-900 rounded-lg overflow-hidden border-4 border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-          {/* Header UI */}
-          <HeaderBar
-            roomName="Sunny Poolside"
-            playerCount={playerCount}
-            playerName={playerName}
-            floatColor={floatColor}
-            onOpenFloatPicker={() => setFloatModalOpen(true)}
-            onOpenNameModal={() => setNameModalOpen(true)}
-            onOpenHelpModal={() => setHelpModalOpen(true)}
-            onToggleChatLog={() => setChatLogOpen(!chatLogOpen)}
-            chatLogOpen={chatLogOpen}
-          />
+      {/* RENDER VIEW: Game Boy Handheld on Mobile vs Desktop Arcade Cabinet */}
+      {effectiveIsMobile ? (
+        <GameBoyMobile
+          canvasRef={setCanvasRef}
+          playerState={playerState}
+          currentAction={currentAction}
+          playerName={playerName}
+          floatColor={floatColor}
+          playerCount={playerCount}
+          chatLog={chatLog}
+          onDirectionChange={(dx, dy) => engineRef.current?.setVirtualDpad(dx, dy)}
+          onToggleState={() => engineRef.current?.toggleWaterLand()}
+          onActionA={() => {
+            if (playerState === 'water') {
+              engineRef.current?.triggerEmote('happy');
+            } else {
+              engineRef.current?.triggerEmote('jump');
+            }
+          }}
+          onTriggerEmote={handleTriggerEmote}
+          onSendMessage={handleSendMessage}
+          onOpenFloatPicker={() => setFloatModalOpen(true)}
+          onOpenNameModal={() => setNameModalOpen(true)}
+          onOpenHelpModal={() => setHelpModalOpen(true)}
+        />
+      ) : (
+        /* Main Game Screen with Retro Arcade Border */
+        <div className="relative w-full h-full max-w-[1280px] max-h-[720px] flex items-center justify-center p-1 sm:p-3">
+          <div className="relative w-full h-full flex items-center justify-center bg-slate-900 rounded-lg overflow-hidden border-4 border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+            {/* Header UI */}
+            <HeaderBar
+              roomName="Sunny Poolside"
+              playerCount={playerCount}
+              playerName={playerName}
+              floatColor={floatColor}
+              onOpenFloatPicker={() => setFloatModalOpen(true)}
+              onOpenNameModal={() => setNameModalOpen(true)}
+              onOpenHelpModal={() => setHelpModalOpen(true)}
+              onToggleChatLog={() => setChatLogOpen(!chatLogOpen)}
+              chatLogOpen={chatLogOpen}
+              onToggleMobileMode={() => setForceHandheld((prev) => (prev === true ? false : true))}
+              isMobileMode={effectiveIsMobile}
+            />
 
-          {/* Canvas Viewport */}
-          <canvas
-            ref={canvasRef}
-            width={1024}
-            height={576}
-            className="w-full h-full object-contain cursor-crosshair"
-            style={{
-              imageRendering: 'pixelated'
-            }}
-          />
+            {/* Canvas Viewport */}
+            <canvas
+              ref={setCanvasRef}
+              width={1024}
+              height={576}
+              className="w-full h-full object-contain cursor-crosshair"
+              style={{
+                imageRendering: 'pixelated'
+              }}
+            />
 
-          {/* Action & Emotes Bar */}
-          <ActionBar
-            playerState={playerState}
-            currentAction={currentAction}
-            onTriggerEmote={handleTriggerEmote}
-            onToggleState={() => engineRef.current?.toggleWaterLand()}
-          />
+            {/* Action & Emotes Bar */}
+            <ActionBar
+              playerState={playerState}
+              currentAction={currentAction}
+              onTriggerEmote={handleTriggerEmote}
+              onToggleState={() => engineRef.current?.toggleWaterLand()}
+            />
 
-          {/* Bottom Chat Bar */}
-          <ChatBar onSendMessage={handleSendMessage} />
+            {/* Bottom Chat Bar */}
+            <ChatBar onSendMessage={handleSendMessage} />
 
-          {/* Chat Log Drawer */}
-          <ChatLogDrawer
-            isOpen={chatLogOpen}
-            onClose={() => setChatLogOpen(false)}
-            messages={chatLog}
-            currentUserId={engineRef.current?.localPlayer.id || ''}
-          />
+            {/* Chat Log Drawer */}
+            <ChatLogDrawer
+              isOpen={chatLogOpen}
+              onClose={() => setChatLogOpen(false)}
+              messages={chatLog}
+              currentUserId={engineRef.current?.localPlayer.id || ''}
+            />
 
-          {/* CRT scanline effect subtle overlay */}
-          <div
-            className="pointer-events-none absolute inset-0 z-10 opacity-[0.03]"
-            style={{
-              backgroundImage: 'repeating-linear-gradient(0deg, #000, #000 1px, transparent 1px, transparent 2px)'
-            }}
-          />
+            {/* CRT scanline effect subtle overlay */}
+            <div
+              className="pointer-events-none absolute inset-0 z-10 opacity-[0.03]"
+              style={{
+                backgroundImage: 'repeating-linear-gradient(0deg, #000, #000 1px, transparent 1px, transparent 2px)'
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modals */}
       <FloatModal

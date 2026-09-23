@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, MessageSquare, HelpCircle, Palette, User } from 'lucide-react';
+import { Volume2, VolumeX, MessageSquare, HelpCircle, Palette, User, Gamepad2 } from 'lucide-react';
 import { sound } from '../game/audio';
 import type { FloatColor } from '../game/types';
 
@@ -13,6 +13,8 @@ interface HeaderBarProps {
   onOpenHelpModal: () => void;
   onToggleChatLog: () => void;
   chatLogOpen: boolean;
+  onToggleMobileMode?: () => void;
+  isMobileMode?: boolean;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -25,6 +27,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenHelpModal,
   onToggleChatLog,
   chatLogOpen,
+  onToggleMobileMode,
+  isMobileMode,
 }) => {
   const [muted, setMuted] = React.useState(sound.isMuted());
 
@@ -107,6 +111,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         >
           <MessageSquare size={14} />
         </button>
+
+        {/* Toggle Game Boy Handheld Mode */}
+        {onToggleMobileMode && (
+          <button
+            onClick={onToggleMobileMode}
+            className={`pixel-btn ${isMobileMode ? 'pixel-btn-accent' : ''}`}
+            title="Toggle Game Boy Mode"
+          >
+            <Gamepad2 size={14} className="text-amber-300" />
+            <span className="hidden lg:inline text-[11px]">Game Boy</span>
+          </button>
+        )}
 
         {/* Help / Controls Guide */}
         <button

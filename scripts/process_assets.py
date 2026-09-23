@@ -1,8 +1,8 @@
+import json
 import os
 import shutil
-import json
+
 from PIL import Image
-import numpy as np
 
 # Resolve paths relative to project root
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12,6 +12,7 @@ MAPS_DIR = os.path.join(PUBLIC_DIR, "maps")
 SPRITES_DIR = os.path.join(PUBLIC_DIR, "sprites")
 LAND_DIR = os.path.join(SPRITES_DIR, "land")
 WATER_DIR = os.path.join(SPRITES_DIR, "water")
+WATER_BASE_DIR = os.path.join(SPRITES_DIR, "water_base")
 MANIFEST_PATH = os.path.join(SPRITES_DIR, "character_manifest.json")
 
 # 4x4 Action Sprite Sheet source
@@ -24,6 +25,10 @@ SPRITE_SRC = next((p for p in SRC_CANDIDATES if os.path.exists(p)), SRC_CANDIDAT
 os.makedirs(MAPS_DIR, exist_ok=True)
 os.makedirs(LAND_DIR, exist_ok=True)
 os.makedirs(WATER_DIR, exist_ok=True)
+
+# Preserve pristine 50px base water sprites for idempotent scaling
+if not os.path.exists(WATER_BASE_DIR) and os.path.exists(WATER_DIR):
+    shutil.copytree(WATER_DIR, WATER_BASE_DIR)
 
 im = Image.open(SPRITE_SRC)
 
@@ -47,10 +52,12 @@ specs = {
     'splash': (785, 630, 970, 735),
 }
 
-# Scale factor: standard standing idle height = 50px
+# Scale factor: standard standing idle height = 75px (increased from 50px for better visibility and proportion)
+TARGET_IDLE_HEIGHT = 75.0
 idle_crop = im.crop(specs['idle'])
 idle_tight = idle_crop.crop(idle_crop.getbbox())
-scale = 50.0 / idle_tight.height
+scale = TARGET_IDLE_HEIGHT / idle_tight.height
+scale_multiplier = TARGET_IDLE_HEIGHT / 50.0
 
 manifest = {
     "land": {},
@@ -58,31 +65,28 @@ manifest = {
     "floatColors": ["red", "blue", "pink", "yellow", "black", "green", "purple", "gray"]
 }
 
-# Load existing water float variations if present
-if os.path.exists(MANIFEST_PATH):
-    try:
-        with open(MANIFEST_PATH, "r") as f:
-            old_manifest = json.load(f)
-            manifest["water"] = old_manifest.get("water", {})
-    except Exception:
-        pass
-
 # Extract and save land sprites
 land_actions = ['idle', 'side_idle', 'back_idle', 'walk1', 'walk2', 'wave', 'talk', 'happy', 'thinking', 'sit', 'lie', 'jump']
 walk_stand_actions = {'idle', 'side_idle', 'back_idle', 'walk1', 'walk2', 'thinking'}
+
+# Determine uniform canvas dimensions for walk and stand poses to avoid any jitter
+LAND_CANVAS_W = round(32 * scale_multiplier)
+LAND_CANVAS_H = round(52 * scale_multiplier) + 4
 
 for name in land_actions:
     box = specs[name]
     crop = im.crop(box)
     tight = crop.crop(crop.getbbox())
-    target_w = max(1, int(round(tight.width * scale)))
-    target_h = max(1, int(round(tight.height * scale)))
-    scaled = tight.resize((target_w, target_h), Image.LANCZOS)
+    target_w = max(1, round(tight.width * scale))
+    target_h = max(1, round(tight.height * scale))
+    scaled = tight.resize((target_w, target_h), Image.Resampling.LANCZOS)
     
     if name in walk_stand_actions:
-        # Pad to uniform 32x52 canvas, centered horizontally and aligned to bottom
-        canvas = Image.new('RGBA', (32, 52), (0, 0, 0, 0))
-        canvas.paste(scaled, ((32 - scaled.width) // 2, 52 - scaled.height), scaled)
+        # Uniform canvas, centered horizontally and aligned to bottom
+        canvas = Image.new('RGBA', (LAND_CANVAS_W, LAND_CANVAS_H), (0, 0, 0, 0))
+        offset_x = (LAND_CANVAS_W - scaled.width) // 2
+        offset_y = LAND_CANVAS_H - scaled.height
+        canvas.paste(scaled, (offset_x, offset_y), scaled)
         final_img = canvas
     else:
         final_img = scaled
@@ -98,8 +102,8 @@ for name in land_actions:
 # Extract and save base swimming sprites in public/sprites/water/
 # Note: swim1 is flipped horizontally so both swim1 and swim2 face RIGHT consistently.
 swim_actions = ['swim1', 'swim2', 'tread', 'splash']
-SWIM_CANVAS_W = 66
-SWIM_CANVAS_H = 38
+SWIM_CANVAS_W = round(66 * scale_multiplier) + 1
+SWIM_CANVAS_H = round(38 * scale_multiplier) + 1
 
 for name in swim_actions:
     box = specs[name]
@@ -108,16 +112,16 @@ for name in swim_actions:
     
     if name == 'swim1':
         # Flip swim1 horizontally to match swim2's facing direction
-        tight = tight.transpose(Image.FLIP_LEFT_RIGHT)
+        tight = tight.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         
-    target_w = max(1, int(round(tight.width * scale)))
-    target_h = max(1, int(round(tight.height * scale)))
-    scaled = tight.resize((target_w, target_h), Image.LANCZOS)
+    target_w = max(1, round(tight.width * scale))
+    target_h = max(1, round(tight.height * scale))
+    scaled = tight.resize((target_w, target_h), Image.Resampling.LANCZOS)
     
     if name in ('swim1', 'swim2'):
-        # Align on uniform 66x38 canvas so stroke cycle doesn't jitter
+        # Align on uniform canvas so stroke cycle doesn't jitter
         canvas = Image.new('RGBA', (SWIM_CANVAS_W, SWIM_CANVAS_H), (0, 0, 0, 0))
-        offset_x = 1 if name == 'swim1' else 2
+        offset_x = 2 if name == 'swim1' else 4
         offset_y = 1
         canvas.paste(scaled, (offset_x, offset_y), scaled)
         final_img = canvas
@@ -127,12 +131,16 @@ for name in swim_actions:
     dst_path = os.path.join(WATER_DIR, f"{name}.webp")
     final_img.save(dst_path, "WEBP", lossless=True)
 
-# Propagate swimming actions to all float colors
+# Propagate swimming actions and scale existing water emotes across all float colors
+other_water_actions = ['idle', 'swim', 'wave', 'talk', 'happy', 'relax', 'surprise']
+
 for color in manifest["floatColors"]:
     c_dir = os.path.join(WATER_DIR, color)
+    c_base = os.path.join(WATER_BASE_DIR, color) if os.path.exists(WATER_BASE_DIR) else c_dir
     os.makedirs(c_dir, exist_ok=True)
-    if color not in manifest["water"]:
-        manifest["water"][color] = {}
+    manifest["water"][color] = {}
+
+    # Copy new scaled base swim actions
     for act in swim_actions:
         src = os.path.join(WATER_DIR, f"{act}.webp")
         dst = os.path.join(c_dir, f"{act}.webp")
@@ -144,7 +152,23 @@ for color in manifest["floatColors"]:
             "path": f"/sprites/water/{color}/{act}.webp"
         }
 
+    # Scale and save existing water emote animations
+    for act in other_water_actions:
+        base_file = os.path.join(c_base, f"{act}.webp")
+        dst_file = os.path.join(c_dir, f"{act}.webp")
+        if os.path.exists(base_file):
+            im_base = Image.open(base_file)
+            scaled_w = max(1, round(im_base.width * scale_multiplier))
+            scaled_h = max(1, round(im_base.height * scale_multiplier))
+            im_scaled = im_base.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
+            im_scaled.save(dst_file, "WEBP", lossless=True)
+            manifest["water"][color][act] = {
+                "width": im_scaled.width,
+                "height": im_scaled.height,
+                "path": f"/sprites/water/{color}/{act}.webp"
+            }
+
 with open(MANIFEST_PATH, "w") as f:
     json.dump(manifest, f, indent=2)
 
-print("process_assets.py completed successfully!")
+print("process_assets.py completed successfully with larger human scale (75px)!")
