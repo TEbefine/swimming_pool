@@ -84,38 +84,38 @@
         "path": "/sprites/water/red/splash.webp"
       },
       "idle": {
-        "width": 104,
-        "height": 50,
+        "width": 156,
+        "height": 75,
         "path": "/sprites/water/red/idle.webp"
       },
       "swim": {
-        "width": 96,
-        "height": 52,
+        "width": 144,
+        "height": 78,
         "path": "/sprites/water/red/swim.webp"
       },
       "wave": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/red/wave.webp"
       },
       "talk": {
-        "width": 88,
-        "height": 52,
+        "width": 132,
+        "height": 78,
         "path": "/sprites/water/red/talk.webp"
       },
       "happy": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/red/happy.webp"
       },
       "relax": {
-        "width": 105,
-        "height": 74,
+        "width": 158,
+        "height": 111,
         "path": "/sprites/water/red/relax.webp"
       },
       "surprise": {
-        "width": 93,
-        "height": 76,
+        "width": 140,
+        "height": 114,
         "path": "/sprites/water/red/surprise.webp"
       }
     },
@@ -141,38 +141,38 @@
         "path": "/sprites/water/blue/splash.webp"
       },
       "idle": {
-        "width": 82,
-        "height": 48,
+        "width": 123,
+        "height": 72,
         "path": "/sprites/water/blue/idle.webp"
       },
       "swim": {
-        "width": 96,
-        "height": 52,
+        "width": 144,
+        "height": 78,
         "path": "/sprites/water/blue/swim.webp"
       },
       "wave": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/blue/wave.webp"
       },
       "talk": {
-        "width": 88,
-        "height": 52,
+        "width": 132,
+        "height": 78,
         "path": "/sprites/water/blue/talk.webp"
       },
       "happy": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/blue/happy.webp"
       },
       "relax": {
-        "width": 105,
-        "height": 74,
+        "width": 158,
+        "height": 111,
         "path": "/sprites/water/blue/relax.webp"
       },
       "surprise": {
-        "width": 93,
-        "height": 76,
+        "width": 140,
+        "height": 114,
         "path": "/sprites/water/blue/surprise.webp"
       }
     },
@@ -198,38 +198,38 @@
         "path": "/sprites/water/pink/splash.webp"
       },
       "idle": {
-        "width": 88,
-        "height": 48,
+        "width": 132,
+        "height": 72,
         "path": "/sprites/water/pink/idle.webp"
       },
       "swim": {
-        "width": 96,
-        "height": 52,
+        "width": 144,
+        "height": 78,
         "path": "/sprites/water/pink/swim.webp"
       },
       "wave": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/pink/wave.webp"
       },
       "talk": {
-        "width": 88,
-        "height": 52,
+        "width": 132,
+        "height": 78,
         "path": "/sprites/water/pink/talk.webp"
       },
       "happy": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/pink/happy.webp"
       },
       "relax": {
-        "width": 105,
-        "height": 74,
+        "width": 158,
+        "height": 111,
         "path": "/sprites/water/pink/relax.webp"
       },
       "surprise": {
-        "width": 93,
-        "height": 76,
+        "width": 140,
+        "height": 114,
         "path": "/sprites/water/pink/surprise.webp"
       }
     },
@@ -255,38 +255,38 @@
         "path": "/sprites/water/yellow/splash.webp"
       },
       "idle": {
-        "width": 82,
-        "height": 48,
+        "width": 123,
+        "height": 72,
         "path": "/sprites/water/yellow/idle.webp"
       },
       "swim": {
-        "width": 96,
-        "height": 52,
+        "width": 144,
+        "height": 78,
         "path": "/sprites/water/yellow/swim.webp"
       },
       "wave": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/yellow/wave.webp"
       },
       "talk": {
-        "width": 88,
-        "height": 52,
+        "width": 132,
+        "height": 78,
         "path": "/sprites/water/yellow/talk.webp"
       },
       "happy": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/yellow/happy.webp"
       },
       "relax": {
-        "width": 105,
-        "height": 74,
+        "width": 158,
+        "height": 111,
         "path": "/sprites/water/yellow/relax.webp"
       },
       "surprise": {
-        "width": 93,
-        "height": 76,
+        "width": 140,
+        "height": 114,
         "path": "/sprites/water/yellow/surprise.webp"
       }
     },
@@ -312,38 +312,38 @@
         "path": "/sprites/water/black/splash.webp"
       },
       "idle": {
-        "width": 88,
-        "height": 48,
+        "width": 132,
+        "height": 72,
         "path": "/sprites/water/black/idle.webp"
       },
       "swim": {
-        "width": 96,
-        "height": 52,
+        "width": 144,
+        "height": 78,
         "path": "/sprites/water/black/swim.webp"
       },
       "wave": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/black/wave.webp"
       },
       "talk": {
-        "width": 88,
-        "height": 52,
+        "width": 132,
+        "height": 78,
         "path": "/sprites/water/black/talk.webp"
       },
       "happy": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/black/happy.webp"
       },
       "relax": {
-        "width": 105,
-        "height": 74,
+        "width": 158,
+        "height": 111,
         "path": "/sprites/water/black/relax.webp"
       },
       "surprise": {
-        "width": 93,
-        "height": 76,
+        "width": 140,
+        "height": 114,
         "path": "/sprites/water/black/surprise.webp"
       }
     },
@@ -369,38 +369,38 @@
         "path": "/sprites/water/green/splash.webp"
       },
       "idle": {
-        "width": 84,
-        "height": 48,
+        "width": 126,
+        "height": 72,
         "path": "/sprites/water/green/idle.webp"
       },
       "swim": {
-        "width": 96,
-        "height": 52,
+        "width": 144,
+        "height": 78,
         "path": "/sprites/water/green/swim.webp"
       },
       "wave": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/green/wave.webp"
       },
       "talk": {
-        "width": 88,
-        "height": 52,
+        "width": 132,
+        "height": 78,
         "path": "/sprites/water/green/talk.webp"
       },
       "happy": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/green/happy.webp"
       },
       "relax": {
-        "width": 105,
-        "height": 74,
+        "width": 158,
+        "height": 111,
         "path": "/sprites/water/green/relax.webp"
       },
       "surprise": {
-        "width": 93,
-        "height": 76,
+        "width": 140,
+        "height": 114,
         "path": "/sprites/water/green/surprise.webp"
       }
     },
@@ -426,38 +426,38 @@
         "path": "/sprites/water/purple/splash.webp"
       },
       "idle": {
-        "width": 88,
-        "height": 48,
+        "width": 132,
+        "height": 72,
         "path": "/sprites/water/purple/idle.webp"
       },
       "swim": {
-        "width": 96,
-        "height": 52,
+        "width": 144,
+        "height": 78,
         "path": "/sprites/water/purple/swim.webp"
       },
       "wave": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/purple/wave.webp"
       },
       "talk": {
-        "width": 88,
-        "height": 52,
+        "width": 132,
+        "height": 78,
         "path": "/sprites/water/purple/talk.webp"
       },
       "happy": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/purple/happy.webp"
       },
       "relax": {
-        "width": 105,
-        "height": 74,
+        "width": 158,
+        "height": 111,
         "path": "/sprites/water/purple/relax.webp"
       },
       "surprise": {
-        "width": 93,
-        "height": 76,
+        "width": 140,
+        "height": 114,
         "path": "/sprites/water/purple/surprise.webp"
       }
     },
@@ -483,38 +483,38 @@
         "path": "/sprites/water/gray/splash.webp"
       },
       "idle": {
-        "width": 88,
-        "height": 48,
+        "width": 132,
+        "height": 72,
         "path": "/sprites/water/gray/idle.webp"
       },
       "swim": {
-        "width": 96,
-        "height": 52,
+        "width": 144,
+        "height": 78,
         "path": "/sprites/water/gray/swim.webp"
       },
       "wave": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/gray/wave.webp"
       },
       "talk": {
-        "width": 88,
-        "height": 52,
+        "width": 132,
+        "height": 78,
         "path": "/sprites/water/gray/talk.webp"
       },
       "happy": {
-        "width": 90,
-        "height": 52,
+        "width": 135,
+        "height": 78,
         "path": "/sprites/water/gray/happy.webp"
       },
       "relax": {
-        "width": 105,
-        "height": 74,
+        "width": 158,
+        "height": 111,
         "path": "/sprites/water/gray/relax.webp"
       },
       "surprise": {
-        "width": 93,
-        "height": 76,
+        "width": 140,
+        "height": 114,
         "path": "/sprites/water/gray/surprise.webp"
       }
     }
