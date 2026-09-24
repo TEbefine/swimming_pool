@@ -114,6 +114,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   }, [onDirectionChange]);
 
   const handleDpadPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
     isDraggingDpad.current = true;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     triggerHaptic(12);
@@ -122,17 +123,20 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
   const handleDpadPointerMove = (e: React.PointerEvent) => {
     if (!isDraggingDpad.current) return;
+    e.preventDefault();
     updateDirectionFromTouch(e.clientX, e.clientY);
   };
 
-  const handleDpadPointerUp = () => {
+  const handleDpadPointerUp = (e: React.PointerEvent) => {
     if (!isDraggingDpad.current) return;
+    e.preventDefault();
     isDraggingDpad.current = false;
     setActiveDir({ up: false, down: false, left: false, right: false });
     onDirectionChange(0, 0);
   };
 
-  const handleDpadPointerCancel = () => {
+  const handleDpadPointerCancel = (e: React.PointerEvent) => {
+    e.preventDefault();
     isDraggingDpad.current = false;
     setActiveDir({ up: false, down: false, left: false, right: false });
     onDirectionChange(0, 0);
@@ -231,7 +235,16 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[100dvh] max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none gameboy-body border-x-4 border-t-4 border-b-8 border-[#b8b8ae] shadow-2xl">
+    <div
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+      className="relative w-full h-[100dvh] max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none gameboy-body border-x-4 border-t-4 border-b-8 border-[#b8b8ae] shadow-2xl"
+      style={{
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none'
+      }}
+    >
       {/* Top Console Ridge with OFF/ON indicator */}
       <div className="w-full h-5 bg-[#cfcfc6] border-b border-[#a8a89f] flex items-center justify-between px-4 text-[8px] font-mono text-[#78786f] uppercase tracking-wider shrink-0">
         <div className="flex items-center gap-1.5">
@@ -367,19 +380,28 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       </div>
 
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
       {/* LOWER SECTION: COMPACT & STREAMLINED CONTROLLER (กระชับ / ERGONOMIC UX) */}
       {/* ========================================================================= */}
-      <div className="h-[188px] flex flex-col justify-between px-3 pt-1 pb-1 relative shrink-0">
+      <div
+        onContextMenu={(e) => e.preventDefault()}
+        className="h-[156px] flex flex-col justify-between px-3 pt-1 pb-1 relative shrink-0"
+        style={{
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none'
+        }}
+      >
         {/* Game Boy Classic Blue Branding */}
         <div className="flex items-baseline gap-1 pl-6 pt-0 shrink-0 translate-x-[44px]">
-          <span className="text-[#152377] font-sans font-bold text-[10.5px] tracking-tight">Nintendo</span>
+          <span className="text-[#152377] font-sans font-bold text-[10px] tracking-tight">Nintendo</span>
           <span
-            className="text-[#152377] font-sans font-black italic text-[12.5px] tracking-wider"
+            className="text-[#152377] font-sans font-black italic text-[12px] tracking-wider"
             style={{ transform: 'skewX(-6deg)' }}
           >
             GAME BOY
           </span>
-          <span className="text-[#152377] text-[6.5px] font-sans font-bold align-top">TM</span>
+          <span className="text-[#152377] text-[6px] font-sans font-bold align-top">TM</span>
         </div>
 
         {/* Controls Row: Compact, Spacious Thumb Targets (108px sockets) */}
@@ -393,7 +415,15 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               onPointerMove={handleDpadPointerMove}
               onPointerUp={handleDpadPointerUp}
               onPointerCancel={handleDpadPointerCancel}
+              onContextMenu={(e) => e.preventDefault()}
+              onDragStart={(e) => e.preventDefault()}
               className="relative w-[108px] h-[108px] rounded-full minimal-socket flex items-center justify-center cursor-pointer touch-none select-none shadow-md"
+              style={{
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                touchAction: 'none'
+              }}
             >
               {/* Minimal Clean Cross Container */}
               <div className="relative w-[94px] h-[94px] flex items-center justify-center pointer-events-none">
@@ -448,7 +478,16 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
           {/* ================= 4 MINIMAL BUTTONS: △ ◯ ✕ ▢ (SPACIOUS THUMB TARGETS) ================= */}
           <div className="flex items-center justify-center">
             {/* Symmetrical Right Recessed Socket (108px) */}
-            <div className="relative w-[108px] h-[108px] rounded-full minimal-socket flex items-center justify-center select-none shadow-md">
+            <div
+              onContextMenu={(e) => e.preventDefault()}
+              className="relative w-[108px] h-[108px] rounded-full minimal-socket flex items-center justify-center select-none shadow-md"
+              style={{
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                touchAction: 'none'
+              }}
+            >
               {/* Diamond Container with Comfortable Thumb Room */}
               <div className="relative w-full h-full flex items-center justify-center">
                 {/* TOP: △ (TRIANGLE / 3) -> Emotes Menu */}
@@ -456,8 +495,15 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                   <button
                     type="button"
                     onClick={handlePressTriangle}
+                    onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
                     title="Triangle: Emotes"
+                    style={{
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none',
+                      touchAction: 'none'
+                    }}
                   >
                     <svg viewBox="0 0 24 24" className="w-[19px] h-[19px] fill-none stroke-current stroke-[2.5]">
                       <polygon points="12 4 21 20 3 20" />
@@ -470,8 +516,15 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                   <button
                     type="button"
                     onClick={handlePressSquare}
+                    onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
                     title="Square: Wave"
+                    style={{
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none',
+                      touchAction: 'none'
+                    }}
                   >
                     <svg viewBox="0 0 24 24" className="w-[19px] h-[19px] fill-none stroke-current stroke-[2.5]">
                       <rect x="4.5" y="4.5" width="15" height="15" rx="1.5" />
@@ -484,8 +537,15 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                   <button
                     type="button"
                     onClick={handlePressCircle}
+                    onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
                     title="Circle: Pool / Land"
+                    style={{
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none',
+                      touchAction: 'none'
+                    }}
                   >
                     <svg viewBox="0 0 24 24" className="w-[19px] h-[19px] fill-none stroke-current stroke-[2.5]">
                       <circle cx="12" cy="12" r="7.5" />
@@ -498,8 +558,15 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                   <button
                     type="button"
                     onClick={handlePressCross}
+                    onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
                     title="Cross: Jump / Splash"
+                    style={{
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none',
+                      touchAction: 'none'
+                    }}
                   >
                     <svg viewBox="0 0 24 24" className="w-[19px] h-[19px] fill-none stroke-current stroke-[2.5]">
                       <line x1="5.5" y1="5.5" x2="18.5" y2="18.5" />
@@ -512,19 +579,29 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
           </div>
         </div>
 
-        {/* Lower Row: SELECT & START and Decorative Speaker Ribs */}
-        <div className="relative w-full h-7 flex items-center px-4 mb-0.5">
-          {/* SELECT & START: Positioned below center-left with snug ergonomics */}
-          <div className="absolute left-[38%] -translate-x-1/2 flex items-center gap-4 translate-x-[12px]" style={{ transform: 'rotate(-25deg)' }}>
+        {/* Lower Row: SELECT & START moved up & left, plus Speaker Ribs */}
+        <div className="relative w-full h-5 flex items-center px-4 shrink-0">
+          {/* SELECT & START: Moved up and shifted to classic left-center (under D-pad area, not dead-center between controls) */}
+          <div
+            className="absolute left-[33%] -translate-x-1/2 -top-1.5 flex items-center gap-3.5"
+            style={{ transform: 'rotate(-25deg)' }}
+          >
             {/* SELECT BUTTON -> Opens Chat */}
             <div className="flex flex-col items-center">
               <button
                 type="button"
                 onClick={handlePressSelect}
-                className="w-9 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
+                onContextMenu={(e) => e.preventDefault()}
+                className="w-8 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
                 title="Select (Open Chat)"
+                style={{
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  touchAction: 'none'
+                }}
               />
-              <span className="text-[6.5px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
+              <span className="text-[6px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
                 SELECT
               </span>
             </div>
@@ -534,28 +611,35 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               <button
                 type="button"
                 onClick={handlePressStart}
-                className="w-9 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
+                onContextMenu={(e) => e.preventDefault()}
+                className="w-8 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
                 title="Start (Pause / Emotes Menu)"
+                style={{
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  touchAction: 'none'
+                }}
               />
-              <span className="text-[6.5px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
+              <span className="text-[6px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
                 START
               </span>
             </div>
           </div>
 
           {/* 6 Decorative Molded Speaker Ribs on Bottom-Right */}
-          <div className="absolute right-6 bottom-0 flex items-center gap-0.5 pointer-events-none" style={{ transform: 'rotate(-28deg)' }}>
-            <div className="w-1.5 h-3 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-4 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-4 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-3 rounded-full gameboy-speaker-slot"></div>
+          <div className="absolute right-7 bottom-0 flex items-center gap-0.5 pointer-events-none" style={{ transform: 'rotate(-28deg)' }}>
+            <div className="w-1.5 h-2.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-3.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-4.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-4.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-3.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-2.5 rounded-full gameboy-speaker-slot"></div>
           </div>
         </div>
 
         {/* Bottom edge: PHONES */}
-        <div className="w-full flex items-center justify-center gap-1 text-[6px] font-mono text-[#8b8b80] uppercase tracking-widest shrink-0">
+        <div className="w-full flex items-center justify-center gap-1 text-[5.5px] font-mono text-[#8b8b80] uppercase tracking-widest shrink-0 -mt-0.5">
           <span>◀ PHONES ▶</span>
         </div>
       </div>
