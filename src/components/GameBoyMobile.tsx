@@ -579,11 +579,11 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
           </div>
         </div>
 
-        {/* Lower Row: SELECT & START moved up & left, plus Speaker Ribs */}
+        {/* Lower Row: SELECT & START moved to center-right, plus Speaker Ribs */}
         <div className="relative w-full h-5 flex items-center px-4 shrink-0">
-          {/* SELECT & START: Moved up and shifted to classic left-center (under D-pad area, not dead-center between controls) */}
+          {/* SELECT & START: Positioned further to the right */}
           <div
-            className="absolute left-[33%] -translate-x-1/2 -top-1.5 flex items-center gap-3.5"
+            className="absolute left-[49%] -translate-x-1/2 -top-1.5 flex items-center gap-3.5"
             style={{ transform: 'rotate(-25deg)' }}
           >
             {/* SELECT BUTTON -> Opens Chat */}
