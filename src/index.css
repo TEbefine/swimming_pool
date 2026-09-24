@@ -126,7 +126,7 @@ html, body {
   background: #475569;
 }
 
-/* Game Boy Handheld Styling */
+/* Classic Game Boy Handheld Styling */
 .gameboy-body {
   background-color: #d6d6ce;
   background-image: 
@@ -154,24 +154,6 @@ html, body {
   background-color: #080d1a;
 }
 
-.gameboy-dpad-center {
-  background: radial-gradient(circle, #1a1a1a 40%, #2b2b2b 100%);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.9), 0 1px 1px rgba(255,255,255,0.2);
-}
-
-.gameboy-action-btn {
-  background: radial-gradient(circle at 35% 30%, #be185d, #831843);
-  box-shadow: 0 4px 0 #500724, 0 6px 8px rgba(0, 0, 0, 0.4);
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.gameboy-action-btn:active {
-  transform: translateY(3px) scale(0.98);
-  box-shadow: 0 1px 0 #500724, 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
 .gameboy-pill-btn {
   background: #52525b;
   box-shadow: 0 3px 0 #27272a, 0 4px 6px rgba(0, 0, 0, 0.35);
@@ -185,8 +167,90 @@ html, body {
   box-shadow: 0 1px 0 #27272a, 0 2px 3px rgba(0, 0, 0, 0.3);
 }
 
+/* Subtle Molded Decorative Speaker Slots */
 .gameboy-speaker-slot {
-  background: #262626;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.9), 0 1px 0 rgba(255,255,255,0.35);
+  background: #b2b2a8;
+  box-shadow: 
+    inset 0 1.5px 2px rgba(0, 0, 0, 0.35),
+    inset 0 -0.5px 1px rgba(255, 255, 255, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.6);
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
 }
+
+/* Molded Center Decorative Emblem */
+.molded-center-crest {
+  color: #8c8c82;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+
+
+/* ========================================================================= */
+/* MINIMAL GAME BOY CONTROLS (AS REQUESTED) */
+/* ========================================================================= */
+
+/* Symmetrical circular sockets for D-Pad and Button Cluster */
+.minimal-socket {
+  background: #c8c8be;
+  box-shadow: 
+    inset 0 2.5px 5px rgba(0, 0, 0, 0.42),
+    0 1px 1px rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Minimal Clean Cross D-Pad */
+.minimal-dpad-socket {
+  background: #c8c8be;
+  box-shadow: 
+    inset 0 2.5px 5px rgba(0, 0, 0, 0.42),
+    0 1px 1px rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.minimal-dpad-cross {
+  background: #1c1d22;
+  box-shadow: 
+    0 3px 0 #0d0e10,
+    0 4px 6px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1px rgba(255, 255, 255, 0.15);
+}
+
+.minimal-dpad-center {
+  background: radial-gradient(circle at 50% 50%, #111215 35%, #22242b 100%);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.9),
+    0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Minimal 4 Action Buttons with Symbols (△ ◯ ✕ ▢) */
+.minimal-btn-cluster {
+  background: #c8c8be;
+  box-shadow: 
+    inset 0 2.5px 5px rgba(0, 0, 0, 0.42),
+    0 1px 1px rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.minimal-btn {
+  background: radial-gradient(circle at 35% 30%, #be185d 0%, #881337 70%, #500724 100%);
+  box-shadow: 
+    0 3px 0 #500724,
+    0 4px 6px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.35);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+}
+
+.minimal-btn:active {
+  transform: translateY(2px) scale(0.95);
+  box-shadow: 
+    0 1px 0 #500724,
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.6);
+}
+
+
+
 

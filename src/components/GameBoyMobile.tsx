@@ -69,7 +69,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     }
   };
 
-  // D-Pad Touch & Drag calculations
+  // Minimal D-Pad Touch & Drag calculations
   const updateDirectionFromTouch = useCallback((clientX: number, clientY: number) => {
     if (!dpadRef.current) return;
     const rect = dpadRef.current.getBoundingClientRect();
@@ -95,16 +95,6 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     let down = false;
     let left = false;
     let right = false;
-
-    // Angle breakdown:
-    // Right: -22.5 to 22.5
-    // Down-Right: 22.5 to 67.5
-    // Down: 67.5 to 112.5
-    // Down-Left: 112.5 to 157.5
-    // Left: > 157.5 or < -157.5
-    // Up-Left: -157.5 to -112.5
-    // Up: -112.5 to -67.5
-    // Up-Right: -67.5 to -22.5
 
     if (angle >= -67.5 && angle <= 67.5) right = true;
     if (angle >= 22.5 && angle <= 157.5) down = true;
@@ -148,16 +138,30 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     onDirectionChange(0, 0);
   };
 
-  // Button A action (Emote / Splash / Jump)
-  const handlePressA = () => {
+  // 4 Minimal Buttons Actions
+  // Bottom: ✕ (Cross) -> Primary Action (Jump / Splash)
+  const handlePressCross = () => {
     triggerHaptic(18);
     onActionA();
   };
 
-  // Button B action (Toggle Water ⇄ Land)
-  const handlePressB = () => {
+  // Right: ◯ (Circle) -> Dive / Step Out (Water ⇄ Land)
+  const handlePressCircle = () => {
     triggerHaptic(18);
     onToggleState();
+  };
+
+  // Left: ▢ (Square) -> Quick Wave Emote
+  const handlePressSquare = () => {
+    triggerHaptic(15);
+    onTriggerEmote('wave');
+  };
+
+  // Top: △ (Triangle) -> Emotes Menu
+  const handlePressTriangle = () => {
+    triggerHaptic(15);
+    setShowEmoteMenu((prev) => !prev);
+    setShowChatModal(false);
   };
 
   // SELECT button (Chat)
@@ -167,7 +171,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     setShowEmoteMenu(false);
   };
 
-  // START button (Emotes menu)
+  // START / PAUSE button (Emotes menu)
   const handlePressStart = () => {
     triggerHaptic(15);
     setShowEmoteMenu((prev) => !prev);
@@ -238,14 +242,14 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={handleToggleMute}
-            className="text-[9px] hover:text-black transition-colors"
+            className="text-[9px] hover:text-black transition-colors cursor-pointer"
             title="Toggle Sound"
           >
             {muted ? <VolumeX size={12} className="text-rose-600 inline" /> : <Volume2 size={12} className="text-emerald-700 inline" />}
           </button>
           <button
             onClick={onOpenFloatPicker}
-            className="flex items-center gap-1 hover:text-black transition-colors"
+            className="flex items-center gap-1 hover:text-black transition-colors cursor-pointer"
             title="Change Float Ring"
           >
             <div
@@ -255,7 +259,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
           </button>
           <button
             onClick={onOpenNameModal}
-            className="flex items-center gap-1 hover:text-black transition-colors"
+            className="flex items-center gap-1 hover:text-black transition-colors cursor-pointer"
             title="Change Name"
           >
             <User size={11} className="inline text-sky-800" />
@@ -263,7 +267,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
           </button>
           <button
             onClick={onOpenHelpModal}
-            className="hover:text-black"
+            className="hover:text-black cursor-pointer"
             title="Help"
           >
             <HelpCircle size={12} className="inline text-slate-700" />
@@ -272,12 +276,12 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* UPPER SECTION: GAME BOY SCREEN (74% OF TOTAL HEIGHT FOR MAX VIEWPORT) */}
+      {/* UPPER SECTION: OLD GAME BOY SCREEN (EXPANDED TO FILL REST OF VIEWPORT) */}
       {/* ========================================================================= */}
-      <div className="h-[74%] flex flex-col justify-center px-3 pt-1 pb-1 relative shrink-0">
-        {/* Game Boy Screen Bezel */}
+      <div className="flex-1 min-h-0 flex flex-col justify-center px-3 pt-1 pb-1 relative">
+        {/* Game Boy Classic Screen Bezel */}
         <div className="w-full h-full gameboy-bezel p-2 flex flex-col justify-between relative rounded-t-xl rounded-br-xl rounded-bl-[32px]">
-          {/* Bezel Header: DOT MATRIX WITH STEREO SOUND & Accent Lines */}
+          {/* Bezel Header: DOT MATRIX WITH STEREO SOUND & Magenta/Blue Stripes */}
           <div className="w-full flex items-center justify-between pb-1 border-b border-black/30 shrink-0">
             {/* Left stripes */}
             <div className="flex flex-col gap-0.5 w-10">
@@ -297,9 +301,9 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             </div>
           </div>
 
-          {/* Screen Container Row with Battery Strip on the Left and Canvas Window */}
+          {/* Screen Row: Battery LED on Grey Bezel Frame + Canvas Display Window */}
           <div className="relative flex-1 w-full flex items-center gap-2 my-1 min-h-0 overflow-hidden">
-            {/* Battery Indicator on Grey Bezel Frame (NOT on canvas!) */}
+            {/* Battery Indicator on Grey Bezel */}
             <div className="flex flex-col items-center justify-center gap-1 shrink-0 px-1 pointer-events-none">
               <div className="w-2.5 h-2.5 rounded-full bg-red-600 shadow-[0_0_8px_#ef4444] border border-red-800 animate-pulse"></div>
               <span className="text-[6.5px] font-sans font-black tracking-tighter text-[#c0c7d4] uppercase">
@@ -307,9 +311,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               </span>
             </div>
 
-            {/* Game Canvas Display Window (MAP IS 100% FULL WITH ZERO BLACK BARS!) */}
+            {/* Game Canvas Display Window */}
             <div className="relative flex-1 h-full gameboy-screen-window rounded border-2 border-[#2b313d] overflow-hidden flex items-center justify-center">
-              {/* CANVAS ELEMENT: Screen can NOT be touched for movement */}
               <canvas
                 ref={canvasRef}
                 width={1024}
@@ -357,140 +360,168 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
           <div className="w-full flex items-center justify-between text-[8px] text-[#9ca3af] font-mono px-1 shrink-0 pt-0.5">
             <span className="text-[#e2e8f0] font-bold">Sunny Poolside</span>
             {currentAction !== 'idle' && currentAction !== 'tread' && (
-              <span className="text-sky-300 font-bold">({currentAction})</span>
+              <span className="text-amber-300 font-bold">({currentAction})</span>
             )}
           </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* LOWER SECTION: COMPACT GAME BOY CONTROLLER (ONLY 26% HEIGHT - ULTRA TIGHT) */}
+      {/* LOWER SECTION: COMPACT GAME BOY CONTROLLER (ENLARGED TOUCH CONTROLS) */}
       {/* ========================================================================= */}
-      <div className="h-[26%] flex flex-col justify-between px-4 pt-0.5 pb-1 relative shrink-0">
+      <div className="h-[210px] flex flex-col justify-between px-3 pt-1 pb-1 relative shrink-0">
         {/* Game Boy Classic Blue Branding */}
-        <div className="flex items-baseline gap-1 pl-1 shrink-0">
-          <span className="text-[#152377] font-sans font-bold text-xs tracking-tight">Nintendo</span>
+        <div className="flex items-baseline gap-1 pl-6 pt-0.5 shrink-0 translate-x-[55px]">
+          <span className="text-[#152377] font-sans font-bold text-[11px] tracking-tight">Nintendo</span>
           <span
-            className="text-[#152377] font-sans font-black italic text-sm tracking-wider"
+            className="text-[#152377] font-sans font-black italic text-[13px] tracking-wider"
             style={{ transform: 'skewX(-6deg)' }}
           >
             GAME BOY
           </span>
-          <span className="text-[#152377] text-[7.5px] font-sans font-bold align-top">TM</span>
+          <span className="text-[#152377] text-[7px] font-sans font-bold align-top">TM</span>
         </div>
 
-        {/* Main Controls Row: D-Pad (Left) and A/B Buttons (Right) */}
-        <div className="flex items-center justify-between w-full px-1">
-          {/* ================= D-PAD (DIRECTIONAL CROSS) ================= */}
-          <div className="flex flex-col items-center">
+        {/* Controls Row: Enlarged Sockets & Touch Targets */}
+        <div className="flex items-center justify-between w-full max-w-[310px] my-auto translate-x-[55px]">
+          {/* ================= MINIMAL STYLE CROSS D-PAD ================= */}
+          <div className="flex items-center justify-center">
+            {/* Enlarged Symmetrical Left Recessed Socket */}
             <div
               ref={dpadRef}
               onPointerDown={handleDpadPointerDown}
               onPointerMove={handleDpadPointerMove}
               onPointerUp={handleDpadPointerUp}
               onPointerCancel={handleDpadPointerCancel}
-              className="relative w-20 h-20 flex items-center justify-center rounded-full bg-[#c7c7be] shadow-[inset_0_2px_4px_rgba(0,0,0,0.35),0_1px_1px_rgba(255,255,255,0.4)] touch-none cursor-pointer"
+              className="relative w-[94px] h-[94px] rounded-full minimal-socket flex items-center justify-center cursor-pointer touch-none select-none shadow-md"
             >
-              {/* Cross Base Container */}
-              <div className="relative w-18 h-18 flex items-center justify-center">
-                {/* Horizontal bar of cross */}
-                <div className="absolute w-18 h-6 bg-[#1f2024] rounded-sm shadow-[0_2px_0_#0f1012,0_3px_5px_rgba(0,0,0,0.4)] flex items-center justify-between px-1">
+              {/* Minimal Clean Cross Container */}
+              <div className="relative w-[82px] h-[82px] flex items-center justify-center pointer-events-none">
+                {/* Horizontal Cross Arm */}
+                <div
+                  className="absolute w-[80px] h-[28px] minimal-dpad-cross rounded-xs flex items-center justify-between px-1.5"
+                >
                   <span
-                    className={`text-[8px] text-white/50 transition-colors ${
-                      activeDir.left ? 'text-amber-400 font-bold scale-125' : ''
+                    className={`text-[9px] transition-colors ${
+                      activeDir.left ? 'text-amber-400 font-bold' : 'text-white/35'
                     }`}
                   >
                     ◀
                   </span>
                   <span
-                    className={`text-[8px] text-white/50 transition-colors ${
-                      activeDir.right ? 'text-amber-400 font-bold scale-125' : ''
+                    className={`text-[9px] transition-colors ${
+                      activeDir.right ? 'text-amber-400 font-bold' : 'text-white/35'
                     }`}
                   >
                     ▶
                   </span>
                 </div>
 
-                {/* Vertical bar of cross */}
-                <div className="absolute h-18 w-6 bg-[#1f2024] rounded-sm shadow-[0_2px_0_#0f1012,0_3px_5px_rgba(0,0,0,0.4)] flex flex-col items-center justify-between py-1">
+                {/* Vertical Cross Arm */}
+                <div
+                  className="absolute h-[80px] w-[28px] minimal-dpad-cross rounded-xs flex flex-col items-center justify-between py-1.5"
+                >
                   <span
-                    className={`text-[8px] text-white/50 transition-colors ${
-                      activeDir.up ? 'text-amber-400 font-bold scale-125' : ''
+                    className={`text-[9px] transition-colors ${
+                      activeDir.up ? 'text-amber-400 font-bold' : 'text-white/35'
                     }`}
                   >
                     ▲
                   </span>
                   <span
-                    className={`text-[8px] text-white/50 transition-colors ${
-                      activeDir.down ? 'text-amber-400 font-bold scale-125' : ''
+                    className={`text-[9px] transition-colors ${
+                      activeDir.down ? 'text-amber-400 font-bold' : 'text-white/35'
                     }`}
                   >
                     ▼
                   </span>
                 </div>
 
-                {/* Center indented thumb circle */}
-                <div className="relative z-10 w-5 h-5 rounded-full gameboy-dpad-center border border-black/40 flex items-center justify-center">
-                  <div className="w-3 h-3 rounded-full bg-[#18181b]/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.9)]"></div>
+                {/* Clean Center Dimple */}
+                <div className="relative z-10 w-[20px] h-[20px] rounded-full minimal-dpad-center border border-black/50 flex items-center justify-center">
+                  <div className="w-[8px] h-[8px] rounded-full bg-[#111215] shadow-inner"></div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ================= A & B ACTION BUTTONS ================= */}
-          <div className="flex flex-col items-end pr-1">
-            {/* Diagonal buttons housing */}
-            <div
-              className="flex items-center gap-2.5 bg-[#c7c7be] p-1.5 rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.35),0_1px_1px_rgba(255,255,255,0.4)]"
-              style={{ transform: 'rotate(-25deg)' }}
-            >
-              {/* B BUTTON (Dive / Land Switch) */}
-              <div className="flex flex-col items-center">
-                <button
-                  type="button"
-                  onClick={handlePressB}
-                  className="w-9 h-9 rounded-full gameboy-action-btn flex items-center justify-center border border-[#9d174d]/50 cursor-pointer active:scale-95 transition-transform"
-                  title="Toggle Water / Land"
-                >
-                  <span className="text-[8px] text-white/90 font-bold">
-                    {isWater ? '🏖️' : '🏊'}
-                  </span>
-                </button>
-                <div className="flex flex-col items-center mt-0.5">
-                  <span className="text-[10px] font-black text-[#152377] font-sans">B</span>
+          {/* ================= 4 MINIMAL BUTTONS: △ ◯ ✕ ▢ (ENLARGED TOUCH TARGETS) ================= */}
+          <div className="flex items-center justify-center">
+            {/* Enlarged Symmetrical Right Recessed Socket */}
+            <div className="relative w-[94px] h-[94px] rounded-full minimal-socket flex items-center justify-center select-none shadow-md">
+              {/* Diamond Container */}
+              <div className="relative w-full h-full flex items-center justify-center">
+                {/* TOP: △ (TRIANGLE / 3) -> Emotes Menu */}
+                <div className="absolute top-1 left-1/2 -translate-x-1/2">
+                  <button
+                    type="button"
+                    onClick={handlePressTriangle}
+                    className="w-[32px] h-[32px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95"
+                    title="Triangle: Emotes"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] fill-none stroke-current stroke-[2.5]">
+                      <polygon points="12 4 21 20 3 20" />
+                    </svg>
+                  </button>
                 </div>
-              </div>
 
-              {/* A BUTTON (Action: Splash / Jump / Wave) */}
-              <div className="flex flex-col items-center">
-                <button
-                  type="button"
-                  onClick={handlePressA}
-                  className="w-9 h-9 rounded-full gameboy-action-btn flex items-center justify-center border border-[#9d174d]/50 cursor-pointer active:scale-95 transition-transform"
-                  title="Primary Action (Splash / Jump)"
-                >
-                  <span className="text-[8px] text-white/90 font-bold">
-                    {isWater ? '✨' : '👋'}
-                  </span>
-                </button>
-                <div className="flex flex-col items-center mt-0.5">
-                  <span className="text-[10px] font-black text-[#152377] font-sans">A</span>
+                {/* LEFT: ▢ (SQUARE / 4 RECTANGLE) -> Wave Emote */}
+                <div className="absolute left-1 top-1/2 -translate-y-1/2">
+                  <button
+                    type="button"
+                    onClick={handlePressSquare}
+                    className="w-[32px] h-[32px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95"
+                    title="Square: Wave"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] fill-none stroke-current stroke-[2.5]">
+                      <rect x="4.5" y="4.5" width="15" height="15" rx="1.5" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* RIGHT: ◯ (CIRCLE / O) -> Toggle Water ⇄ Land */}
+                <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                  <button
+                    type="button"
+                    onClick={handlePressCircle}
+                    className="w-[32px] h-[32px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95"
+                    title="Circle: Pool / Land"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] fill-none stroke-current stroke-[2.5]">
+                      <circle cx="12" cy="12" r="7.5" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* BOTTOM: ✕ (CROSS / X) -> Jump / Splash */}
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
+                  <button
+                    type="button"
+                    onClick={handlePressCross}
+                    className="w-[32px] h-[32px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95"
+                    title="Cross: Jump / Splash"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] fill-none stroke-current stroke-[2.5]">
+                      <line x1="5.5" y1="5.5" x2="18.5" y2="18.5" />
+                      <line x1="18.5" y1="5.5" x2="5.5" y2="18.5" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Center Lower: SELECT & START Buttons (Centered on console) + Speaker Grille */}
-        <div className="relative w-full flex items-center justify-center pt-0 pb-0.5">
-          {/* SELECT & START in exact center */}
-          <div className="flex items-center gap-5" style={{ transform: 'rotate(-25deg)' }}>
-            {/* SELECT BUTTON -> Opens Chat Drawer */}
+        {/* Lower Row: SELECT & START (Shifted Right with the set) and Decorative Speaker Ribs */}
+        <div className="relative w-full h-8 flex items-center px-4 mb-0.5">
+          {/* SELECT & START: Positioned below center-left of the set, shifted with translate-x-[55px] */}
+          <div className="absolute left-[38%] -translate-x-1/2 flex items-center gap-4 translate-x-[55px]" style={{ transform: 'rotate(-25deg)' }}>
+            {/* SELECT BUTTON -> Opens Chat */}
             <div className="flex flex-col items-center">
               <button
                 type="button"
                 onClick={handlePressSelect}
-                className="w-10 h-3 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
+                className="w-9 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
                 title="Select (Open Chat)"
               />
               <span className="text-[7px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
@@ -498,13 +529,13 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               </span>
             </div>
 
-            {/* START BUTTON -> Opens Emote Picker */}
+            {/* START / PAUSE BUTTON -> Opens Emote Picker */}
             <div className="flex flex-col items-center">
               <button
                 type="button"
                 onClick={handlePressStart}
-                className="w-10 h-3 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
-                title="Start (Open Emotes Menu)"
+                className="w-9 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
+                title="Start (Pause / Emotes Menu)"
               />
               <span className="text-[7px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
                 START
@@ -512,14 +543,14 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             </div>
           </div>
 
-          {/* 6 Diagonal Speaker Grille Slots on Bottom-Right */}
-          <div className="absolute right-2 bottom-0 flex items-center gap-0.5 pointer-events-none" style={{ transform: 'rotate(-28deg)' }}>
-            <div className="w-1.5 h-4 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-6 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-6 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-4 rounded-full gameboy-speaker-slot"></div>
+          {/* 6 Decorative Molded Speaker Ribs on Bottom-Right */}
+          <div className="absolute right-6 bottom-0 flex items-center gap-0.5 pointer-events-none" style={{ transform: 'rotate(-28deg)' }}>
+            <div className="w-1.5 h-3.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-4.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-5.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-5.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-4.5 rounded-full gameboy-speaker-slot"></div>
+            <div className="w-1.5 h-3.5 rounded-full gameboy-speaker-slot"></div>
           </div>
         </div>
 
@@ -530,10 +561,10 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* MOBILE POPUPS: EMOTE MENU (START) & CHAT DRAWER (SELECT) */}
+      {/* MOBILE POPUPS: EMOTE MENU (START / △) & CHAT DRAWER (SELECT) */}
       {/* ========================================================================= */}
 
-      {/* EMOTE MENU (Triggered by START button) */}
+      {/* EMOTE MENU (Triggered by START button or △ button) */}
       {showEmoteMenu && (
         <div className="absolute inset-0 z-50 bg-black/75 flex flex-col justify-end p-4 animate-fade-in backdrop-blur-xs">
           <div className="bg-[#1e293b] border-2 border-amber-400 rounded-lg p-3 text-white shadow-2xl">
@@ -576,7 +607,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               }}
               className="w-full pixel-btn pixel-btn-primary py-2 text-xs font-bold justify-center"
             >
-              {isWater ? '🏖️ Step Out to Land' : '🏊 Dive into Pool'}
+              {isWater ? '🏖️ Step Out to Land (◯)' : '🏊 Dive into Pool (◯)'}
             </button>
           </div>
         </div>
