@@ -4,6 +4,8 @@ import type {
   Particle,
   ChatMessage,
   RoomDefinition,
+  Rect,
+  ElementDef,
   ContextAction,
   ContextActionId
 } from './types';
@@ -25,6 +27,8 @@ export class GameEngine {
   // Assets
   private bgImage: HTMLImageElement | null = null;
   private sprites: Map<string, HTMLImageElement> = new Map();
+  private elementImages: Map<string, HTMLImageElement> = new Map();
+  private npcSprites: Map<string, HTMLImageElement> = new Map();
   public isAssetsLoaded: boolean = false;
 
   // Local Player
@@ -61,6 +65,15 @@ export class GameEngine {
   // Seated state: which seat index the player is sitting in (-1 = not seated)
   private seatedIndex: number = -1;
 
+  // Room element derived data
+  private actorScale: number;
+  private mergedObstacles: Rect[] = [];
+  private mergedSeats: { x: number; y: number; facing: 1 | -1 }[] = [];
+  private elementInteractions: { id: string; label: string; x: number; y: number; radius: number }[] = [];
+
+  // Debug overlay (F3)
+  private showDebug: boolean = false;
+
   // Loop control
   private animId: number = 0;
   private lastTime: number = 0;
@@ -70,12 +83,13 @@ export class GameEngine {
   public onChatMessageReceived?: (msg: ChatMessage) => void;
   public onPlayerCountChange?: (count: number) => void;
   public onContextChange?: (action: ContextAction) => void;
-  public onInteract?: (actionId: ContextActionId, targetId: string) => void;
+  public onInteract?: (id: string, actionId?: ContextActionId) => void;
 
   constructor(canvas: HTMLCanvasElement, room: RoomDefinition, playerName: string = 'Swimmer', initialFloat: FloatColor = 'red') {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.room = room;
+    this.actorScale = room.actorScale ?? 1;
 
     const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
     this.localPlayer = {
@@ -90,10 +104,54 @@ export class GameEngine {
       timestamp: Date.now()
     };
 
+    this.buildMergedData();
     this.network = new NetworkManager(this.localPlayer.id);
     this.setupNetworkHandlers();
     this.setupInputListeners();
   }
+
+  // =========================================================================
+  // MERGED DATA (obstacles, seats, interactions from room + elements)
+  // =========================================================================
+
+  private buildMergedData() {
+    this.mergedObstacles = [...this.room.obstacles];
+    this.mergedSeats = this.room.seats ? [...this.room.seats] : [];
+    this.elementInteractions = [];
+
+    if (this.room.elements) {
+      for (const el of this.room.elements) {
+        if (el.collider) {
+          this.mergedObstacles.push({
+            x: el.x - el.collider.w / 2,
+            y: el.y - el.collider.h,
+            width: el.collider.w,
+            height: el.collider.h
+          });
+        }
+        if (el.seat) {
+          this.mergedSeats.push({
+            x: el.x + el.seat.dx,
+            y: el.y + el.seat.dy,
+            facing: el.seat.facing
+          });
+        }
+        if (el.interact) {
+          this.elementInteractions.push({
+            id: el.interact.id,
+            label: el.interact.label,
+            x: el.x + el.interact.dx,
+            y: el.y + el.interact.dy,
+            radius: el.interact.radius
+          });
+        }
+      }
+    }
+  }
+
+  // =========================================================================
+  // NETWORK
+  // =========================================================================
 
   private setupNetworkHandlers() {
     this.network.on('player_state', (_, raw) => {
@@ -142,53 +200,94 @@ export class GameEngine {
     });
   }
 
+  // =========================================================================
+  // ASSET LOADING
+  // =========================================================================
+
   public async loadAssets(): Promise<void> {
-    const bgPromise = new Promise<void>((resolve) => {
+    const imgPromises: Promise<void>[] = [];
+
+    // Helper: load a single image into a Map
+    const loadImg = (key: string, src: string, target: Map<string, HTMLImageElement>): void => {
+      imgPromises.push(new Promise((resolve) => {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => { target.set(key, img); resolve(); };
+        img.onerror = () => resolve();
+      }));
+    };
+
+    // 1. Background
+    imgPromises.push(new Promise((resolve) => {
       const img = new Image();
       img.src = this.room.backgroundImage;
-      img.onload = () => {
-        this.bgImage = img;
-        resolve();
-      };
+      img.onload = () => { this.bgImage = img; resolve(); };
       img.onerror = () => resolve();
-    });
+    }));
 
+    // 2. Character manifest (1× land + water floats)
     const manifestRes = await fetch('/sprites/character_manifest.json');
     const manifest = await manifestRes.json();
 
-    const spritePromises: Promise<void>[] = [];
-
-    // Land sprites
     for (const [action, info] of Object.entries(manifest.land as Record<string, { path: string }>)) {
-      spritePromises.push(new Promise((resolve) => {
-        const img = new Image();
-        img.src = info.path;
-        img.onload = () => {
-          this.sprites.set(`land_${action}`, img);
-          resolve();
-        };
-        img.onerror = () => resolve();
-      }));
+      loadImg(`land_${action}`, info.path, this.sprites);
     }
 
-    // Water sprites for all float colors
     for (const [color, actions] of Object.entries(manifest.water as Record<string, Record<string, { path: string }>>)) {
       for (const [action, info] of Object.entries(actions)) {
-        spritePromises.push(new Promise((resolve) => {
-          const img = new Image();
-          img.src = info.path;
-          img.onload = () => {
-            this.sprites.set(`water_${color}_${action}`, img);
-            resolve();
-          };
-          img.onerror = () => resolve();
-        }));
+        loadImg(`water_${color}_${action}`, info.path, this.sprites);
       }
     }
 
-    await Promise.all([bgPromise, ...spritePromises]);
+    // 3. 1.5× land sprites (for rooms with actorScale > 1)
+    if (this.actorScale > 1) {
+      const res15x = await fetch('/sprites/land_1_5x/manifest.json');
+      const manifest15x = await res15x.json() as Record<string, { path: string }>;
+      for (const [action, info] of Object.entries(manifest15x)) {
+        loadImg(`land_1_5x_${action}`, info.path, this.sprites);
+      }
+    }
+
+    // 4. Element images (deduplicated by asset path)
+    if (this.room.elements) {
+      const loaded = new Set<string>();
+      for (const el of this.room.elements) {
+        if (!loaded.has(el.asset)) {
+          loaded.add(el.asset);
+          loadImg(el.asset, el.asset, this.elementImages);
+        }
+      }
+    }
+
+    // 5. NPC sprites (manifest-based or single image)
+    if (this.room.npcs) {
+      for (const npc of this.room.npcs) {
+        const isFile = npc.sprite.endsWith('.webp') || npc.sprite.endsWith('.png');
+        if (isFile) {
+          loadImg(`npc_${npc.id}_idle`, npc.sprite, this.npcSprites);
+        } else {
+          // Load from manifest directory
+          try {
+            const npcRes = await fetch(`${npc.sprite}/manifest.json`);
+            const npcManifest = await npcRes.json() as Record<string, { path: string }>;
+            for (const [action, info] of Object.entries(npcManifest)) {
+              loadImg(`npc_${npc.id}_${action}`, info.path, this.npcSprites);
+            }
+          } catch {
+            // Fallback: try as single image with .webp extension
+            loadImg(`npc_${npc.id}_idle`, `${npc.sprite}.webp`, this.npcSprites);
+          }
+        }
+      }
+    }
+
+    await Promise.all(imgPromises);
     this.isAssetsLoaded = true;
   }
+
+  // =========================================================================
+  // INPUT
+  // =========================================================================
 
   private setupInputListeners() {
     window.addEventListener('keydown', this.handleKeyDown);
@@ -214,6 +313,12 @@ export class GameEngine {
 
     this.keys[e.key.toLowerCase()] = true;
     this.clickTarget = null; // Keyboard overrides click-to-move
+
+    // F3 debug overlay toggle
+    if (e.key === 'F3') {
+      e.preventDefault();
+      this.showDebug = !this.showDebug;
+    }
 
     // Hotkeys 1-5 for Emotes
     if (e.key === '1') this.triggerEmote('wave');
@@ -307,14 +412,12 @@ export class GameEngine {
       return { id: 'stand', label: 'Stand' };
     }
 
-    // Priority 2: Seat within 40px → sit
-    if (this.room.seats) {
-      for (const seat of this.room.seats) {
-        const dx = px - seat.x;
-        const dy = py - seat.y;
-        if (Math.sqrt(dx * dx + dy * dy) <= 40) {
-          return { id: 'sit', label: 'Sit' };
-        }
+    // Priority 2: Seat within 40px → sit (uses merged seats)
+    for (const seat of this.mergedSeats) {
+      const dx = px - seat.x;
+      const dy = py - seat.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= 40) {
+        return { id: 'sit', label: 'Sit' };
       }
     }
 
@@ -329,7 +432,16 @@ export class GameEngine {
       }
     }
 
-    // Priority 4: Interactable within rect → read (etc.)
+    // Priority 4a: Element interactions (radius-based)
+    for (const ei of this.elementInteractions) {
+      const dx = px - ei.x;
+      const dy = py - ei.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= ei.radius) {
+        return { id: 'read', label: ei.label };
+      }
+    }
+
+    // Priority 4b: Old-style rect interactables (backward compat)
     if (this.room.interactables) {
       for (const item of this.room.interactables) {
         const r = item.rect;
@@ -401,16 +513,22 @@ export class GameEngine {
       case 'talk': {
         const npc = this.findNearestNpc(50);
         if (npc && this.onInteract) {
-          this.onInteract('talk', npc.id);
+          this.onInteract(npc.id, 'talk');
         }
         // Play talk emote
         this.triggerEmote('talk');
         break;
       }
       case 'read': {
-        const item = this.findNearestInteractable();
-        if (item && this.onInteract) {
-          this.onInteract('read', item.id);
+        // Check element interactions first, then old rect-based
+        const ei = this.findNearestElementInteraction();
+        if (ei && this.onInteract) {
+          this.onInteract(ei.id, 'read');
+        } else {
+          const item = this.findNearestInteractable();
+          if (item && this.onInteract) {
+            this.onInteract(item.id, 'read');
+          }
         }
         this.triggerEmote('thinking');
         break;
@@ -431,16 +549,15 @@ export class GameEngine {
     }
   }
 
-  /** Sit down in the nearest seat. */
+  /** Sit down in the nearest merged seat. */
   private sitDown() {
-    if (!this.room.seats) return;
     const px = this.localPlayer.x;
     const py = this.localPlayer.y;
     let bestDist = Infinity;
     let bestIdx = -1;
 
-    for (let i = 0; i < this.room.seats.length; i++) {
-      const seat = this.room.seats[i];
+    for (let i = 0; i < this.mergedSeats.length; i++) {
+      const seat = this.mergedSeats[i];
       const dx = px - seat.x;
       const dy = py - seat.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -451,7 +568,7 @@ export class GameEngine {
     }
 
     if (bestIdx >= 0) {
-      const seat = this.room.seats[bestIdx];
+      const seat = this.mergedSeats[bestIdx];
       this.seatedIndex = bestIdx;
       this.localPlayer.x = seat.x;
       this.localPlayer.y = seat.y;
@@ -493,6 +610,23 @@ export class GameEngine {
       if (dist <= bestDist) {
         bestDist = dist;
         best = npc;
+      }
+    }
+    return best;
+  }
+
+  private findNearestElementInteraction() {
+    const px = this.localPlayer.x;
+    const py = this.localPlayer.y;
+    let best: (typeof this.elementInteractions)[0] | null = null;
+    let bestDist = Infinity;
+    for (const ei of this.elementInteractions) {
+      const dx = px - ei.x;
+      const dy = py - ei.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= ei.radius && dist < bestDist) {
+        bestDist = dist;
+        best = ei;
       }
     }
     return best;
@@ -712,6 +846,9 @@ export class GameEngine {
       // Speed (swimming is slightly slower than walking)
       let speed = this.localPlayer.state === 'water' ? 120 : 160;
 
+      // Actor scale speed multiplier
+      speed *= this.actorScale;
+
       // Sprint multiplier on land
       if (this.isRunning && this.localPlayer.state === 'land') {
         speed *= 1.6;
@@ -795,8 +932,8 @@ export class GameEngine {
     const clampedX = Math.max(minX, Math.min(maxX, targetX));
     const clampedY = Math.max(minY, Math.min(maxY, targetY));
 
-    // Check obstacle collision
-    for (const obs of this.room.obstacles) {
+    // Check obstacle collision (uses merged obstacles)
+    for (const obs of this.mergedObstacles) {
       if (
         clampedX >= obs.x &&
         clampedX <= obs.x + obs.width &&
@@ -861,6 +998,10 @@ export class GameEngine {
       remote.data.y += (remote.targetY - remote.data.y) * lerpFactor;
     }
   }
+
+  // =========================================================================
+  // PARTICLES
+  // =========================================================================
 
   private createSplashParticles(x: number, y: number) {
     for (let i = 0; i < 22; i++) {
@@ -940,12 +1081,15 @@ export class GameEngine {
     }
   }
 
-  // Rendering
+  // =========================================================================
+  // RENDERING
+  // =========================================================================
+
   private render() {
     this.ctx.imageSmoothingEnabled = false; // Keep pixel art crisp
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // 1. Draw Background Map
+    // 1. Background
     if (this.bgImage) {
       this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
     } else {
@@ -953,27 +1097,265 @@ export class GameEngine {
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
-    // 2. Draw Click Destination Marker if active
+    // 2. Click destination marker
     if (this.clickTarget) {
       this.renderClickMarker(this.clickTarget.x, this.clickTarget.y);
     }
 
-    // 3. Draw Particles (Splash / Ripples)
+    // 3. Wall elements (drawn right after background)
+    if (this.room.elements) {
+      for (const el of this.room.elements) {
+        if (el.layer === 'wall') this.renderElement(el);
+      }
+    }
+
+    // 4. Floor elements (under all characters)
+    if (this.room.elements) {
+      for (const el of this.room.elements) {
+        if (el.layer === 'floor') this.renderElement(el);
+      }
+    }
+
+    // 5. Particles (splash / ripples)
     this.renderParticles();
 
-    // 4. Collect all players (local + remote) and sort by Y coordinate for proper depth layering
+    // 6. Depth-sorted list: object elements + NPCs + players
+    const time = performance.now();
+    const drawFns: { y: number; draw: () => void }[] = [];
+    const overlayFns: (() => void)[] = [];
+
+    // 6a. Object-layer elements
+    if (this.room.elements) {
+      for (const el of this.room.elements) {
+        if (el.layer === 'object') {
+          const capturedEl = el;
+          drawFns.push({ y: el.y, draw: () => this.renderElement(capturedEl) });
+        }
+      }
+    }
+
+    // 6b. NPCs
+    if (this.room.npcs) {
+      for (const npc of this.room.npcs) {
+        const capturedNpc = npc;
+        drawFns.push({
+          y: npc.y,
+          draw: () => {
+            this.renderNpcSprite(capturedNpc, time);
+            // Defer NPC nametag as overlay
+            overlayFns.push(() => this.renderNpcOverlay(capturedNpc));
+          }
+        });
+      }
+    }
+
+    // 6c. All players (local + remote)
     const allPlayers: PlayerData[] = [this.localPlayer];
     for (const r of this.remotePlayers.values()) {
       allPlayers.push(r.data);
     }
-    allPlayers.sort((a, b) => a.y - b.y);
-
-    // 5. Draw Players
-    const now = performance.now();
     for (const player of allPlayers) {
-      this.renderPlayer(player, now);
+      const sprite = this.getPlayerSprite(player);
+      const h = sprite?.height ?? 82;
+      let drawY = player.y;
+      if (player.state === 'water') {
+        drawY += Math.sin((time * 0.0035) + player.x * 0.05) * 3;
+      }
+      if (player.currentAction === 'jump') {
+        const jumpProgress = (time % 600) / 600;
+        drawY -= Math.sin(jumpProgress * Math.PI) * 16;
+      }
+      const capturedPlayer = player;
+      const capturedSprite = sprite;
+      const capturedDrawY = drawY;
+      const capturedH = h;
+      drawFns.push({
+        y: player.y,
+        draw: () => {
+          this.renderPlayerSprite(capturedPlayer, capturedDrawY, capturedSprite);
+          // Defer nametag + bubble as overlays
+          overlayFns.push(() => this.renderPlayerOverlay(capturedPlayer, capturedDrawY, capturedH));
+        }
+      });
+    }
+
+    // Sort by y ascending and draw
+    drawFns.sort((a, b) => a.y - b.y);
+    for (const d of drawFns) {
+      d.draw();
+    }
+
+    // 7. Overlays (name tags, speech bubbles) — always on top
+    for (const fn of overlayFns) {
+      fn();
+    }
+
+    // 8. Debug overlay (F3)
+    if (this.showDebug) {
+      this.renderDebugOverlay();
     }
   }
+
+  // =========================================================================
+  // SPRITE HELPERS
+  // =========================================================================
+
+  /** Select the correct sprite for a player, accounting for actorScale. */
+  private getPlayerSprite(player: PlayerData): HTMLImageElement | undefined {
+    const isWater = player.state === 'water';
+
+    if (isWater) {
+      const color = player.floatColor || 'red';
+      const action = player.currentAction || 'idle';
+      let spriteKey = `water_${color}_${action}`;
+      if (!this.sprites.has(spriteKey)) {
+        if (action.startsWith('swim') && this.sprites.has(`water_${color}_swim`)) {
+          spriteKey = `water_${color}_swim`;
+        } else {
+          spriteKey = `water_${color}_idle`;
+        }
+      }
+      return this.sprites.get(spriteKey) || this.sprites.get('land_idle');
+    }
+
+    const action = player.currentAction || 'idle';
+
+    // Use 1.5× sprites if room has actorScale > 1
+    if (this.actorScale > 1) {
+      let key15x = `land_1_5x_${action}`;
+      if (this.sprites.has(key15x)) return this.sprites.get(key15x);
+      // Fallback to 1.5× idle
+      key15x = 'land_1_5x_idle';
+      if (this.sprites.has(key15x)) return this.sprites.get(key15x);
+    }
+
+    // Standard 1× sprites
+    let spriteKey = `land_${action}`;
+    if (!this.sprites.has(spriteKey)) {
+      spriteKey = 'land_idle';
+    }
+    return this.sprites.get(spriteKey) || this.sprites.get('land_idle');
+  }
+
+  /** Pick a pose for an NPC based on time (simple animation cycle). */
+  private getNpcAction(npcId: string, time: number): string {
+    // Only animate if multiple frames are loaded
+    if (!this.npcSprites.has(`npc_${npcId}_blink`)) return 'idle';
+    const cycle = ['idle', 'idle', 'blink', 'idle', 'pour', 'idle', 'serve', 'wai'];
+    const idx = Math.floor(time / 3500) % cycle.length;
+    return cycle[idx];
+  }
+
+  // =========================================================================
+  // ELEMENT / NPC / PLAYER RENDER METHODS
+  // =========================================================================
+
+  /** Draw a room element at its anchor (bottom-centre). */
+  private renderElement(el: ElementDef) {
+    const img = this.elementImages.get(el.asset);
+    if (!img) return;
+    this.ctx.drawImage(img, el.x - Math.floor(img.width / 2), el.y - img.height);
+  }
+
+  /** Draw an NPC sprite at native size (already café-scale). */
+  private renderNpcSprite(
+    npc: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 },
+    time: number
+  ) {
+    const action = this.getNpcAction(npc.id, time);
+    const spriteKey = `npc_${npc.id}_${action}`;
+    const sprite = this.npcSprites.get(spriteKey) || this.npcSprites.get(`npc_${npc.id}_idle`);
+    if (!sprite) return;
+
+    // Shadow
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(20, 25, 40, 0.22)';
+    this.ctx.beginPath();
+    const shadowRx = Math.max(16, Math.round(sprite.width * 0.35));
+    const shadowRy = Math.max(5, Math.round(sprite.width * 0.12));
+    this.ctx.ellipse(npc.x, npc.y - 2, shadowRx, shadowRy, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.restore();
+
+    // Sprite (bottom-centre anchor, native size)
+    this.ctx.save();
+    this.ctx.translate(npc.x, npc.y);
+    if (npc.facing === -1) {
+      this.ctx.scale(-1, 1);
+    }
+    this.ctx.drawImage(sprite, -Math.floor(sprite.width / 2), -sprite.height);
+    this.ctx.restore();
+  }
+
+  /** Deferred: NPC name tag (drawn above all depth-sorted items). */
+  private renderNpcOverlay(
+    npc: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 }
+  ) {
+    const sprite = this.npcSprites.get(`npc_${npc.id}_idle`);
+    const h = sprite?.height ?? 82;
+    // Render nametag as a non-"me" tag
+    const tagData: PlayerData = {
+      id: '__npc_' + npc.id,
+      name: npc.name,
+      x: npc.x,
+      y: npc.y,
+      state: 'land',
+      facing: npc.facing,
+      floatColor: 'gray',
+      currentAction: 'idle',
+      timestamp: 0
+    };
+    this.renderNameTag(tagData, npc.x, npc.y - h - 6);
+  }
+
+  /** Draw a player's sprite (shadow, character, jump). */
+  private renderPlayerSprite(player: PlayerData, drawY: number, spriteImg: HTMLImageElement | undefined) {
+    if (!spriteImg) return;
+    const isWater = player.state === 'water';
+
+    // Shadow on land
+    if (!isWater) {
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(20, 25, 40, 0.28)';
+      this.ctx.beginPath();
+      const shadowRadiusX = Math.max(16, Math.round(spriteImg.width * 0.38));
+      const shadowRadiusY = Math.max(5, Math.round(spriteImg.width * 0.13));
+      this.ctx.ellipse(player.x, player.y - 2, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
+    // Character sprite with horizontal flipping
+    this.ctx.save();
+    this.ctx.translate(player.x, drawY);
+    if (player.facing === -1) {
+      this.ctx.scale(-1, 1);
+    }
+    // Anchor: bottom center
+    const w = spriteImg.width;
+    const h = spriteImg.height;
+    this.ctx.drawImage(spriteImg, -Math.floor(w / 2), -h);
+    this.ctx.restore();
+  }
+
+  /** Deferred: player name tag + speech bubble (drawn above all depth-sorted items). */
+  private renderPlayerOverlay(player: PlayerData, drawY: number, spriteHeight: number) {
+    // Player Name Badge
+    this.renderNameTag(player, player.x, drawY - spriteHeight - 6);
+
+    // Speech Bubble
+    if (player.lastMessage && player.messageTime) {
+      const elapsed = (Date.now() - player.messageTime) / 1000;
+      if (elapsed < 5.0) {
+        const fadeAlpha = elapsed > 4.0 ? 1 - (elapsed - 4.0) : 1;
+        this.renderSpeechBubble(player.lastMessage, player.x, drawY - spriteHeight - 26, fadeAlpha);
+      }
+    }
+  }
+
+  // =========================================================================
+  // COMMON RENDER HELPERS
+  // =========================================================================
 
   private renderClickMarker(x: number, y: number) {
     this.ctx.save();
@@ -996,90 +1378,6 @@ export class GameEngine {
       this.ctx.globalAlpha = Math.max(0, p.alpha);
       this.ctx.fillRect(Math.floor(p.x), Math.floor(p.y), p.size, p.size);
     }
-    this.ctx.restore();
-  }
-
-  private renderPlayer(player: PlayerData, time: number) {
-    this.ctx.save();
-
-    let spriteKey = '';
-    const isWater = player.state === 'water';
-
-    if (isWater) {
-      const color = player.floatColor || 'red';
-      const action = player.currentAction || 'idle';
-      spriteKey = `water_${color}_${action}`;
-      if (!this.sprites.has(spriteKey)) {
-        if (action.startsWith('swim') && this.sprites.has(`water_${color}_swim`)) {
-          spriteKey = `water_${color}_swim`;
-        } else {
-          spriteKey = `water_${color}_idle`;
-        }
-      }
-    } else {
-      const action = player.currentAction || 'idle';
-      spriteKey = `land_${action}`;
-      if (!this.sprites.has(spriteKey)) {
-        spriteKey = `land_idle`;
-      }
-    }
-
-    const spriteImg = this.sprites.get(spriteKey) || this.sprites.get('land_idle');
-    if (!spriteImg) {
-      this.ctx.restore();
-      return;
-    }
-
-    // Buoyancy bobbing in water
-    let drawY = player.y;
-    if (isWater) {
-      drawY += Math.sin((time * 0.0035) + player.x * 0.05) * 3;
-    }
-
-    // Shadow on land
-    if (!isWater) {
-      this.ctx.save();
-      this.ctx.fillStyle = 'rgba(20, 25, 40, 0.28)';
-      this.ctx.beginPath();
-      const shadowRadiusX = Math.max(16, Math.round(spriteImg.width * 0.38));
-      const shadowRadiusY = Math.max(5, Math.round(spriteImg.width * 0.13));
-      this.ctx.ellipse(player.x, player.y - 2, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.restore();
-    }
-
-    // Jump height offset
-    if (player.currentAction === 'jump') {
-      const jumpProgress = (time % 600) / 600;
-      const jumpHeight = Math.sin(jumpProgress * Math.PI) * 16;
-      drawY -= jumpHeight;
-    }
-
-    // Draw Character Sprite with horizontal flipping
-    this.ctx.save();
-    this.ctx.translate(player.x, drawY);
-    if (player.facing === -1) {
-      this.ctx.scale(-1, 1);
-    }
-
-    // Anchor: bottom center
-    const w = spriteImg.width;
-    const h = spriteImg.height;
-    this.ctx.drawImage(spriteImg, -Math.floor(w / 2), -h);
-    this.ctx.restore();
-
-    // Player Name Badge
-    this.renderNameTag(player, player.x, drawY - h - 6);
-
-    // Speech Bubble
-    if (player.lastMessage && player.messageTime) {
-      const elapsed = (Date.now() - player.messageTime) / 1000;
-      if (elapsed < 5.0) {
-        const fadeAlpha = elapsed > 4.0 ? 1 - (elapsed - 4.0) : 1;
-        this.renderSpeechBubble(player.lastMessage, player.x, drawY - h - 26, fadeAlpha);
-      }
-    }
-
     this.ctx.restore();
   }
 
@@ -1185,6 +1483,72 @@ export class GameEngine {
     for (let idx = 0; idx < lines.length; idx++) {
       this.ctx.fillText(lines[idx], bx + padX, by + padY + idx * lineHeight);
     }
+
+    this.ctx.restore();
+  }
+
+  // =========================================================================
+  // F3 DEBUG OVERLAY
+  // =========================================================================
+
+  private renderDebugOverlay() {
+    this.ctx.save();
+    this.ctx.globalAlpha = 0.5;
+
+    // Colliders — red
+    this.ctx.strokeStyle = '#ff0000';
+    this.ctx.lineWidth = 1;
+    for (const obs of this.mergedObstacles) {
+      this.ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+    }
+
+    // Seats — green dots
+    this.ctx.fillStyle = '#00ff00';
+    for (const seat of this.mergedSeats) {
+      this.ctx.beginPath();
+      this.ctx.arc(seat.x, seat.y, 4, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+
+    // Interaction radii — blue circles
+    this.ctx.strokeStyle = '#0088ff';
+    this.ctx.lineWidth = 1.5;
+    for (const ei of this.elementInteractions) {
+      this.ctx.beginPath();
+      this.ctx.arc(ei.x, ei.y, ei.radius, 0, Math.PI * 2);
+      this.ctx.stroke();
+      // Label
+      this.ctx.fillStyle = '#0088ff';
+      this.ctx.font = '8px monospace';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(ei.label, ei.x, ei.y - ei.radius - 4);
+    }
+
+    // Element anchors — yellow dots
+    if (this.room.elements) {
+      this.ctx.fillStyle = '#ffff00';
+      for (const el of this.room.elements) {
+        this.ctx.beginPath();
+        this.ctx.arc(el.x, el.y, 3, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    }
+
+    // Room bounds — white dashed rect
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.setLineDash([4, 4]);
+    const b = this.room.bounds;
+    this.ctx.strokeRect(b.minX, b.minY, b.maxX - b.minX, b.maxY - b.minY);
+    this.ctx.setLineDash([]);
+
+    // Player coords
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = '10px monospace';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(
+      `x:${Math.round(this.localPlayer.x)} y:${Math.round(this.localPlayer.y)} scale:${this.actorScale}`,
+      4, 12
+    );
 
     this.ctx.restore();
   }

@@ -1,0 +1,22 @@
+/* Nuan Pixel (นวล Pixel) — soft Thai + Latin pixel font for Pixel Poolside
+   Import once, e.g. in src/main.tsx:  import '/fonts/nuan-pixel.css'
+   or in index.html:  <link rel="stylesheet" href="/fonts/nuan-pixel.css">
+   Crisp sizes: 20px (1x), 40px (2x), 60px (3x). Use whole-pixel line-heights (24px at 20px). */
+
+@font-face {
+  font-family: "Nuan Pixel";
+  src: url("/fonts/NuanPixel-Regular.woff2") format("woff2"),
+       url("/fonts/NuanPixel-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Nuan Pixel";
+  src: url("/fonts/NuanPixel-Bold.woff2") format("woff2"),
+       url("/fonts/NuanPixel-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

@@ -43,6 +43,21 @@ export interface LadderTrigger extends Rect {
   targetY: number;
 }
 
+export interface ElementDef {
+  id: string;
+  asset: string;
+  x: number;
+  y: number;
+  /** wall: drawn right after the background · floor: under all characters · object: depth-sorted by y */
+  layer: 'wall' | 'floor' | 'object';
+  /** Blocking footprint (w × h) centred on x, bottom edge on y */
+  collider?: { w: number; h: number };
+  /** Where a character sits, relative to (x, y) */
+  seat?: { dx: number; dy: number; facing: 1 | -1 };
+  /** Walk within `radius` px of (x + dx, y + dy) to get this action */
+  interact?: { id: string; label: string; dx: number; dy: number; radius: number };
+}
+
 export interface Interactable {
   id: string;
   label: string;
@@ -71,6 +86,8 @@ export interface RoomDefinition {
   seats?: { x: number; y: number; facing: 1 | -1 }[];
   npcs?: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 }[];
   interactables?: Interactable[];
+  elements?: ElementDef[];
+  actorScale?: number;
   outfit: 'swim' | 'casual';
   exits?: {
     triggerBox: [number, number, number, number];

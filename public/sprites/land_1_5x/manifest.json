@@ -1,0 +1,62 @@
+{
+  "idle": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/idle.webp"
+  },
+  "side_idle": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/back_idle.webp"
+  },
+  "walk1": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/walk1.webp"
+  },
+  "walk2": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/walk2.webp"
+  },
+  "wave": {
+    "width": 75,
+    "height": 114,
+    "path": "/sprites/land_1_5x/wave.webp"
+  },
+  "talk": {
+    "width": 76,
+    "height": 113,
+    "path": "/sprites/land_1_5x/talk.webp"
+  },
+  "happy": {
+    "width": 90,
+    "height": 114,
+    "path": "/sprites/land_1_5x/happy.webp"
+  },
+  "thinking": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/thinking.webp"
+  },
+  "sit": {
+    "width": 72,
+    "height": 89,
+    "path": "/sprites/land_1_5x/sit.webp"
+  },
+  "lie": {
+    "width": 125,
+    "height": 67,
+    "path": "/sprites/land_1_5x/lie.webp"
+  },
+  "jump": {
+    "width": 72,
+    "height": 119,
+    "path": "/sprites/land_1_5x/jump.webp"
+  }
+}

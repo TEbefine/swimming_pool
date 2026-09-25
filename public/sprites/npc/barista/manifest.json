@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/idle.webp"
+  },
+  "side_idle": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/back_idle.webp"
+  },
+  "walk1": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/walk1.webp"
+  },
+  "walk2": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/walk2.webp"
+  },
+  "wave": {
+    "width": 72,
+    "height": 112,
+    "path": "/sprites/npc/barista/wave.webp"
+  },
+  "talk": {
+    "width": 75,
+    "height": 112,
+    "path": "/sprites/npc/barista/talk.webp"
+  },
+  "happy": {
+    "width": 81,
+    "height": 113,
+    "path": "/sprites/npc/barista/happy.webp"
+  },
+  "thinking": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/thinking.webp"
+  },
+  "wai": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/wai.webp"
+  },
+  "pour": {
+    "width": 85,
+    "height": 113,
+    "path": "/sprites/npc/barista/pour.webp"
+  },
+  "serve": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/serve.webp"
+  },
+  "read": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/read.webp"
+  },
+  "idea": {
+    "width": 71,
+    "height": 113,
+    "path": "/sprites/npc/barista/idea.webp"
+  },
+  "point": {
+    "width": 80,
+    "height": 113,
+    "path": "/sprites/npc/barista/point.webp"
+  },
+  "blink": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/npc/barista/blink.webp"
+  }
+}
