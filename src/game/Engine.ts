@@ -2,9 +2,11 @@ import type {
   PlayerData,
   FloatColor,
   Particle,
-  ChatMessage
+  ChatMessage,
+  RoomDefinition,
+  ContextAction,
+  ContextActionId
 } from './types';
-import { poolsideRoom } from './rooms/poolside';
 import { sound } from './audio';
 import { NetworkManager } from './network';
 
@@ -18,7 +20,7 @@ interface RemotePlayer {
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private room = poolsideRoom;
+  private room: RoomDefinition;
 
   // Assets
   private bgImage: HTMLImageElement | null = null;
@@ -50,6 +52,15 @@ export class GameEngine {
   private cameraFollow: boolean = false;
   private currentCamPctX: number = 50;
 
+  // Running (sprint) mode
+  private isRunning: boolean = false;
+
+  // Context action state
+  private currentContextAction: ContextAction = { id: 'jump', label: 'Jump' };
+
+  // Seated state: which seat index the player is sitting in (-1 = not seated)
+  private seatedIndex: number = -1;
+
   // Loop control
   private animId: number = 0;
   private lastTime: number = 0;
@@ -58,10 +69,13 @@ export class GameEngine {
   // Callbacks to UI
   public onChatMessageReceived?: (msg: ChatMessage) => void;
   public onPlayerCountChange?: (count: number) => void;
+  public onContextChange?: (action: ContextAction) => void;
+  public onInteract?: (actionId: ContextActionId, targetId: string) => void;
 
-  constructor(canvas: HTMLCanvasElement, playerName: string = 'Swimmer', initialFloat: FloatColor = 'red') {
+  constructor(canvas: HTMLCanvasElement, room: RoomDefinition, playerName: string = 'Swimmer', initialFloat: FloatColor = 'red') {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+    this.room = room;
 
     const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
     this.localPlayer = {
@@ -279,6 +293,228 @@ export class GameEngine {
     }
   }
 
+  // =========================================================================
+  // CONTEXT ACTION SYSTEM
+  // =========================================================================
+
+  /** Compute which action button A should perform based on proximity. */
+  public getContextAction(): ContextAction {
+    const px = this.localPlayer.x;
+    const py = this.localPlayer.y;
+
+    // Priority 1: If currently sitting → stand
+    if (this.seatedIndex >= 0) {
+      return { id: 'stand', label: 'Stand' };
+    }
+
+    // Priority 2: Seat within 40px → sit
+    if (this.room.seats) {
+      for (const seat of this.room.seats) {
+        const dx = px - seat.x;
+        const dy = py - seat.y;
+        if (Math.sqrt(dx * dx + dy * dy) <= 40) {
+          return { id: 'sit', label: 'Sit' };
+        }
+      }
+    }
+
+    // Priority 3: NPC within 50px → talk
+    if (this.room.npcs) {
+      for (const npc of this.room.npcs) {
+        const dx = px - npc.x;
+        const dy = py - npc.y;
+        if (Math.sqrt(dx * dx + dy * dy) <= 50) {
+          return { id: 'talk', label: 'Talk' };
+        }
+      }
+    }
+
+    // Priority 4: Interactable within rect → read (etc.)
+    if (this.room.interactables) {
+      for (const item of this.room.interactables) {
+        const r = item.rect;
+        if (px >= r.x && px <= r.x + r.width && py >= r.y && py <= r.y + r.height) {
+          return { id: 'read', label: item.label };
+        }
+      }
+    }
+
+    // Priority 5: Pool edge / ladder → dive or climb
+    if (this.room.waterZones && this.room.waterZones.length > 0) {
+      if (this.localPlayer.state === 'land') {
+        // Near water edge? Check if any water zone boundary is close
+        for (const wz of this.room.waterZones) {
+          const nearTop = Math.abs(py - wz.y) < 30 && px >= wz.x && px <= wz.x + wz.width;
+          const nearBottom = Math.abs(py - (wz.y + wz.height)) < 30 && px >= wz.x && px <= wz.x + wz.width;
+          if (nearTop || nearBottom) {
+            return { id: 'dive', label: 'Dive' };
+          }
+        }
+      } else {
+        // In water, near edge → climb
+        for (const wz of this.room.waterZones) {
+          const nearTop = Math.abs(py - wz.y) < 30 && px >= wz.x && px <= wz.x + wz.width;
+          const nearBottom = Math.abs(py - (wz.y + wz.height)) < 30 && px >= wz.x && px <= wz.x + wz.width;
+          if (nearTop || nearBottom) {
+            return { id: 'climb', label: 'Climb' };
+          }
+        }
+      }
+    }
+
+    // Ladder triggers → dive/climb
+    if (this.room.ladderTriggers) {
+      for (const lt of this.room.ladderTriggers) {
+        if (px >= lt.x && px <= lt.x + lt.width && py >= lt.y && py <= lt.y + lt.height) {
+          return this.localPlayer.state === 'land'
+            ? { id: 'dive', label: 'Dive' }
+            : { id: 'climb', label: 'Climb' };
+        }
+      }
+    }
+
+    // Default: jump
+    return { id: 'jump', label: 'Jump' };
+  }
+
+  /** Called every frame to emit onContextChange when the action id changes. */
+  private updateContextAction() {
+    const next = this.getContextAction();
+    if (next.id !== this.currentContextAction.id) {
+      this.currentContextAction = next;
+      if (this.onContextChange) {
+        this.onContextChange(next);
+      }
+    }
+  }
+
+  /** Perform the current context action (mapped to A button). */
+  public interact() {
+    const action = this.currentContextAction;
+    switch (action.id) {
+      case 'sit':
+        this.sitDown();
+        break;
+      case 'stand':
+        this.standUp();
+        break;
+      case 'talk': {
+        const npc = this.findNearestNpc(50);
+        if (npc && this.onInteract) {
+          this.onInteract('talk', npc.id);
+        }
+        // Play talk emote
+        this.triggerEmote('talk');
+        break;
+      }
+      case 'read': {
+        const item = this.findNearestInteractable();
+        if (item && this.onInteract) {
+          this.onInteract('read', item.id);
+        }
+        this.triggerEmote('thinking');
+        break;
+      }
+      case 'dive':
+        this.toggleWaterLand();
+        break;
+      case 'climb':
+        this.toggleWaterLand();
+        break;
+      case 'jump':
+        if (this.localPlayer.state === 'water') {
+          this.triggerEmote('happy');
+        } else {
+          this.triggerEmote('jump');
+        }
+        break;
+    }
+  }
+
+  /** Sit down in the nearest seat. */
+  private sitDown() {
+    if (!this.room.seats) return;
+    const px = this.localPlayer.x;
+    const py = this.localPlayer.y;
+    let bestDist = Infinity;
+    let bestIdx = -1;
+
+    for (let i = 0; i < this.room.seats.length; i++) {
+      const seat = this.room.seats[i];
+      const dx = px - seat.x;
+      const dy = py - seat.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= 40 && dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+
+    if (bestIdx >= 0) {
+      const seat = this.room.seats[bestIdx];
+      this.seatedIndex = bestIdx;
+      this.localPlayer.x = seat.x;
+      this.localPlayer.y = seat.y;
+      this.localPlayer.facing = seat.facing;
+      this.localPlayer.currentAction = 'sit';
+      this.clickTarget = null;
+      this.broadcastState();
+    }
+  }
+
+  /** Stand up from a seat. */
+  public standUp() {
+    if (this.seatedIndex < 0) return;
+    this.seatedIndex = -1;
+    this.localPlayer.currentAction = 'idle';
+    this.broadcastState();
+  }
+
+  /** Whether the player is currently seated. */
+  public isSeated(): boolean {
+    return this.seatedIndex >= 0;
+  }
+
+  /** Set running (sprint) mode. While true, land speed × 1.6. */
+  public setRunning(value: boolean) {
+    this.isRunning = value;
+  }
+
+  private findNearestNpc(maxDist: number) {
+    if (!this.room.npcs) return null;
+    const px = this.localPlayer.x;
+    const py = this.localPlayer.y;
+    let best: { id: string; name: string; x: number; y: number } | null = null;
+    let bestDist = maxDist;
+    for (const npc of this.room.npcs) {
+      const dx = px - npc.x;
+      const dy = py - npc.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= bestDist) {
+        bestDist = dist;
+        best = npc;
+      }
+    }
+    return best;
+  }
+
+  private findNearestInteractable() {
+    if (!this.room.interactables) return null;
+    const px = this.localPlayer.x;
+    const py = this.localPlayer.y;
+    for (const item of this.room.interactables) {
+      const r = item.rect;
+      if (px >= r.x && px <= r.x + r.width && py >= r.y && py <= r.y + r.height) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  // =========================================================================
+  // ORIGINAL ENGINE METHODS
+  // =========================================================================
+
   private createClickRipple(x: number, y: number) {
     for (let i = 0; i < 8; i++) {
       const angle = (i / 8) * Math.PI * 2;
@@ -422,9 +658,13 @@ export class GameEngine {
     this.updateLocalPlayer(dt);
     this.updateRemotePlayers(dt);
     this.updateParticles();
+    this.updateContextAction();
   }
 
   private updateLocalPlayer(dt: number) {
+    // If seated, don't process movement
+    if (this.seatedIndex >= 0) return;
+
     let dx = 0;
     let dy = 0;
 
@@ -470,7 +710,12 @@ export class GameEngine {
       if (dx > 0) this.localPlayer.facing = 1;
 
       // Speed (swimming is slightly slower than walking)
-      const speed = this.localPlayer.state === 'water' ? 120 : 160;
+      let speed = this.localPlayer.state === 'water' ? 120 : 160;
+
+      // Sprint multiplier on land
+      if (this.isRunning && this.localPlayer.state === 'land') {
+        speed *= 1.6;
+      }
       
       // Normalize diagonal
       let moveX = dx;
@@ -545,9 +790,10 @@ export class GameEngine {
   }
 
   private attemptMove(targetX: number, targetY: number) {
-    // Clamp to map boundaries
-    const clampedX = Math.max(25, Math.min(this.room.width - 25, targetX));
-    const clampedY = Math.max(218, Math.min(this.room.height - 25, targetY));
+    // Clamp to map boundaries using room bounds
+    const { minX, maxX, minY, maxY } = this.room.bounds;
+    const clampedX = Math.max(minX, Math.min(maxX, targetX));
+    const clampedY = Math.max(minY, Math.min(maxY, targetY));
 
     // Check obstacle collision
     for (const obs of this.room.obstacles) {
@@ -562,21 +808,25 @@ export class GameEngine {
       }
     }
 
-    const prevState = this.localPlayer.state;
-    const isInsideWater = this.isPointInWater(clampedX, clampedY);
+    // Water enter/exit logic — only when the room has water zones
+    const hasWater = this.room.waterZones && this.room.waterZones.length > 0;
+    if (hasWater) {
+      const prevState = this.localPlayer.state;
+      const isInsideWater = this.isPointInWater(clampedX, clampedY);
 
-    if (isInsideWater && prevState === 'land') {
-      // Jump/step into water
-      this.localPlayer.state = 'water';
-      this.localPlayer.currentAction = this.isMoving ? 'swim1' : 'tread';
-      sound.playSplash();
-      this.createSplashParticles(clampedX, clampedY);
-    } else if (!isInsideWater && prevState === 'water') {
-      // Step onto land deck
-      this.localPlayer.state = 'land';
-      this.localPlayer.currentAction = this.isMoving ? 'walk1' : 'idle';
-      sound.playFootstep();
-      this.createLandDripParticles(clampedX, clampedY);
+      if (isInsideWater && prevState === 'land') {
+        // Jump/step into water
+        this.localPlayer.state = 'water';
+        this.localPlayer.currentAction = this.isMoving ? 'swim1' : 'tread';
+        sound.playSplash();
+        this.createSplashParticles(clampedX, clampedY);
+      } else if (!isInsideWater && prevState === 'water') {
+        // Step onto land deck
+        this.localPlayer.state = 'land';
+        this.localPlayer.currentAction = this.isMoving ? 'walk1' : 'idle';
+        sound.playFootstep();
+        this.createLandDripParticles(clampedX, clampedY);
+      }
     }
 
     this.localPlayer.x = clampedX;
@@ -584,6 +834,7 @@ export class GameEngine {
   }
 
   private isPointInWater(x: number, y: number): boolean {
+    if (!this.room.waterZones) return false;
     for (const w of this.room.waterZones) {
       if (x >= w.x && x <= w.x + w.width && y >= w.y && y <= w.y + w.height) {
         return true;

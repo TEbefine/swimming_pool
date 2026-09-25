@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine } from './game/Engine';
 import type { PlayerState, FloatColor, ChatMessage } from './game/types';
+import { getRoomForToday } from './game/rooms';
 import { HeaderBar } from './components/HeaderBar';
 import { ActionBar } from './components/ActionBar';
 import { ChatBar } from './components/ChatBar';
@@ -10,6 +11,8 @@ import { FloatModal } from './components/FloatModal';
 import { NameModal } from './components/NameModal';
 import { HelpModal } from './components/HelpModal';
 import { Waves } from 'lucide-react';
+
+const currentRoom = getRoomForToday();
 
 export const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -73,7 +76,7 @@ export const App: React.FC = () => {
 
     let cancelled = false;
 
-    const engine = new GameEngine(canvasRef.current, playerName, floatColor);
+    const engine = new GameEngine(canvasRef.current, currentRoom, playerName, floatColor);
     engineRef.current = engine;
     engine.setTouchMoveEnabled(!effectiveIsMobile);
     engine.setCameraFollow(effectiveIsMobile);
@@ -147,7 +150,7 @@ export const App: React.FC = () => {
               className="text-lg md:text-xl font-bold tracking-wider text-sky-300"
               style={{ fontFamily: 'var(--font-pixel)' }}
             >
-              Sunny Poolside Hangout
+              {currentRoom.name}
             </span>
           </div>
           <div className="w-64 h-4 bg-slate-800 border-2 border-slate-600 rounded-sm p-0.5 overflow-hidden mb-3">
@@ -193,7 +196,7 @@ export const App: React.FC = () => {
           <div className="relative w-full h-full flex items-center justify-center bg-slate-900 rounded-lg overflow-hidden border-4 border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
             {/* Header UI */}
             <HeaderBar
-              roomName="Sunny Poolside"
+              roomName={currentRoom.name}
               playerCount={playerCount}
               playerName={playerName}
               floatColor={floatColor}

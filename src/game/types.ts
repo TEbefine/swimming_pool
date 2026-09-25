@@ -43,17 +43,35 @@ export interface LadderTrigger extends Rect {
   targetY: number;
 }
 
+export interface Interactable {
+  id: string;
+  label: string;
+  rect: Rect;
+}
+
+export type ContextActionId = 'sit' | 'stand' | 'talk' | 'read' | 'dive' | 'climb' | 'jump';
+
+export interface ContextAction {
+  id: ContextActionId;
+  label: string;
+}
+
 export interface RoomDefinition {
   roomId: string;
   name: string;
   backgroundImage: string;
   width: number;
   height: number;
+  bounds: { minX: number; maxX: number; minY: number; maxY: number };
   spawnPoint: { x: number; y: number };
-  waterZones: Rect[];
+  waterZones?: Rect[];
   walkableZones: Rect[];
-  ladderTriggers: LadderTrigger[];
+  ladderTriggers?: LadderTrigger[];
   obstacles: Rect[];
+  seats?: { x: number; y: number; facing: 1 | -1 }[];
+  npcs?: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 }[];
+  interactables?: Interactable[];
+  outfit: 'swim' | 'casual';
   exits?: {
     triggerBox: [number, number, number, number];
     targetRoom: string;

@@ -6,6 +6,8 @@ export const poolsideRoom: RoomDefinition = {
   backgroundImage: '/maps/poolside.webp',
   width: 1024,
   height: 576,
+  bounds: { minX: 25, maxX: 1024 - 25, minY: 218, maxY: 576 - 25 },
+  outfit: 'swim',
   spawnPoint: { x: 512, y: 470 },
   
   // Water pool area: between background deck coping and foreground deck edge
