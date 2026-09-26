@@ -1,0 +1,37 @@
+{
+  "id": "barista",
+  "displayName": null,
+  "role": "Caf\u00e9 host and keeper of the daily tip",
+  "room": "cafe",
+  "status": "identity-approved",
+  "look": {
+    "beret": "#556B2F",
+    "apron": "#3E2A1E",
+    "shirt": "#F3E9D2",
+    "leafEmblem": "#5E9A3A",
+    "glasses": "round, thin-rimmed",
+    "hair": "chin-length wavy dark-brown bob"
+  },
+  "voice": {
+    "tone": [
+      "warm",
+      "calm",
+      "curious",
+      "gently funny"
+    ],
+    "languages": [
+      "en",
+      "th"
+    ],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "wai"
+  },
+  "assets": {
+    "sprites": "/sprites/npc/barista/",
+    "spriteManifest": "/sprites/npc/barista/manifest.json",
+    "portraits": "/sprites/npc/barista/portrait/",
+    "sheetSource": "src/assets/npc_barista_sheet.png",
+    "identity": "docs/characters/barista/references/identity_front.png",
+    "expressions": "docs/characters/barista/references/expressions_v1.png"
+  }
+}

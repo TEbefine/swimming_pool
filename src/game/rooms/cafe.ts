@@ -32,7 +32,7 @@ export const cafeRoom: RoomDefinition = {
   actorScale: CAFE_ACTOR_SCALE,
 
   npcs: [
-    { id: 'barista', name: 'Barista', x: BARISTA_SPOT.x, y: BARISTA_SPOT.y, sprite: '/sprites/npc/barista', facing: BARISTA_SPOT.facing },
+    { id: 'barista', name: 'Barista', x: BARISTA_SPOT.x, y: BARISTA_SPOT.y, sprite: '/sprites/npc/barista', facing: BARISTA_SPOT.facing, standAt: { dx: 90, dy: 54, facing: -1 } },
   ],
 
   exits: [

@@ -21,6 +21,8 @@ interface GameBoyMobileProps {
   onOpenHelpModal: () => void;
   screenOverlay?: React.ReactNode;
   onToggleSceneBox?: () => void;
+  statusLabel?: string;
+  hideStatusBadge?: boolean;
 }
 
 export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
@@ -40,7 +42,9 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   onOpenNameModal,
   onOpenHelpModal,
   screenOverlay,
-  onToggleSceneBox
+  onToggleSceneBox,
+  statusLabel = 'Sunny Poolside',
+  hideStatusBadge = false,
 }) => {
   const [muted, setMuted] = useState(sound.isMuted());
   const [activeDir, setActiveDir] = useState<{ up: boolean; down: boolean; left: boolean; right: boolean }>({
@@ -369,9 +373,11 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               </div>
 
               {/* Floating Land/Water Badge */}
-              <div className="absolute bottom-1.5 left-2 z-20 pointer-events-none flex items-center gap-1 bg-black/65 px-2 py-0.5 rounded border border-white/10 text-[8px] font-mono text-amber-300 font-bold uppercase shadow-md">
-                <span>{isWater ? '🏊 IN WATER' : '🏖️ ON LAND'}</span>
-              </div>
+              {!hideStatusBadge && (
+                <div className="absolute bottom-1.5 left-2 z-20 pointer-events-none flex items-center gap-1 bg-black/65 px-2 py-0.5 rounded border border-white/10 text-[8px] font-mono text-amber-300 font-bold uppercase shadow-md">
+                  <span>{isWater ? '🏊 IN WATER' : '🏖️ ON LAND'}</span>
+                </div>
+              )}
 
               {/* Chat bubble preview if recent message */}
               {chatLog.length > 0 && Date.now() - chatLog[chatLog.length - 1].timestamp < 6000 && (
@@ -385,8 +391,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
           {/* Bezel Bottom Status Bar */}
           <div className="w-full flex items-center justify-between text-[8px] text-[#9ca3af] font-mono px-1 shrink-0 pt-0.5">
-            <span className="text-[#e2e8f0] font-bold">Sunny Poolside</span>
-            {currentAction !== 'idle' && currentAction !== 'tread' && (
+            <span className="text-[#e2e8f0] font-bold">{statusLabel}</span>
+            {!hideStatusBadge && currentAction !== 'idle' && currentAction !== 'tread' && (
               <span className="text-amber-300 font-bold">({currentAction})</span>
             )}
           </div>

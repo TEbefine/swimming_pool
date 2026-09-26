@@ -13,7 +13,7 @@ import { HelpModal } from './components/HelpModal';
 import { DialogBox } from './components/DialogBox';
 import { SceneBox } from './components/SceneBox';
 import { dialogues } from './game/content/dialogues';
-import type { DialogLine } from './game/content/dialogues';
+import type { DialogScript } from './game/content/dialogues';
 import { Waves } from 'lucide-react';
 
 /** Context-action IDs that should route through engine.interact(). */
@@ -69,25 +69,30 @@ export const App: React.FC = () => {
   // =========================================================================
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogNpcId, setDialogNpcId] = useState<string | null>(null);
-  const [dialogLines, setDialogLines] = useState<DialogLine[]>([]);
-  const [dialogNpcName, setDialogNpcName] = useState('');
-  const advanceDialogRef = useRef<(() => void) | null>(null);
+  const [dialogScript, setDialogScript] = useState<DialogScript | null>(null);
+  const [dialogConfirmTrigger, setDialogConfirmTrigger] = useState<number>(0);
+  const [dialogDpadNudge, setDialogDpadNudge] = useState<{ dx: number; dy: number; timestamp: number } | null>(null);
+  const [dialogSessionId, setDialogSessionId] = useState<number>(0);
 
-  /** Open a dialog with the given NPC. */
+  /** Open a dialog with the given NPC without moving the player. */
   const openDialog = useCallback((npcId: string) => {
     const script = dialogues[npcId];
     if (!script) return;
     const engine = engineRef.current;
     if (!engine) return;
 
-    setDialogNpcId(npcId);
-    setDialogNpcName(script.name);
-    setDialogLines(script.lines);
-    setDialogOpen(true);
+    // Reset triggers on open
+    setDialogConfirmTrigger(0);
+    setDialogDpadNudge(null);
+    setDialogSessionId((s) => s + 1);
 
-    // Freeze movement + set NPC facing toward player
+    // Freeze movement immediately so player stays put and faces NPC
     engine.setDialogFrozen(true, npcId);
     engine.faceNpcTowardPlayer(npcId);
+
+    setDialogNpcId(npcId);
+    setDialogScript(script);
+    setDialogOpen(true);
   }, []);
 
   /** Close the current dialog and play post-dialog wai. */
@@ -97,8 +102,9 @@ export const App: React.FC = () => {
 
     setDialogOpen(false);
     setDialogNpcId(null);
-    setDialogLines([]);
-    setDialogNpcName('');
+    setDialogScript(null);
+    setDialogConfirmTrigger(0);
+    setDialogDpadNudge(null);
 
     if (engine) {
       engine.setDialogFrozen(false);
@@ -123,9 +129,19 @@ export const App: React.FC = () => {
   // =========================================================================
   const handleTravel = useCallback(async (roomId: string) => {
     setSceneBoxOpen(false);
+    setSceneBoxConfirmTrigger(0);
+    setSceneBoxDpadNudge(null);
     const engine = engineRef.current;
     if (!engine) return;
     await engine.changeRoom(roomId);
+  }, []);
+
+  const handleToggleSceneBox = useCallback(() => {
+    setSceneBoxOpen((prev) => {
+      setSceneBoxConfirmTrigger(0);
+      setSceneBoxDpadNudge(null);
+      return !prev;
+    });
   }, []);
 
   // =========================================================================
@@ -138,14 +154,14 @@ export const App: React.FC = () => {
       return;
     }
 
-    const engine = engineRef.current;
-    if (!engine) return;
-
-    // If dialog is open → advance it
+    // If dialog is open → advance / confirm it
     if (dialogOpen) {
-      advanceDialogRef.current?.();
+      setDialogConfirmTrigger(Date.now());
       return;
     }
+
+    const engine = engineRef.current;
+    if (!engine) return;
 
     // Check context action
     const ctx = engine.getContextAction();
@@ -164,15 +180,17 @@ export const App: React.FC = () => {
     // If SceneBox is open → close it
     if (sceneBoxOpen) {
       setSceneBoxOpen(false);
+      setSceneBoxConfirmTrigger(0);
+      setSceneBoxDpadNudge(null);
       return;
     }
 
     const engine = engineRef.current;
     if (!engine) return;
 
-    // If dialog is open → advance it
+    // If dialog is open → close it immediately (✕ = Bye)
     if (dialogOpen) {
-      advanceDialogRef.current?.();
+      closeDialog();
       return;
     }
 
@@ -181,18 +199,33 @@ export const App: React.FC = () => {
     } else {
       engine.triggerEmote('jump');
     }
-  }, [sceneBoxOpen, dialogOpen]);
+  }, [sceneBoxOpen, dialogOpen, closeDialog]);
 
   // =========================================================================
-  // KEYBOARD: Tab for SceneBox, E and O for ◯
+  // KEYBOARD: Tab for SceneBox, E and O for ◯, Escape for ✕
   // =========================================================================
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
 
+      if (e.key === 'Escape') {
+        if (dialogOpen) {
+          e.preventDefault();
+          closeDialog();
+          return;
+        }
+        if (sceneBoxOpen) {
+          e.preventDefault();
+          setSceneBoxOpen(false);
+          setSceneBoxConfirmTrigger(0);
+          setSceneBoxDpadNudge(null);
+          return;
+        }
+      }
+
       if (e.key === 'Tab') {
         e.preventDefault();
-        setSceneBoxOpen((prev) => !prev);
+        handleToggleSceneBox();
         return;
       }
 
@@ -204,7 +237,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleCircleAction]);
+  }, [handleCircleAction, handleToggleSceneBox, dialogOpen, sceneBoxOpen, closeDialog]);
 
   // =========================================================================
   // ENGINE SETUP
@@ -326,12 +359,15 @@ export const App: React.FC = () => {
   // =========================================================================
   // OVERLAY ELEMENTS (DialogBox & SceneBox)
   // =========================================================================
-  const dialogBoxElement = dialogOpen ? (
+  const dialogBoxElement = (dialogOpen && dialogScript && dialogNpcId) ? (
     <DialogBox
-      npcName={dialogNpcName}
-      lines={dialogLines}
+      key={dialogSessionId}
+      npcId={dialogNpcId}
+      script={dialogScript}
       onLineChange={handleDialogLineChange}
       onClose={closeDialog}
+      directionNudge={dialogDpadNudge}
+      confirmTrigger={dialogConfirmTrigger}
     />
   ) : null;
 
@@ -341,23 +377,31 @@ export const App: React.FC = () => {
       currentRoomId={currentRoom.roomId}
       playerCountByRoom={playerCountByRoom}
       onTravel={handleTravel}
-      onClose={() => setSceneBoxOpen(false)}
+      onClose={() => {
+        setSceneBoxOpen(false);
+        setSceneBoxConfirmTrigger(0);
+        setSceneBoxDpadNudge(null);
+      }}
       directionNudge={sceneBoxDpadNudge}
       confirmTrigger={sceneBoxConfirmTrigger}
     />
   ) : null;
 
-  // Advance dialog with simulated keyboard event
+  // Canvas blur class for world focus effect
+  const canvasBlurClass = dialogOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
+
+  // Apply blur to the canvas element directly (works for both desktop and mobile GameBoy)
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     if (dialogOpen) {
-      advanceDialogRef.current = () => {
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true }));
-      };
+      canvas.classList.add('dialog-world-blur');
+      canvas.classList.remove('dialog-world-unblur');
     } else {
-      advanceDialogRef.current = null;
+      canvas.classList.remove('dialog-world-blur');
+      canvas.classList.add('dialog-world-unblur');
     }
   }, [dialogOpen]);
-
   return (
     <div className="relative w-screen h-screen bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
       {/* Loading Overlay */}
@@ -394,12 +438,18 @@ export const App: React.FC = () => {
           floatColor={floatColor}
           playerCount={playerCount}
           chatLog={visibleChatLog}
+          statusLabel={currentRoom.name}
+          hideStatusBadge={dialogOpen}
           onDirectionChange={(dx, dy) => {
             if (sceneBoxOpen) {
               if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
                 setSceneBoxDpadNudge({ dx, dy, timestamp: Date.now() });
               }
-            } else if (!dialogOpen) {
+            } else if (dialogOpen) {
+              if (Math.abs(dy) > 0.4) {
+                setDialogDpadNudge({ dx, dy, timestamp: Date.now() });
+              }
+            } else {
               engineRef.current?.setVirtualDpad(dx, dy);
             }
           }}
@@ -410,7 +460,7 @@ export const App: React.FC = () => {
           onOpenFloatPicker={() => setFloatModalOpen(true)}
           onOpenNameModal={() => setNameModalOpen(true)}
           onOpenHelpModal={() => setHelpModalOpen(true)}
-          onToggleSceneBox={() => setSceneBoxOpen((prev) => !prev)}
+          onToggleSceneBox={handleToggleSceneBox}
           screenOverlay={
             <>
               {dialogBoxElement}
@@ -442,7 +492,7 @@ export const App: React.FC = () => {
               ref={setCanvasRefCb}
               width={1024}
               height={576}
-              className="w-full h-full object-contain cursor-crosshair"
+              className={`w-full h-full object-contain cursor-crosshair ${canvasBlurClass}`}
               style={{
                 imageRendering: 'pixelated'
               }}

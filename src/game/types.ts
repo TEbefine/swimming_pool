@@ -86,7 +86,7 @@ export interface RoomDefinition {
   ladderTriggers?: LadderTrigger[];
   obstacles: Rect[];
   seats?: { x: number; y: number; facing: 1 | -1 }[];
-  npcs?: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 }[];
+  npcs?: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1; standAt?: { dx: number; dy: number; facing: 1 | -1 } }[];
   interactables?: Interactable[];
   elements?: ElementDef[];
   actorScale?: number;

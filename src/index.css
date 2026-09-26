@@ -271,6 +271,89 @@ html, body {
     inset 0 1.5px 3px rgba(0, 0, 0, 0.6);
 }
 
+/* ========================================================= */
+/* DIALOG / VN FONTS                                         */
+/* ========================================================= */
 
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('/fonts/press-start-2p.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
+@font-face {
+  font-family: 'Itim';
+  src: url('/fonts/itim-thai.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0E00-0E7F;
+}
 
+@font-face {
+  font-family: 'Itim';
+  src: url('/fonts/itim-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ========================================================= */
+/* DIALOG / VN CANVAS BLUR (applied to canvas when dialog)   */
+/* ========================================================= */
+
+.dialog-world-blur {
+  filter: blur(1.5px) brightness(0.62);
+  transition: filter 250ms ease;
+}
+.dialog-world-unblur {
+  filter: none;
+  transition: filter 250ms ease;
+}
+
+/* ========================================================= */
+/* PORTRAIT ANIMATIONS                                       */
+/* ========================================================= */
+
+/* Enter: fade in statically (no slide) */
+.dialog-portrait-container {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.dialog-portrait-enter {
+  opacity: 1;
+}
+/* Exit: fade out */
+.dialog-portrait-exit {
+  opacity: 0 !important;
+  transition: opacity 200ms ease-in !important;
+}
+
+/* Portrait stays steady without wobble or jumping */
+.dialog-portrait-breathe {
+  /* static */
+}
+
+.dialog-portrait-lean {
+  /* static */
+}
+
+/* Face crossfade: fade IN */
+@keyframes faceIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.dialog-portrait-face-in {
+  animation: faceIn 160ms ease-out forwards;
+}
+
+/* Face crossfade: fade OUT */
+@keyframes faceOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.dialog-portrait-face-out {
+  animation: faceOut 160ms ease-out forwards;
+}

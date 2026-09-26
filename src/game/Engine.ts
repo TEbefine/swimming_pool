@@ -1643,7 +1643,9 @@ export class GameEngine {
     npc: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 },
     time: number
   ) {
+    if (this.dialogFrozen && this.dialogNpcId === npc.id) return;
     const action = this.getNpcAction(npc.id, time);
+    if (action === 'hidden') return;
     const spriteKey = `npc_${npc.id}_${action}`;
     const sprite = this.npcSprites.get(spriteKey) || this.npcSprites.get(`npc_${npc.id}_idle`);
     if (!sprite) return;
@@ -1675,19 +1677,21 @@ export class GameEngine {
   ) {
     const sprite = this.npcSprites.get(`npc_${npc.id}_idle`);
     const h = sprite?.height ?? 82;
-    // Render nametag as a non-"me" tag
-    const tagData: PlayerData = {
-      id: '__npc_' + npc.id,
-      name: npc.name,
-      x: npc.x,
-      y: npc.y,
-      state: 'land',
-      facing: npc.facing,
-      floatColor: 'gray',
-      currentAction: 'idle',
-      timestamp: 0
-    };
-    this.renderNameTag(tagData, npc.x, npc.y - h - 6);
+    // Hide all name tags while dialog is open
+    if (!this.dialogFrozen) {
+      const tagData: PlayerData = {
+        id: '__npc_' + npc.id,
+        name: npc.name,
+        x: npc.x,
+        y: npc.y,
+        state: 'land',
+        facing: npc.facing,
+        floatColor: 'gray',
+        currentAction: 'idle',
+        timestamp: 0
+      };
+      this.renderNameTag(tagData, npc.x, npc.y - h - 6);
+    }
 
     // Prompt bubble: show "◯" above NPC when player is in talkSpot and no dialog open
     if (!this.dialogFrozen) {
@@ -1736,8 +1740,10 @@ export class GameEngine {
 
   /** Deferred: player name tag + speech bubble (drawn above all depth-sorted items). */
   private renderPlayerOverlay(player: PlayerData, drawY: number, spriteHeight: number) {
-    // Player Name Badge
-    this.renderNameTag(player, player.x, drawY - spriteHeight - 6);
+    // Hide all name tags while dialog is open
+    if (!this.dialogFrozen) {
+      this.renderNameTag(player, player.x, drawY - spriteHeight - 6);
+    }
 
     // Speech Bubble
     if (player.lastMessage && player.messageTime) {
@@ -1982,6 +1988,47 @@ export class GameEngine {
   /** Whether dialog is currently open (movement frozen). */
   public isDialogOpen(): boolean {
     return this.dialogFrozen;
+  }
+
+  /** Get an NPC definition by id from the current room. */
+  public getNpcById(npcId: string) {
+    return this.room.npcs?.find(n => n.id === npcId) ?? null;
+  }
+
+  /**
+   * Walk the local player to a target position over time (max ~400ms).
+   * Resolves when the player is close enough or the time limit expires.
+   */
+  public walkPlayerTo(tx: number, ty: number, facing: 1 | -1): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const startTime = performance.now();
+      const maxDuration = 400;
+
+      // Set click target so the normal movement system drives the walk
+      this.clickTarget = { x: tx, y: ty };
+
+      const check = () => {
+        const elapsed = performance.now() - startTime;
+        const dx = this.localPlayer.x - tx;
+        const dy = this.localPlayer.y - ty;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 6 || elapsed > maxDuration) {
+          // Snap to position and face
+          this.localPlayer.x = tx;
+          this.localPlayer.y = ty;
+          this.localPlayer.facing = facing;
+          this.clickTarget = null;
+          this.isMoving = false;
+          this.localPlayer.currentAction = 'idle';
+          this.broadcastState();
+          resolve();
+          return;
+        }
+        requestAnimationFrame(check);
+      };
+      requestAnimationFrame(check);
+    });
   }
 
   // =========================================================================
