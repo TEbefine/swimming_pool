@@ -11,6 +11,9 @@ import type {
 } from './types';
 import { sound } from './audio';
 import { NetworkManager } from './network';
+import { rooms } from './rooms';
+import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
+import { MoversManager } from './world/movers';
 
 interface RemotePlayer {
   data: PlayerData;
@@ -29,7 +32,16 @@ export class GameEngine {
   private sprites: Map<string, HTMLImageElement> = new Map();
   private elementImages: Map<string, HTMLImageElement> = new Map();
   private npcSprites: Map<string, HTMLImageElement> = new Map();
+  private moverSprites: Map<string, HTMLImageElement> = new Map();
+  private cityImage: HTMLImageElement | null = null;
   public isAssetsLoaded: boolean = false;
+
+  // Outside world & movers
+  private movers: MoversManager = new MoversManager();
+  private skyCanvas: HTMLCanvasElement = document.createElement('canvas');
+  private cityCanvas: HTMLCanvasElement = document.createElement('canvas');
+  private lastSkyRebuildMinute: number = -1;
+  private lastCityRoomId: string = '';
 
   // Local Player
   public localPlayer: PlayerData;
@@ -71,6 +83,17 @@ export class GameEngine {
   private mergedSeats: { x: number; y: number; facing: 1 | -1 }[] = [];
   private elementInteractions: { id: string; label: string; x: number; y: number; radius: number }[] = [];
 
+  // NPC talk spots: per-NPC interaction zones
+  private npcTalkSpots: Map<string, { dx: number; dy: number; radius: number }> = new Map();
+
+  // NPC blink timers: next blink time per NPC
+  private npcBlinkTimers: Map<string, { nextBlink: number; blinkEnd: number }> = new Map();
+
+  // Dialog state: movement freeze + NPC pose override
+  private dialogFrozen: boolean = false;
+  private dialogNpcId: string | null = null;
+  private npcPoseOverride: Map<string, { pose: string; until: number }> = new Map();
+
   // Debug overlay (F3)
   private showDebug: boolean = false;
 
@@ -78,6 +101,14 @@ export class GameEngine {
   private animId: number = 0;
   private lastTime: number = 0;
   private running: boolean = false;
+
+  // Fade transition state
+  private fadeAlpha: number = 0;
+  private fadeDirection: 'in' | 'out' | 'none' = 'none';
+  private fadeCallback: (() => void) | null = null;
+
+  // Room change callback
+  public onRoomChanged?: (room: RoomDefinition) => void;
 
   // Callbacks to UI
   public onChatMessageReceived?: (msg: ChatMessage) => void;
@@ -101,10 +132,12 @@ export class GameEngine {
       facing: 1,
       floatColor: initialFloat,
       currentAction: 'idle',
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      roomId: room.roomId
     };
 
     this.buildMergedData();
+    this.buildNpcTalkSpots();
     this.network = new NetworkManager(this.localPlayer.id);
     this.setupNetworkHandlers();
     this.setupInputListeners();
@@ -149,6 +182,22 @@ export class GameEngine {
     }
   }
 
+  /** Build NPC talk spots from config. */
+  private buildNpcTalkSpots() {
+    // Default talk spots per NPC id
+    const defaultSpots: Record<string, { dx: number; dy: number; radius: number }> = {
+      barista: { dx: 0, dy: 40, radius: 55 },
+    };
+    if (this.room.npcs) {
+      for (const npc of this.room.npcs) {
+        const spot = defaultSpots[npc.id];
+        if (spot) {
+          this.npcTalkSpots.set(npc.id, spot);
+        }
+      }
+    }
+  }
+
   // =========================================================================
   // NETWORK
   // =========================================================================
@@ -157,6 +206,8 @@ export class GameEngine {
     this.network.on('player_state', (_, raw) => {
       const data = raw as PlayerData;
       if (data.id === this.localPlayer.id) return;
+      // Default roomId for old clients
+      if (!data.roomId) data.roomId = 'poolside';
 
       const existing = this.remotePlayers.get(data.id);
       if (existing) {
@@ -169,6 +220,7 @@ export class GameEngine {
         existing.data.name = data.name;
         existing.data.lastMessage = data.lastMessage;
         existing.data.messageTime = data.messageTime;
+        existing.data.roomId = data.roomId;
         existing.lastUpdate = Date.now();
       } else {
         this.remotePlayers.set(data.id, {
@@ -177,17 +229,22 @@ export class GameEngine {
           targetY: data.y,
           lastUpdate: Date.now()
         });
-        if (this.onPlayerCountChange) {
-          this.onPlayerCountChange(this.remotePlayers.size + 1);
-        }
+      }
+      // Always re-emit count (per current room)
+      if (this.onPlayerCountChange) {
+        this.onPlayerCountChange(this.getLocalRoomPlayerCount());
       }
     });
 
     this.network.on('chat_message', (_, raw) => {
       const msg = raw as ChatMessage;
-      sound.playChatChime();
-      if (this.onChatMessageReceived) {
-        this.onChatMessageReceived(msg);
+      if (!msg.roomId) msg.roomId = 'poolside';
+      // Only play chime and show if same room
+      if (msg.roomId === this.room.roomId) {
+        sound.playChatChime();
+        if (this.onChatMessageReceived) {
+          this.onChatMessageReceived(msg);
+        }
       }
     });
 
@@ -195,8 +252,110 @@ export class GameEngine {
       const { id } = raw as { id: string };
       this.remotePlayers.delete(id);
       if (this.onPlayerCountChange) {
-        this.onPlayerCountChange(this.remotePlayers.size + 1);
+        this.onPlayerCountChange(this.getLocalRoomPlayerCount());
       }
+    });
+  }
+
+  /** Count remote players in the current room + self. */
+  private getLocalRoomPlayerCount(): number {
+    let count = 1; // local player
+    for (const r of this.remotePlayers.values()) {
+      if ((r.data.roomId || 'poolside') === this.room.roomId) count++;
+    }
+    return count;
+  }
+
+  /** Get player counts per room (active in last 10s). */
+  public getPlayerCountByRoom(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    // Count self
+    const myRoom = this.room.roomId;
+    counts[myRoom] = (counts[myRoom] || 0) + 1;
+    const now = Date.now();
+    for (const r of this.remotePlayers.values()) {
+      if (now - r.lastUpdate > 10000) continue;
+      const rid = r.data.roomId || 'poolside';
+      counts[rid] = (counts[rid] || 0) + 1;
+    }
+    return counts;
+  }
+
+  /** Get the current room definition. */
+  public getRoom(): RoomDefinition {
+    return this.room;
+  }
+
+  /**
+   * Runtime room change: fade to black (300ms), clear seated/dialog/emote state,
+   * force land state, load the new room's background, elements and sprite set (actorScale),
+   * place player at spawnPoint, fade in, broadcast state.
+   */
+  public async changeRoom(roomId: string): Promise<boolean> {
+    if (this.fadeDirection !== 'none') return false;
+    if (this.room.roomId === roomId) return false;
+    const targetRoom = rooms[roomId];
+    if (!targetRoom) return false;
+
+    return new Promise<boolean>((resolve) => {
+      this.fadeDirection = 'out';
+      this.fadeCallback = async () => {
+        try {
+          // Clear seated, dialog, and emote state
+          this.seatedIndex = -1;
+          this.setDialogFrozen(false);
+          if (this.emoteTimeout) {
+            clearTimeout(this.emoteTimeout);
+            this.emoteTimeout = null;
+          }
+
+          // Force land state
+          this.localPlayer.state = 'land';
+          this.localPlayer.currentAction = 'idle';
+          this.clickTarget = null;
+          this.isMoving = false;
+
+          // Switch room & scale
+          this.room = targetRoom;
+          this.actorScale = targetRoom.actorScale ?? 1;
+          this.localPlayer.roomId = targetRoom.roomId;
+          this.localPlayer.x = targetRoom.spawnPoint.x;
+          this.localPlayer.y = targetRoom.spawnPoint.y;
+          this.localPlayer.facing = 1;
+
+          // Clear dynamic elements & rebuild layout
+          this.elementImages.clear();
+          this.npcSprites.clear();
+          this.buildMergedData();
+          this.buildNpcTalkSpots();
+          this.npcBlinkTimers.clear();
+          this.npcPoseOverride.clear();
+          this.movers.reset();
+          this.lastSkyRebuildMinute = -1;
+
+          // Reload assets for new room
+          await this.loadAssets();
+
+          // Notify UI
+          if (this.onRoomChanged) {
+            this.onRoomChanged(targetRoom);
+          }
+          if (this.onPlayerCountChange) {
+            this.onPlayerCountChange(this.getLocalRoomPlayerCount());
+          }
+
+          // Broadcast state to peers
+          this.broadcastState();
+
+          // Fade back in
+          this.fadeDirection = 'in';
+          resolve(true);
+        } catch (e) {
+          console.error('Failed to change room:', e);
+          this.fadeDirection = 'in';
+          resolve(false);
+        }
+      };
     });
   }
 
@@ -277,6 +436,35 @@ export class GameEngine {
             // Fallback: try as single image with .webp extension
             loadImg(`npc_${npc.id}_idle`, `${npc.sprite}.webp`, this.npcSprites);
           }
+        }
+      }
+    }
+
+    // 6. Outside city view & movers (if room has view)
+    if (this.room.view) {
+      if (!this.cityImage) {
+        imgPromises.push(new Promise((resolve) => {
+          const img = new Image();
+          img.src = CITY.image;
+          img.onload = () => { this.cityImage = img; resolve(); };
+          img.onerror = () => resolve();
+        }));
+      }
+
+      const moverFiles = [
+        '/sprites/world/train_day.webp',
+        '/sprites/world/train_night.webp',
+        '/sprites/world/bird_up.webp',
+        '/sprites/world/bird_down.webp',
+        '/sprites/world/birds_flock.webp',
+        '/sprites/world/plane.webp',
+        '/sprites/world/cloud_1.webp',
+        '/sprites/world/cloud_2.webp',
+        '/sprites/world/cloud_3.webp',
+      ];
+      for (const path of moverFiles) {
+        if (!this.moverSprites.has(path)) {
+          loadImg(path, path, this.moverSprites);
         }
       }
     }
@@ -421,13 +609,25 @@ export class GameEngine {
       }
     }
 
-    // Priority 3: NPC within 50px → talk
+    // Priority 3: NPC talk spot (radius-based) → talk
     if (this.room.npcs) {
       for (const npc of this.room.npcs) {
-        const dx = px - npc.x;
-        const dy = py - npc.y;
-        if (Math.sqrt(dx * dx + dy * dy) <= 50) {
-          return { id: 'talk', label: 'Talk' };
+        const spot = this.npcTalkSpots.get(npc.id);
+        if (spot) {
+          const spotX = npc.x + spot.dx;
+          const spotY = npc.y + spot.dy;
+          const dx = px - spotX;
+          const dy = py - spotY;
+          if (Math.sqrt(dx * dx + dy * dy) <= spot.radius) {
+            return { id: 'talk', label: 'Talk' };
+          }
+        } else {
+          // Fallback: 50px from NPC position
+          const dx = px - npc.x;
+          const dy = py - npc.y;
+          if (Math.sqrt(dx * dx + dy * dy) <= 50) {
+            return { id: 'talk', label: 'Talk' };
+          }
         }
       }
     }
@@ -511,7 +711,7 @@ export class GameEngine {
         this.standUp();
         break;
       case 'talk': {
-        const npc = this.findNearestNpc(50);
+        const npc = this.findNearestTalkSpotNpc();
         if (npc && this.onInteract) {
           this.onInteract(npc.id, 'talk');
         }
@@ -597,17 +797,30 @@ export class GameEngine {
     this.isRunning = value;
   }
 
-  private findNearestNpc(maxDist: number) {
+
+  /** Find the nearest NPC whose talkSpot the local player is inside. */
+  private findNearestTalkSpotNpc() {
     if (!this.room.npcs) return null;
     const px = this.localPlayer.x;
     const py = this.localPlayer.y;
     let best: { id: string; name: string; x: number; y: number } | null = null;
-    let bestDist = maxDist;
+    let bestDist = Infinity;
     for (const npc of this.room.npcs) {
-      const dx = px - npc.x;
-      const dy = py - npc.y;
+      const spot = this.npcTalkSpots.get(npc.id);
+      let cx: number, cy: number, radius: number;
+      if (spot) {
+        cx = npc.x + spot.dx;
+        cy = npc.y + spot.dy;
+        radius = spot.radius;
+      } else {
+        cx = npc.x;
+        cy = npc.y;
+        radius = 50;
+      }
+      const dx = px - cx;
+      const dy = py - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= bestDist) {
+      if (dist <= radius && dist < bestDist) {
         bestDist = dist;
         best = npc;
       }
@@ -726,7 +939,8 @@ export class GameEngine {
       senderName: this.localPlayer.name,
       text: trimmed,
       timestamp: Date.now(),
-      floatColor: this.localPlayer.floatColor
+      floatColor: this.localPlayer.floatColor,
+      roomId: this.room.roomId
     };
 
     this.localPlayer.lastMessage = trimmed;
@@ -789,15 +1003,94 @@ export class GameEngine {
   };
 
   private update(dt: number) {
+    this.updateFade(dt);
     this.updateLocalPlayer(dt);
     this.updateRemotePlayers(dt);
     this.updateParticles();
     this.updateContextAction();
+
+    if (this.room.view) {
+      const hour = bangkokHour();
+      const sky = skyAt(hour);
+      this.movers.update(dt, sky.night, this.moverSprites);
+    }
+  }
+
+  private updateSkyAndCityCache(hour: number) {
+    const currentMinute = Math.floor(hour * 60);
+    const roomChanged = this.lastCityRoomId !== this.room.roomId;
+
+    if (currentMinute === this.lastSkyRebuildMinute && !roomChanged) {
+      return;
+    }
+
+    this.lastSkyRebuildMinute = currentMinute;
+    this.lastCityRoomId = this.room.roomId;
+
+    const sky = skyAt(hour);
+
+    // 1. Sky Canvas (full canvas: 1024x576)
+    if (this.skyCanvas.width !== this.canvas.width || this.skyCanvas.height !== this.canvas.height) {
+      this.skyCanvas.width = this.canvas.width;
+      this.skyCanvas.height = this.canvas.height;
+    }
+    const skyCtx = this.skyCanvas.getContext('2d')!;
+    const grad = skyCtx.createLinearGradient(0, 0, 0, this.skyCanvas.height);
+    grad.addColorStop(0, `rgb(${Math.round(sky.top[0])}, ${Math.round(sky.top[1])}, ${Math.round(sky.top[2])})`);
+    grad.addColorStop(1, `rgb(${Math.round(sky.bottom[0])}, ${Math.round(sky.bottom[1])}, ${Math.round(sky.bottom[2])})`);
+    skyCtx.fillStyle = grad;
+    skyCtx.fillRect(0, 0, this.skyCanvas.width, this.skyCanvas.height);
+
+    // 2. City Canvas (1086x362)
+    if (this.cityCanvas.width !== CITY.width || this.cityCanvas.height !== CITY.height) {
+      this.cityCanvas.width = CITY.width;
+      this.cityCanvas.height = CITY.height;
+    }
+    if (this.cityImage) {
+      const cityCtx = this.cityCanvas.getContext('2d')!;
+      cityCtx.clearRect(0, 0, CITY.width, CITY.height);
+      cityCtx.drawImage(this.cityImage, 0, 0);
+
+      // Multiply with skyAt().cityTint
+      cityCtx.save();
+      cityCtx.globalCompositeOperation = 'multiply';
+      const tintR = Math.round(sky.cityTint[0] * 255);
+      const tintG = Math.round(sky.cityTint[1] * 255);
+      const tintB = Math.round(sky.cityTint[2] * 255);
+      cityCtx.fillStyle = `rgb(${tintR}, ${tintG}, ${tintB})`;
+      cityCtx.fillRect(0, 0, CITY.width, CITY.height);
+
+      // Mask with original city image alpha
+      cityCtx.globalCompositeOperation = 'destination-in';
+      cityCtx.drawImage(this.cityImage, 0, 0);
+      cityCtx.restore();
+    }
+  }
+
+  private updateFade(dt: number) {
+    if (this.fadeDirection === 'out') {
+      this.fadeAlpha += dt / 0.3; // 300ms fade to black
+      if (this.fadeAlpha >= 1) {
+        this.fadeAlpha = 1;
+        this.fadeDirection = 'none';
+        if (this.fadeCallback) {
+          const cb = this.fadeCallback;
+          this.fadeCallback = null;
+          cb();
+        }
+      }
+    } else if (this.fadeDirection === 'in') {
+      this.fadeAlpha -= dt / 0.3; // 300ms fade from black
+      if (this.fadeAlpha <= 0) {
+        this.fadeAlpha = 0;
+        this.fadeDirection = 'none';
+      }
+    }
   }
 
   private updateLocalPlayer(dt: number) {
-    // If seated, don't process movement
-    if (this.seatedIndex >= 0) return;
+    // If seated, dialog frozen, or fading out, don't process movement
+    if (this.seatedIndex >= 0 || this.dialogFrozen || this.fadeDirection === 'out') return;
 
     let dx = 0;
     let dy = 0;
@@ -987,7 +1280,7 @@ export class GameEngine {
       if (now - remote.lastUpdate > 20000) {
         this.remotePlayers.delete(id);
         if (this.onPlayerCountChange) {
-          this.onPlayerCountChange(this.remotePlayers.size + 1);
+          this.onPlayerCountChange(this.getLocalRoomPlayerCount());
         }
         continue;
       }
@@ -1089,12 +1382,38 @@ export class GameEngine {
     this.ctx.imageSmoothingEnabled = false; // Keep pixel art crisp
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // 1. Background
-    if (this.bgImage) {
-      this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
+    const hasView = !!this.room.view;
+    const hour = bangkokHour();
+    const sky = skyAt(hour);
+
+    if (hasView) {
+      this.updateSkyAndCityCache(hour);
+
+      // L0. Sky gradient (full canvas)
+      this.ctx.drawImage(this.skyCanvas, 0, 0);
+
+      // L0.5. Far movers (clouds, birds, plane)
+      this.movers.render(this.ctx, 'far', this.moverSprites, sky.night);
+
+      // L0.7. City panorama at (cityOffsetX, CITY.y), multiplied by skyAt().cityTint
+      const offsetX = this.room.view!.cityOffsetX;
+      this.ctx.drawImage(this.cityCanvas, offsetX, CITY.y);
+
+      // L0.8. Near movers (train)
+      this.movers.render(this.ctx, 'near', this.moverSprites, sky.night);
+
+      // L1. Room background (transparent windows)
+      if (this.bgImage) {
+        this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
+      }
     } else {
-      this.ctx.fillStyle = '#4079d0';
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      // 1. Background (poolside / standard)
+      if (this.bgImage) {
+        this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
+      } else {
+        this.ctx.fillStyle = '#4079d0';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      }
     }
 
     // 2. Click destination marker
@@ -1142,17 +1461,19 @@ export class GameEngine {
           y: npc.y,
           draw: () => {
             this.renderNpcSprite(capturedNpc, time);
-            // Defer NPC nametag as overlay
-            overlayFns.push(() => this.renderNpcOverlay(capturedNpc));
+            // Defer NPC nametag + prompt bubble as overlay
+            overlayFns.push(() => this.renderNpcOverlay(capturedNpc, time));
           }
         });
       }
     }
 
-    // 6c. All players (local + remote)
+    // 6c. All players (local + remote in same room)
     const allPlayers: PlayerData[] = [this.localPlayer];
     for (const r of this.remotePlayers.values()) {
-      allPlayers.push(r.data);
+      if ((r.data.roomId || 'poolside') === this.room.roomId) {
+        allPlayers.push(r.data);
+      }
     }
     for (const player of allPlayers) {
       const sprite = this.getPlayerSprite(player);
@@ -1185,6 +1506,33 @@ export class GameEngine {
       d.draw();
     }
 
+    // L4. Night: if night > 0, multiply canvas with rgba(20,24,60, 0.45*night),
+    // then add ROOM_LIGHTS as soft radial glows ('lighter', alpha 0.35*night)
+    if (hasView && sky.night > 0) {
+      this.ctx.save();
+      this.ctx.globalCompositeOperation = 'multiply';
+      this.ctx.fillStyle = `rgba(20, 24, 60, ${0.45 * sky.night})`;
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      this.ctx.restore();
+
+      const lights = ROOM_LIGHTS[this.room.roomId];
+      if (lights && lights.length > 0) {
+        this.ctx.save();
+        this.ctx.globalCompositeOperation = 'lighter';
+        for (const light of lights) {
+          const grad = this.ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.radius);
+          const [r, g, b] = light.color;
+          grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.35 * sky.night})`);
+          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+          this.ctx.fillStyle = grad;
+          this.ctx.beginPath();
+          this.ctx.arc(light.x, light.y, light.radius, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+        this.ctx.restore();
+      }
+    }
+
     // 7. Overlays (name tags, speech bubbles) — always on top
     for (const fn of overlayFns) {
       fn();
@@ -1193,6 +1541,14 @@ export class GameEngine {
     // 8. Debug overlay (F3)
     if (this.showDebug) {
       this.renderDebugOverlay();
+    }
+
+    // 9. Fade to/from black overlay
+    if (this.fadeAlpha > 0) {
+      this.ctx.save();
+      this.ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(1, Math.max(0, this.fadeAlpha))})`;
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      this.ctx.restore();
     }
   }
 
@@ -1237,13 +1593,38 @@ export class GameEngine {
     return this.sprites.get(spriteKey) || this.sprites.get('land_idle');
   }
 
-  /** Pick a pose for an NPC based on time (simple animation cycle). */
+  /** Pick a pose for an NPC based on time. Respects pose overrides and uses
+   *  a natural idle/blink pattern (blink for 150ms every ~4s). */
   private getNpcAction(npcId: string, time: number): string {
-    // Only animate if multiple frames are loaded
+    // Check for pose override first (dialog sequence, post-dialog wai, etc.)
+    const override = this.npcPoseOverride.get(npcId);
+    if (override) {
+      if (time < override.until) {
+        return override.pose;
+      }
+      this.npcPoseOverride.delete(npcId);
+    }
+
+    // Blink animation: 150ms blink every ~4s
     if (!this.npcSprites.has(`npc_${npcId}_blink`)) return 'idle';
-    const cycle = ['idle', 'idle', 'blink', 'idle', 'pour', 'idle', 'serve', 'wai'];
-    const idx = Math.floor(time / 3500) % cycle.length;
-    return cycle[idx];
+
+    let timer = this.npcBlinkTimers.get(npcId);
+    if (!timer) {
+      timer = { nextBlink: time + 3000 + Math.random() * 2000, blinkEnd: 0 };
+      this.npcBlinkTimers.set(npcId, timer);
+    }
+
+    if (time >= timer.blinkEnd && time >= timer.nextBlink) {
+      // Start a blink
+      timer.blinkEnd = time + 150;
+      timer.nextBlink = time + 3500 + Math.random() * 2000;
+    }
+
+    if (time < timer.blinkEnd) {
+      return 'blink';
+    }
+
+    return 'idle';
   }
 
   // =========================================================================
@@ -1287,9 +1668,10 @@ export class GameEngine {
     this.ctx.restore();
   }
 
-  /** Deferred: NPC name tag (drawn above all depth-sorted items). */
+  /** Deferred: NPC name tag + prompt bubble (drawn above all depth-sorted items). */
   private renderNpcOverlay(
-    npc: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 }
+    npc: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 },
+    time: number
   ) {
     const sprite = this.npcSprites.get(`npc_${npc.id}_idle`);
     const h = sprite?.height ?? 82;
@@ -1306,6 +1688,20 @@ export class GameEngine {
       timestamp: 0
     };
     this.renderNameTag(tagData, npc.x, npc.y - h - 6);
+
+    // Prompt bubble: show "◯" above NPC when player is in talkSpot and no dialog open
+    if (!this.dialogFrozen) {
+      const spot = this.npcTalkSpots.get(npc.id);
+      if (spot) {
+        const spotX = npc.x + spot.dx;
+        const spotY = npc.y + spot.dy;
+        const dx = this.localPlayer.x - spotX;
+        const dy = this.localPlayer.y - spotY;
+        if (Math.sqrt(dx * dx + dy * dy) <= spot.radius) {
+          this.renderPromptBubble(npc.x, npc.y - h - 24, time);
+        }
+      }
+    }
   }
 
   /** Draw a player's sprite (shadow, character, jump). */
@@ -1386,7 +1782,7 @@ export class GameEngine {
     const isMe = player.id === this.localPlayer.id;
     const nameText = isMe ? `${player.name} (You)` : player.name;
 
-    this.ctx.font = '8px "Silkscreen", monospace';
+    this.ctx.font = '8px "Nuan Pixel", monospace';
     const textWidth = this.ctx.measureText(nameText).width;
     const paddingX = 6;
     const boxW = textWidth + paddingX * 2;
@@ -1417,7 +1813,7 @@ export class GameEngine {
     this.ctx.save();
     this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-    this.ctx.font = '10px "Press Start 2P", monospace';
+    this.ctx.font = '16px "Nuan Pixel", monospace';
     const maxLineWidth = 180;
     const words = text.split(' ');
     const lines: string[] = [];
@@ -1440,7 +1836,7 @@ export class GameEngine {
       maxMeasured = Math.max(maxMeasured, this.ctx.measureText(l).width);
     }
 
-    const lineHeight = 14;
+    const lineHeight = 22; // Nuan Pixel 16px + room for Thai tone marks
     const padX = 10;
     const padY = 8;
     const bw = maxMeasured + padX * 2;
@@ -1487,6 +1883,107 @@ export class GameEngine {
     this.ctx.restore();
   }
 
+  /** Draw a small pixel speech-bubble with ◯ above an NPC's head, gentle 2px bob. */
+  private renderPromptBubble(x: number, y: number, time: number) {
+    this.ctx.save();
+    const bob = Math.sin(time * 0.004) * 2;
+    const bx = Math.floor(x - 12);
+    const by = Math.floor(y - 18 + bob);
+    const bw = 24;
+    const bh = 16;
+
+    // Bubble bg
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(bx, by, bw, bh);
+    this.ctx.strokeStyle = '#4A2E1A';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(bx, by, bw, bh);
+
+    // Small tail
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.beginPath();
+    this.ctx.moveTo(x - 3, by + bh);
+    this.ctx.lineTo(x, by + bh + 4);
+    this.ctx.lineTo(x + 3, by + bh);
+    this.ctx.fill();
+    this.ctx.strokeStyle = '#4A2E1A';
+    this.ctx.beginPath();
+    this.ctx.moveTo(x - 3, by + bh);
+    this.ctx.lineTo(x, by + bh + 4);
+    this.ctx.lineTo(x + 3, by + bh);
+    this.ctx.stroke();
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(x - 2, by + bh - 1, 4, 2);
+
+    // ◯ symbol
+    this.ctx.fillStyle = '#4A2E1A';
+    this.ctx.font = '10px monospace';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText('◯', x, by + bh / 2);
+    this.ctx.restore();
+  }
+
+  // =========================================================================
+  // DIALOG / NPC POSE PUBLIC API
+  // =========================================================================
+
+  /** Freeze local movement (called when dialog opens). */
+  public setDialogFrozen(frozen: boolean, npcId?: string) {
+    this.dialogFrozen = frozen;
+    this.dialogNpcId = frozen && npcId ? npcId : null;
+
+    if (frozen) {
+      // Stop any current movement
+      this.clickTarget = null;
+      this.isMoving = false;
+      // Face toward the NPC
+      if (npcId && this.room.npcs) {
+        const npc = this.room.npcs.find(n => n.id === npcId);
+        if (npc) {
+          this.localPlayer.facing = npc.x > this.localPlayer.x ? 1 : -1;
+        }
+      }
+      this.localPlayer.currentAction = 'talk';
+      this.broadcastState();
+    } else {
+      this.localPlayer.currentAction = 'idle';
+      this.broadcastState();
+    }
+  }
+
+  /** Set a temporary pose override for an NPC (used during dialog). */
+  public setNpcPose(npcId: string, pose: string, durationMs: number = 0) {
+    const until = durationMs > 0 ? performance.now() + durationMs : Infinity;
+    this.npcPoseOverride.set(npcId, { pose, until });
+  }
+
+  /** Clear NPC pose override (e.g. when dialog ends). */
+  public clearNpcPose(npcId: string) {
+    this.npcPoseOverride.delete(npcId);
+  }
+
+  /** Make the NPC face toward the local player. */
+  public faceNpcTowardPlayer(npcId: string) {
+    if (!this.room.npcs) return;
+    const npc = this.room.npcs.find(n => n.id === npcId);
+    if (npc) {
+      // We can't directly mutate facing on the room def, but we can use the
+      // mutable reference since the room object is long-lived.
+      (npc as { facing: 1 | -1 }).facing = this.localPlayer.x > npc.x ? 1 : -1;
+    }
+  }
+
+  /** Get the current dialog NPC id (or null). */
+  public getDialogNpcId(): string | null {
+    return this.dialogNpcId;
+  }
+
+  /** Whether dialog is currently open (movement frozen). */
+  public isDialogOpen(): boolean {
+    return this.dialogFrozen;
+  }
+
   // =========================================================================
   // F3 DEBUG OVERLAY
   // =========================================================================
@@ -1508,6 +2005,26 @@ export class GameEngine {
       this.ctx.beginPath();
       this.ctx.arc(seat.x, seat.y, 4, 0, Math.PI * 2);
       this.ctx.fill();
+    }
+
+    // NPC talk spots — magenta circles
+    this.ctx.strokeStyle = '#ff00ff';
+    this.ctx.lineWidth = 1.5;
+    if (this.room.npcs) {
+      for (const npc of this.room.npcs) {
+        const spot = this.npcTalkSpots.get(npc.id);
+        if (spot) {
+          const cx = npc.x + spot.dx;
+          const cy = npc.y + spot.dy;
+          this.ctx.beginPath();
+          this.ctx.arc(cx, cy, spot.radius, 0, Math.PI * 2);
+          this.ctx.stroke();
+          this.ctx.fillStyle = '#ff00ff';
+          this.ctx.font = '8px monospace';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText('Talk', cx, cy - spot.radius - 4);
+        }
+      }
     }
 
     // Interaction radii — blue circles

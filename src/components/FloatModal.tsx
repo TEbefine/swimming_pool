@@ -35,7 +35,7 @@ export const FloatModal: React.FC<FloatModalProps> = ({
         <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-700">
           <div className="flex items-center gap-2">
             <span className="text-base">🛟</span>
-            <span className="text-xs font-bold text-white tracking-wider" style={{ fontFamily: 'var(--font-pixel)' }}>
+            <span className="text-[16px] font-bold text-white tracking-wider" style={{ fontFamily: 'var(--font-pixel)' }}>
               Swim Ring Color
             </span>
           </div>
@@ -44,7 +44,7 @@ export const FloatModal: React.FC<FloatModalProps> = ({
           </button>
         </div>
 
-        <p className="text-[11px] text-slate-300 mb-4">
+        <p className="text-[16px] text-slate-300 mb-4">
           Choose your favorite swim tube color to wear automatically whenever you enter the pool:
         </p>
 
@@ -71,7 +71,7 @@ export const FloatModal: React.FC<FloatModalProps> = ({
                 >
                   {isSelected && <Check size={12} className="text-white drop-shadow" />}
                 </div>
-                <span className="text-xs text-slate-200 font-semibold">{opt.name}</span>
+                <span className="text-[16px] text-slate-200 font-semibold">{opt.name}</span>
               </button>
             );
           })}
@@ -79,7 +79,7 @@ export const FloatModal: React.FC<FloatModalProps> = ({
 
         {/* Footer */}
         <div className="flex justify-end">
-          <button onClick={onClose} className="pixel-btn pixel-btn-primary text-xs">
+          <button onClick={onClose} className="pixel-btn pixel-btn-primary text-[16px]">
             Done
           </button>
         </div>

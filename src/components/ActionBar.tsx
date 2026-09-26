@@ -39,7 +39,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
     <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 p-1.5 pixel-panel shadow-2xl pointer-events-auto max-w-[95vw] overflow-x-auto">
       <button
         onClick={onToggleState}
-        className="pixel-btn text-[10px] font-bold text-sky-300 hover:text-white px-2.5 py-1.5 uppercase tracking-wider flex items-center gap-1 bg-sky-950/70 hover:bg-sky-900 border border-sky-600/60 rounded transition-all cursor-pointer"
+        className="pixel-btn text-[16px] font-bold text-sky-300 hover:text-white px-2.5 py-1.5 uppercase tracking-wider flex items-center gap-1 bg-sky-950/70 hover:bg-sky-900 border border-sky-600/60 rounded transition-all cursor-pointer"
         title={isWater ? 'Click to step onto poolside deck' : 'Click to jump into the swimming pool'}
       >
         {isWater ? '🏊 In Water' : '🏖️ On Land'}
@@ -50,7 +50,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           <button
             key={item.id}
             onClick={() => onTriggerEmote(item.id)}
-            className={`pixel-btn text-[11px] px-2.5 py-1.5 flex items-center gap-1.5 ${
+            className={`pixel-btn text-[16px] px-2.5 py-1.5 flex items-center gap-1.5 ${
               isActive ? 'pixel-btn-accent' : ''
             }`}
             title={`${item.label} ${item.hotkey ? `[${item.hotkey}]` : ''}`}

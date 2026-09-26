@@ -52,14 +52,14 @@ export const ChatBar: React.FC<ChatBarProps> = ({ onSendMessage }) => {
       {/* Quick Phrase Popover */}
       {showQuickPhrases && (
         <div className="mb-2 p-2 pixel-panel flex flex-wrap gap-1.5 shadow-2xl animate-fade-in">
-          <div className="w-full text-[9px] text-sky-300 font-bold uppercase tracking-wider mb-1">
+          <div className="w-full text-[16px] text-sky-300 font-bold uppercase tracking-wider mb-1">
             Quick Shouts:
           </div>
           {quickPhrases.map((phrase, idx) => (
             <button
               key={idx}
               onClick={() => handleSelectQuick(phrase)}
-              className="pixel-btn text-[10px] py-1 px-2"
+              className="pixel-btn text-[16px] py-1 px-2"
             >
               {phrase}
             </button>
@@ -85,7 +85,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ onSendMessage }) => {
           onChange={(e) => setText(e.target.value)}
           placeholder="Type message & press Enter... (Say hi!)"
           maxLength={90}
-          className="flex-1 bg-slate-900/90 text-white placeholder-slate-500 text-xs px-3 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
+          className="flex-1 bg-slate-900/90 text-white placeholder-slate-500 text-[16px] px-3 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
         />
 
         <button
@@ -95,7 +95,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ onSendMessage }) => {
           title="Send Message"
         >
           <Send size={13} />
-          <span className="hidden sm:inline text-xs">Send</span>
+          <span className="hidden sm:inline text-[16px]">Send</span>
         </button>
       </form>
     </div>

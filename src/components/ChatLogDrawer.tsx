@@ -42,7 +42,7 @@ export const ChatLogDrawer: React.FC<ChatLogDrawerProps> = ({
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700">
         <div className="flex items-center gap-2">
           <MessageSquare size={14} className="text-sky-400" />
-          <span className="text-xs font-bold text-white tracking-wider" style={{ fontFamily: 'var(--font-pixel)' }}>
+          <span className="text-[16px] font-bold text-white tracking-wider" style={{ fontFamily: 'var(--font-pixel)' }}>
             Chat Log
           </span>
         </div>
@@ -54,7 +54,7 @@ export const ChatLogDrawer: React.FC<ChatLogDrawerProps> = ({
       {/* Message List */}
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
         {messages.length === 0 ? (
-          <div className="text-center text-[11px] text-slate-500 py-10">
+          <div className="text-center text-[16px] text-slate-500 py-10">
             No messages yet.<br />Say hello in the pool! 👋
           </div>
         ) : (
@@ -69,7 +69,7 @@ export const ChatLogDrawer: React.FC<ChatLogDrawerProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`p-2 rounded border text-xs ${
+                className={`p-2 rounded border text-[16px] ${
                   isMe
                     ? 'bg-sky-950/40 border-sky-800/60 ml-3'
                     : 'bg-slate-900/60 border-slate-800 mr-3'
@@ -85,9 +85,9 @@ export const ChatLogDrawer: React.FC<ChatLogDrawerProps> = ({
                       {msg.senderName}
                     </span>
                   </div>
-                  <span className="text-[9px] text-slate-500">{timeStr}</span>
+                  <span className="text-[16px] text-slate-500">{timeStr}</span>
                 </div>
-                <div className="text-slate-100 font-mono text-[11px] break-words">
+                <div className="text-slate-100 font-mono text-[16px] break-words">
                   {msg.text}
                 </div>
               </div>

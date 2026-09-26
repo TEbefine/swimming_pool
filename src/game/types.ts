@@ -52,8 +52,8 @@ export interface ElementDef {
   layer: 'wall' | 'floor' | 'object';
   /** Blocking footprint (w × h) centred on x, bottom edge on y */
   collider?: { w: number; h: number };
-  /** Where a character sits, relative to (x, y) */
-  seat?: { dx: number; dy: number; facing: 1 | -1 };
+  /** Where a character sits, relative to (x, y). pose 'lie' uses the lie action (e.g. a bed). */
+  seat?: { dx: number; dy: number; facing: 1 | -1; pose?: 'sit' | 'lie' };
   /** Walk within `radius` px of (x + dx, y + dy) to get this action */
   interact?: { id: string; label: string; dx: number; dy: number; radius: number };
 }
@@ -70,6 +70,8 @@ export interface ContextAction {
   id: ContextActionId;
   label: string;
 }
+
+export type RoomSchedule = 'always' | 'weekdays' | 'weekends';
 
 export interface RoomDefinition {
   roomId: string;
@@ -93,6 +95,16 @@ export interface RoomDefinition {
     triggerBox: [number, number, number, number];
     targetRoom: string;
   }[];
+  /** Path to 320×180 thumbnail for the scene selector. */
+  thumbnail: string;
+  /** Single emoji shown as room icon in UI. */
+  icon: string;
+  /** When this room is open. */
+  schedule: RoomSchedule;
+  /** Outside city view seen through transparent windows. */
+  view?: {
+    cityOffsetX: number;
+  };
 }
 
 export interface PlayerData {
@@ -108,6 +120,8 @@ export interface PlayerData {
   messageTime?: number;
   isTyping?: boolean;
   timestamp: number;
+  /** Which room the player is in. Old clients omit this (defaults to 'poolside'). */
+  roomId?: string;
 }
 
 export interface ChatMessage {
@@ -117,6 +131,8 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   floatColor?: FloatColor;
+  /** Which room this message was sent in. Old clients omit this (defaults to 'poolside'). */
+  roomId?: string;
 }
 
 export interface Particle {

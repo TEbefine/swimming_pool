@@ -1,15 +1,21 @@
 import type { RoomDefinition } from '../types';
 import { cafeElements, CAFE_ACTOR_SCALE, BARISTA_SPOT } from './cafeLayout';
+import { CITY_OFFSET_X } from '../world/cityView';
 
 // Weekday café — data-driven layout from cafeLayout.ts.
 // Obstacles, seats and interaction points are derived from element definitions.
 export const cafeRoom: RoomDefinition = {
   roomId: 'cafe',
   name: 'Weekday Chill Café',
-  backgroundImage: '/maps/cafe_empty.webp',
+  backgroundImage: '/maps/cafe_room.webp',
+  thumbnail: '/maps/thumbs/cafe.webp',
+  icon: '☕',
+  // Open always for testing / user request (was 'weekdays')
+  schedule: 'always',
   width: 1024,
   height: 576,
   outfit: 'casual',
+  view: { cityOffsetX: CITY_OFFSET_X.cafe },
 
   bounds: { minX: 30, maxX: 994, minY: 275, maxY: 566 },
   spawnPoint: { x: 960, y: 300 },

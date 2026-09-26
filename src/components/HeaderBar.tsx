@@ -56,10 +56,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-base">🏊</span>
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-white tracking-wider" style={{ fontFamily: 'var(--font-pixel)' }}>
+              <span className="text-[16px] font-bold text-white tracking-wider" style={{ fontFamily: 'var(--font-pixel)' }}>
                 {roomName}
               </span>
-              <div className="flex items-center gap-2 text-[10px] text-slate-400">
+              <div className="flex items-center gap-2 text-[16px] text-slate-400">
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span>{playerCount} {playerCount === 1 ? 'player' : 'players'} online</span>
               </div>
@@ -74,7 +74,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           title="Change Name"
         >
           <User size={13} className="text-sky-400" />
-          <span className="text-xs text-sky-200 font-semibold">{playerName}</span>
+          <span className="text-[16px] text-sky-200 font-semibold">{playerName}</span>
         </button>
       </div>
 
@@ -91,7 +91,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             className="w-3.5 h-3.5 rounded-full border border-white/60 shadow-sm"
             style={{ backgroundColor: floatColorMap[floatColor] }}
           />
-          <span className="hidden sm:inline text-[11px] capitalize">{floatColor}</span>
+          <span className="hidden sm:inline text-[16px] capitalize">{floatColor}</span>
         </button>
 
         {/* Audio Mute Toggle */}
@@ -120,7 +120,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             title="Toggle Game Boy Mode"
           >
             <Gamepad2 size={14} className="text-amber-300" />
-            <span className="hidden lg:inline text-[11px]">Game Boy</span>
+            <span className="hidden lg:inline text-[16px]">Game Boy</span>
           </button>
         )}
 

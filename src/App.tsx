@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { GameEngine } from './game/Engine';
-import type { PlayerState, FloatColor, ChatMessage } from './game/types';
+import type { PlayerState, FloatColor, ChatMessage, ContextActionId, RoomDefinition } from './game/types';
 import { getRoomForToday } from './game/rooms';
 import { HeaderBar } from './components/HeaderBar';
 import { ActionBar } from './components/ActionBar';
@@ -10,13 +10,21 @@ import { GameBoyMobile } from './components/GameBoyMobile';
 import { FloatModal } from './components/FloatModal';
 import { NameModal } from './components/NameModal';
 import { HelpModal } from './components/HelpModal';
+import { DialogBox } from './components/DialogBox';
+import { SceneBox } from './components/SceneBox';
+import { dialogues } from './game/content/dialogues';
+import type { DialogLine } from './game/content/dialogues';
 import { Waves } from 'lucide-react';
 
-const currentRoom = getRoomForToday();
+/** Context-action IDs that should route through engine.interact(). */
+const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(['talk', 'sit', 'stand', 'read']);
 
 export const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
+
+  // Room state stored in React state (runtime room travel)
+  const [currentRoom, setCurrentRoom] = useState<RoomDefinition>(() => getRoomForToday());
 
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -30,6 +38,8 @@ export const App: React.FC = () => {
   });
 
   const [playerCount, setPlayerCount] = useState(1);
+  const [playerCountByRoom, setPlayerCountByRoom] = useState<Record<string, number>>({});
+  const [localPlayerId, setLocalPlayerId] = useState<string>('');
   const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
   const [chatLogOpen, setChatLogOpen] = useState(false);
 
@@ -47,6 +57,159 @@ export const App: React.FC = () => {
   const [nameModalOpen, setNameModalOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
 
+  // =========================================================================
+  // SCENE BOX STATE
+  // =========================================================================
+  const [sceneBoxOpen, setSceneBoxOpen] = useState(false);
+  const [sceneBoxDpadNudge, setSceneBoxDpadNudge] = useState<{ dx: number; dy: number; timestamp: number } | null>(null);
+  const [sceneBoxConfirmTrigger, setSceneBoxConfirmTrigger] = useState<number>(0);
+
+  // =========================================================================
+  // DIALOG STATE
+  // =========================================================================
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogNpcId, setDialogNpcId] = useState<string | null>(null);
+  const [dialogLines, setDialogLines] = useState<DialogLine[]>([]);
+  const [dialogNpcName, setDialogNpcName] = useState('');
+  const advanceDialogRef = useRef<(() => void) | null>(null);
+
+  /** Open a dialog with the given NPC. */
+  const openDialog = useCallback((npcId: string) => {
+    const script = dialogues[npcId];
+    if (!script) return;
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    setDialogNpcId(npcId);
+    setDialogNpcName(script.name);
+    setDialogLines(script.lines);
+    setDialogOpen(true);
+
+    // Freeze movement + set NPC facing toward player
+    engine.setDialogFrozen(true, npcId);
+    engine.faceNpcTowardPlayer(npcId);
+  }, []);
+
+  /** Close the current dialog and play post-dialog wai. */
+  const closeDialog = useCallback(() => {
+    const engine = engineRef.current;
+    const npcId = dialogNpcId;
+
+    setDialogOpen(false);
+    setDialogNpcId(null);
+    setDialogLines([]);
+    setDialogNpcName('');
+
+    if (engine) {
+      engine.setDialogFrozen(false);
+      if (npcId) {
+        // Play 'wai' for 1.5s then return to idle
+        engine.setNpcPose(npcId, 'wai', 1500);
+      }
+    }
+  }, [dialogNpcId]);
+
+  /** Handle line changes during dialog to update NPC pose. */
+  const handleDialogLineChange = useCallback((_lineIndex: number, pose?: string) => {
+    const engine = engineRef.current;
+    if (!engine || !dialogNpcId) return;
+    if (pose) {
+      engine.setNpcPose(dialogNpcId, pose);
+    }
+  }, [dialogNpcId]);
+
+  // =========================================================================
+  // TRAVEL / ROOM CHANGE
+  // =========================================================================
+  const handleTravel = useCallback(async (roomId: string) => {
+    setSceneBoxOpen(false);
+    const engine = engineRef.current;
+    if (!engine) return;
+    await engine.changeRoom(roomId);
+  }, []);
+
+  // =========================================================================
+  // ◯ BUTTON / E KEY / O KEY — unified interact handler
+  // =========================================================================
+  const handleCircleAction = useCallback(() => {
+    // If SceneBox is open → confirm travel on currently selected slot
+    if (sceneBoxOpen) {
+      setSceneBoxConfirmTrigger(Date.now());
+      return;
+    }
+
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    // If dialog is open → advance it
+    if (dialogOpen) {
+      advanceDialogRef.current?.();
+      return;
+    }
+
+    // Check context action
+    const ctx = engine.getContextAction();
+    if (INTERACT_ACTIONS.has(ctx.id)) {
+      engine.interact();
+    } else {
+      // Fallback: toggleWaterLand
+      engine.toggleWaterLand();
+    }
+  }, [sceneBoxOpen, dialogOpen]);
+
+  // =========================================================================
+  // ✕ BUTTON — jump / splash, cancel SceneBox, or advances dialog
+  // =========================================================================
+  const handleCrossAction = useCallback(() => {
+    // If SceneBox is open → close it
+    if (sceneBoxOpen) {
+      setSceneBoxOpen(false);
+      return;
+    }
+
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    // If dialog is open → advance it
+    if (dialogOpen) {
+      advanceDialogRef.current?.();
+      return;
+    }
+
+    if (engine.localPlayer.state === 'water') {
+      engine.triggerEmote('happy');
+    } else {
+      engine.triggerEmote('jump');
+    }
+  }, [sceneBoxOpen, dialogOpen]);
+
+  // =========================================================================
+  // KEYBOARD: Tab for SceneBox, E and O for ◯
+  // =========================================================================
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        setSceneBoxOpen((prev) => !prev);
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      if (key === 'e' || key === 'o') {
+        e.preventDefault();
+        handleCircleAction();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleCircleAction]);
+
+  // =========================================================================
+  // ENGINE SETUP
+  // =========================================================================
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -55,7 +218,7 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const setCanvasRef = useCallback((node: HTMLCanvasElement | null) => {
+  const setCanvasRefCb = useCallback((node: HTMLCanvasElement | null) => {
     canvasRef.current = node;
     if (node && engineRef.current && node !== engineRef.current.getCanvas()) {
       engineRef.current.setCanvas(node);
@@ -78,6 +241,7 @@ export const App: React.FC = () => {
 
     const engine = new GameEngine(canvasRef.current, currentRoom, playerName, floatColor);
     engineRef.current = engine;
+    setLocalPlayerId(engine.localPlayer.id);
     engine.setTouchMoveEnabled(!effectiveIsMobile);
     engine.setCameraFollow(effectiveIsMobile);
 
@@ -87,6 +251,19 @@ export const App: React.FC = () => {
 
     engine.onPlayerCountChange = (count) => {
       setPlayerCount(count);
+      setPlayerCountByRoom(engine.getPlayerCountByRoom());
+    };
+
+    engine.onRoomChanged = (newRoom) => {
+      setCurrentRoom(newRoom);
+      setPlayerCountByRoom(engine.getPlayerCountByRoom());
+    };
+
+    // onInteract: open dialog when NPC talk is triggered
+    engine.onInteract = (targetId: string, actionId?: ContextActionId) => {
+      if (actionId === 'talk' && dialogues[targetId]) {
+        openDialog(targetId);
+      }
     };
 
     const init = async () => {
@@ -98,6 +275,7 @@ export const App: React.FC = () => {
         if (cancelled) return;
         setLoading(false);
         engine.start();
+        setPlayerCountByRoom(engine.getPlayerCountByRoom());
       }, 300);
     };
 
@@ -108,6 +286,7 @@ export const App: React.FC = () => {
       if (engineRef.current) {
         setPlayerState(engineRef.current.localPlayer.state);
         setCurrentAction(engineRef.current.localPlayer.currentAction);
+        setPlayerCountByRoom(engineRef.current.getPlayerCountByRoom());
       }
     }, 66);
 
@@ -139,6 +318,46 @@ export const App: React.FC = () => {
     engineRef.current?.triggerEmote(action);
   };
 
+  // Chat log only shows messages for current room
+  const visibleChatLog = useMemo(() => {
+    return chatLog.filter((m) => (m.roomId || 'poolside') === currentRoom.roomId);
+  }, [chatLog, currentRoom.roomId]);
+
+  // =========================================================================
+  // OVERLAY ELEMENTS (DialogBox & SceneBox)
+  // =========================================================================
+  const dialogBoxElement = dialogOpen ? (
+    <DialogBox
+      npcName={dialogNpcName}
+      lines={dialogLines}
+      onLineChange={handleDialogLineChange}
+      onClose={closeDialog}
+    />
+  ) : null;
+
+  const sceneBoxElement = sceneBoxOpen ? (
+    <SceneBox
+      isOpen={sceneBoxOpen}
+      currentRoomId={currentRoom.roomId}
+      playerCountByRoom={playerCountByRoom}
+      onTravel={handleTravel}
+      onClose={() => setSceneBoxOpen(false)}
+      directionNudge={sceneBoxDpadNudge}
+      confirmTrigger={sceneBoxConfirmTrigger}
+    />
+  ) : null;
+
+  // Advance dialog with simulated keyboard event
+  useEffect(() => {
+    if (dialogOpen) {
+      advanceDialogRef.current = () => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true }));
+      };
+    } else {
+      advanceDialogRef.current = null;
+    }
+  }, [dialogOpen]);
+
   return (
     <div className="relative w-screen h-screen bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
       {/* Loading Overlay */}
@@ -147,7 +366,7 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-3 mb-6 animate-bounce">
             <Waves className="w-9 h-9 text-sky-400" />
             <span
-              className="text-lg md:text-xl font-bold tracking-wider text-sky-300"
+              className="text-[24px] md:text-xl font-bold tracking-wider text-sky-300"
               style={{ fontFamily: 'var(--font-pixel)' }}
             >
               {currentRoom.name}
@@ -159,7 +378,7 @@ export const App: React.FC = () => {
               style={{ width: `${loadProgress}%` }}
             />
           </div>
-          <p className="text-xs text-slate-400 font-mono tracking-widest animate-pulse">
+          <p className="text-[16px] text-slate-400 font-mono tracking-widest animate-pulse">
             LOADING SPRITES & RESORT MAP...
           </p>
         </div>
@@ -168,27 +387,36 @@ export const App: React.FC = () => {
       {/* RENDER VIEW: Game Boy Handheld on Mobile vs Desktop Arcade Cabinet */}
       {effectiveIsMobile ? (
         <GameBoyMobile
-          canvasRef={setCanvasRef}
+          canvasRef={setCanvasRefCb}
           playerState={playerState}
           currentAction={currentAction}
           playerName={playerName}
           floatColor={floatColor}
           playerCount={playerCount}
-          chatLog={chatLog}
-          onDirectionChange={(dx, dy) => engineRef.current?.setVirtualDpad(dx, dy)}
-          onToggleState={() => engineRef.current?.toggleWaterLand()}
-          onActionA={() => {
-            if (playerState === 'water') {
-              engineRef.current?.triggerEmote('happy');
-            } else {
-              engineRef.current?.triggerEmote('jump');
+          chatLog={visibleChatLog}
+          onDirectionChange={(dx, dy) => {
+            if (sceneBoxOpen) {
+              if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
+                setSceneBoxDpadNudge({ dx, dy, timestamp: Date.now() });
+              }
+            } else if (!dialogOpen) {
+              engineRef.current?.setVirtualDpad(dx, dy);
             }
           }}
+          onToggleState={handleCircleAction}
+          onActionA={handleCrossAction}
           onTriggerEmote={handleTriggerEmote}
           onSendMessage={handleSendMessage}
           onOpenFloatPicker={() => setFloatModalOpen(true)}
           onOpenNameModal={() => setNameModalOpen(true)}
           onOpenHelpModal={() => setHelpModalOpen(true)}
+          onToggleSceneBox={() => setSceneBoxOpen((prev) => !prev)}
+          screenOverlay={
+            <>
+              {dialogBoxElement}
+              {sceneBoxElement}
+            </>
+          }
         />
       ) : (
         /* Main Game Screen with Retro Arcade Border */
@@ -211,7 +439,7 @@ export const App: React.FC = () => {
 
             {/* Canvas Viewport */}
             <canvas
-              ref={setCanvasRef}
+              ref={setCanvasRefCb}
               width={1024}
               height={576}
               className="w-full h-full object-contain cursor-crosshair"
@@ -219,6 +447,20 @@ export const App: React.FC = () => {
                 imageRendering: 'pixelated'
               }}
             />
+
+            {/* Desktop dialog overlay (above canvas, below scanlines) */}
+            {dialogBoxElement && (
+              <div className="absolute inset-0 z-[5]">
+                {dialogBoxElement}
+              </div>
+            )}
+
+            {/* Desktop SceneBox overlay */}
+            {sceneBoxElement && (
+              <div className="absolute inset-0 z-[6]">
+                {sceneBoxElement}
+              </div>
+            )}
 
             {/* Action & Emotes Bar */}
             <ActionBar
@@ -235,8 +477,8 @@ export const App: React.FC = () => {
             <ChatLogDrawer
               isOpen={chatLogOpen}
               onClose={() => setChatLogOpen(false)}
-              messages={chatLog}
-              currentUserId={engineRef.current?.localPlayer.id || ''}
+              messages={visibleChatLog}
+              currentUserId={localPlayerId}
             />
 
             {/* CRT scanline effect subtle overlay */}

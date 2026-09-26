@@ -32,7 +32,7 @@ export const NameModal: React.FC<NameModalProps> = ({
         <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-700">
           <div className="flex items-center gap-2">
             <User size={15} className="text-sky-400" />
-            <span className="text-xs font-bold text-white tracking-wider" style={{ fontFamily: 'var(--font-pixel)' }}>
+            <span className="text-[16px] font-bold text-white tracking-wider" style={{ fontFamily: 'var(--font-pixel)' }}>
               Set Your Name
             </span>
           </div>
@@ -43,7 +43,7 @@ export const NameModal: React.FC<NameModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[11px] text-slate-300 mb-1.5 font-semibold">
+            <label className="block text-[16px] text-slate-300 mb-1.5 font-semibold">
               Nickname / Sailor Name:
             </label>
             <input
@@ -52,15 +52,15 @@ export const NameModal: React.FC<NameModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               maxLength={18}
               autoFocus
-              className="w-full bg-slate-900 text-white text-xs px-3 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
+              className="w-full bg-slate-900 text-white text-[16px] px-3 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
             />
           </div>
 
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="pixel-btn text-xs">
+            <button type="button" onClick={onClose} className="pixel-btn text-[16px]">
               Cancel
             </button>
-            <button type="submit" className="pixel-btn pixel-btn-primary text-xs">
+            <button type="submit" className="pixel-btn pixel-btn-primary text-[16px]">
               Save
             </button>
           </div>

@@ -19,6 +19,8 @@ interface GameBoyMobileProps {
   onOpenFloatPicker: () => void;
   onOpenNameModal: () => void;
   onOpenHelpModal: () => void;
+  screenOverlay?: React.ReactNode;
+  onToggleSceneBox?: () => void;
 }
 
 export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
@@ -36,7 +38,9 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   onSendMessage,
   onOpenFloatPicker,
   onOpenNameModal,
-  onOpenHelpModal
+  onOpenHelpModal,
+  screenOverlay,
+  onToggleSceneBox
 }) => {
   const [muted, setMuted] = useState(sound.isMuted());
   const [activeDir, setActiveDir] = useState<{ up: boolean; down: boolean; left: boolean; right: boolean }>({
@@ -161,18 +165,21 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     onTriggerEmote('wave');
   };
 
-  // Top: △ (Triangle) -> Emotes Menu
+  // Top: △ (Triangle) -> Chat Modal (was Emotes Menu)
   const handlePressTriangle = () => {
-    triggerHaptic(15);
-    setShowEmoteMenu((prev) => !prev);
-    setShowChatModal(false);
-  };
-
-  // SELECT button (Chat)
-  const handlePressSelect = () => {
     triggerHaptic(15);
     setShowChatModal((prev) => !prev);
     setShowEmoteMenu(false);
+  };
+
+  // SELECT button -> SceneBox (was Chat)
+  const handlePressSelect = () => {
+    triggerHaptic(15);
+    setShowChatModal(false);
+    setShowEmoteMenu(false);
+    if (onToggleSceneBox) {
+      onToggleSceneBox();
+    }
   };
 
   // START / PAUSE button (Emotes menu)
@@ -255,7 +262,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={handleToggleMute}
-            className="text-[9px] hover:text-black transition-colors cursor-pointer"
+            className="text-[16px] hover:text-black transition-colors cursor-pointer"
             title="Toggle Sound"
           >
             {muted ? <VolumeX size={12} className="text-rose-600 inline" /> : <Volume2 size={12} className="text-emerald-700 inline" />}
@@ -336,6 +343,13 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 }}
               />
 
+              {/* Screen overlay slot (dialog box, etc.) */}
+              {screenOverlay && (
+                <div className="absolute inset-0 z-[5]">
+                  {screenOverlay}
+                </div>
+              )}
+
               {/* CRT Scanline & Subtle LCD Grid Overlay */}
               <div
                 className="pointer-events-none absolute inset-0 z-10 opacity-10"
@@ -361,7 +375,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
               {/* Chat bubble preview if recent message */}
               {chatLog.length > 0 && Date.now() - chatLog[chatLog.length - 1].timestamp < 6000 && (
-                <div className="absolute bottom-7 left-2 right-2 z-20 pointer-events-none bg-slate-900/95 border border-sky-500/60 rounded p-1.5 text-[9px] text-sky-200 animate-fade-in truncate flex items-center gap-1 shadow-lg">
+                <div className="absolute bottom-7 left-2 right-2 z-20 pointer-events-none bg-slate-900/95 border border-sky-500/60 rounded p-1.5 text-[16px] text-sky-200 animate-fade-in truncate flex items-center gap-1 shadow-lg">
                   <span className="font-bold text-amber-400">[{chatLog[chatLog.length - 1].senderName}]:</span>
                   <span className="text-white truncate">{chatLog[chatLog.length - 1].text}</span>
                 </div>
@@ -394,14 +408,14 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       >
         {/* Game Boy Classic Blue Branding */}
         <div className="flex items-baseline gap-1 pl-6 pt-0 shrink-0 translate-x-[44px]">
-          <span className="text-[#152377] font-sans font-bold text-[10px] tracking-tight">Nintendo</span>
+          <span className="text-[#152377] font-sans font-bold text-[16px] tracking-tight">Nintendo</span>
           <span
-            className="text-[#152377] font-sans font-black italic text-[12px] tracking-wider"
+            className="text-[#152377] font-sans font-black italic text-[16px] tracking-wider"
             style={{ transform: 'skewX(-6deg)' }}
           >
             GAME BOY
           </span>
-          <span className="text-[#152377] text-[6px] font-sans font-bold align-top">TM</span>
+          <span className="text-[#152377] text-[8px] font-sans font-bold align-top">TM</span>
         </div>
 
         {/* Controls Row: Compact, Spacious Thumb Targets (108px sockets) */}
@@ -601,7 +615,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                   touchAction: 'none'
                 }}
               />
-              <span className="text-[6px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
+              <span className="text-[8px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
                 SELECT
               </span>
             </div>
@@ -621,7 +635,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                   touchAction: 'none'
                 }}
               />
-              <span className="text-[6px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
+              <span className="text-[8px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
                 START
               </span>
             </div>
@@ -653,7 +667,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
         <div className="absolute inset-0 z-50 bg-black/75 flex flex-col justify-end p-4 animate-fade-in backdrop-blur-xs">
           <div className="bg-[#1e293b] border-2 border-amber-400 rounded-lg p-3 text-white shadow-2xl">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700">
-              <span className="text-xs font-bold text-amber-300 font-pixel uppercase">
+              <span className="text-[16px] font-bold text-amber-300 font-pixel uppercase">
                 {isWater ? '🏊 Water Emotes' : '🏖️ Land Emotes'}
               </span>
               <button
@@ -673,11 +687,11 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     onTriggerEmote(item.id);
                     setShowEmoteMenu(false);
                   }}
-                  className={`pixel-btn text-[11px] py-2 px-2.5 flex items-center justify-start gap-2 ${
+                  className={`pixel-btn text-[16px] py-2 px-2.5 flex items-center justify-start gap-2 ${
                     currentAction === item.id ? 'pixel-btn-accent' : ''
                   }`}
                 >
-                  <span className="text-sm">{item.emoji}</span>
+                  <span className="text-[16px]">{item.emoji}</span>
                   <span className="font-semibold truncate">{item.label}</span>
                 </button>
               ))}
@@ -689,7 +703,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 onToggleState();
                 setShowEmoteMenu(false);
               }}
-              className="w-full pixel-btn pixel-btn-primary py-2 text-xs font-bold justify-center"
+              className="w-full pixel-btn pixel-btn-primary py-2 text-[16px] font-bold justify-center"
             >
               {isWater ? '🏖️ Step Out to Land (◯)' : '🏊 Dive into Pool (◯)'}
             </button>
@@ -702,13 +716,13 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
         <div className="absolute inset-0 z-50 bg-black/75 flex flex-col justify-end p-4 animate-fade-in backdrop-blur-xs">
           <div className="bg-[#1e293b] border-2 border-sky-400 rounded-lg p-3 text-white shadow-2xl">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700">
-              <span className="text-xs font-bold text-sky-300 font-pixel uppercase">
+              <span className="text-[16px] font-bold text-sky-300 font-pixel uppercase">
                 💬 Poolside Chat
               </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowChatHistory(!showChatHistory)}
-                  className={`text-[10px] px-2 py-0.5 rounded border border-slate-600 ${
+                  className={`text-[16px] px-2 py-0.5 rounded border border-slate-600 ${
                     showChatHistory ? 'bg-sky-600 text-white' : 'text-slate-300'
                   }`}
                 >
@@ -725,7 +739,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
             {/* Chat History Drawer */}
             {showChatHistory && (
-              <div className="h-32 overflow-y-auto mb-2 p-2 bg-slate-900 rounded border border-slate-800 text-[10px] space-y-1.5">
+              <div className="h-32 overflow-y-auto mb-2 p-2 bg-slate-900 rounded border border-slate-800 text-[16px] space-y-1.5">
                 {chatLog.length === 0 ? (
                   <div className="text-slate-500 italic">No messages yet. Say hi!</div>
                 ) : (
@@ -740,7 +754,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             )}
 
             {/* Quick Shouts */}
-            <div className="text-[9px] text-amber-300 font-bold uppercase tracking-wider mb-1.5">
+            <div className="text-[16px] text-amber-300 font-bold uppercase tracking-wider mb-1.5">
               Quick Shouts:
             </div>
             <div className="flex flex-wrap gap-1.5 mb-3">
@@ -748,7 +762,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 <button
                   key={idx}
                   onClick={() => handleSendQuickPhrase(phrase)}
-                  className="pixel-btn text-[10px] py-1 px-2"
+                  className="pixel-btn text-[16px] py-1 px-2"
                 >
                   {phrase}
                 </button>
@@ -763,7 +777,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 onChange={(e) => setChatText(e.target.value)}
                 placeholder="Type message..."
                 maxLength={80}
-                className="flex-1 bg-slate-900 text-white text-xs px-2.5 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
+                className="flex-1 bg-slate-900 text-white text-[16px] px-2.5 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
               />
               <button
                 type="submit"
