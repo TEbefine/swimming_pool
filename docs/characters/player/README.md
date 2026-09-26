@@ -45,6 +45,51 @@ Side walk: `walk1` and `walk2` from the first sheet are almost the same pose, so
 Names for the manifest: `walk_down1, walk_down2, walk_up1, walk_up2, idle_blink, side_idle_blink, yawn, stretch, look_back, wai, clap, peace, run1, run2, sleepy, laugh`.
 The code already picks up rows 1–2 and yawn/stretch/look_back. Wai, clap, peace, run and laugh need an emote button or a small code hook.
 
+## Outfits per room (2026-09-26)
+| Room | Outfit | Folder |
+|---|---|---|
+| Pool (weekend) | swimsuit (base art) | `public/sprites/land/` |
+| Café (weekday) | cozy café: sage-green oversized shirt, charcoal long pants, white sneakers, no cap (black hair) | `public/sprites/outfits/cafe/` |
+| My Room | light-blue striped pajamas, barefoot, no cap | `public/sprites/outfits/pajamas/` |
+
+- Each room sets `outfit` in `src/game/rooms/*.ts`. The Engine loads `outfits/<outfit>/manifest.json`. If the folder is missing, he wears the swimsuit. Everyone in the same room wears the same outfit, so no network change is needed.
+- **Right now these are placeholders.** `scripts/make_placeholder_outfits.py` recolors the swimsuit sprites (torso → shirt, trunks + legs → pants, feet → shoes, swim cap → black hair).
+- **To use real art:** make a sheet in ChatGPT with the prompt below and save it as `src/assets/outfit_cafe_sheet.png` or `outfit_pajamas_sheet.png`. Then run
+  `.venv/bin/python scripts/process_outfit.py src/assets/outfit_cafe_sheet.png cafe`
+  (or `... outfit_pajamas_sheet.png pajamas`). It replaces the placeholder at the same size.
+- **Watch out:** `scripts/process_assets.py` rewrites `character_manifest.json` from scratch. After running it, run `scripts/make_walk_frames.py` again.
+
+### ChatGPT prompt — café outfit (attach `src/assets/spritesheet.png`)
+```
+Pixel-art sprite sheet, 4x4 grid, 16 equal cells, transparent background.
+Same character as the attached sheet: same chibi boy, big head, same face, same
+size, same thick dark outline, flat colors + one highlight, feet on the same
+baseline in every cell. NO swim cap: show his short, soft, slightly messy black hair.
+Only the clothes change — cozy Bangkok café outfit: oversized soft sage-green
+shirt with sleeves rolled to the elbow over a cream tee, charcoal relaxed long
+pants, white canvas sneakers.
+Row 1: front idle, side idle facing right, back idle, side walk facing right (left foot forward).
+Row 2: side walk facing right (right foot forward), waving one hand, talking with one
+hand open, happy with both arms up.
+Row 3: thinking with hand on chin, sitting on the floor facing right with knees up,
+lying on the belly with lower legs bent up, jumping with one arm up.
+Row 4: front walk left foot forward, front walk right foot forward, back walk left
+foot forward, back walk right foot forward.
+No text, no shadows, no background.
+```
+
+### ChatGPT prompt — pajamas (My Room)
+Same prompt, but replace the outfit line with:
+```
+Only the clothes change — cozy home pajamas: light-blue long-sleeve pajama shirt
+and long pants with thin white stripes, barefoot.
+```
+
+## Size (2026-09-26)
+Café and My Room draw characters at **2×** the pool size (`CAFE_ACTOR_SCALE` / `HOME_ACTOR_SCALE` = 2), with 96×160 standing frames.
+2× is close to the original sheet's own resolution, so the art stays sharp. Bigger than that would stretch it.
+To change the size: set the scale in both layout files, then run `scripts/process_land_scaled.py <scale>`, `scripts/make_walk_frames.py`, `scripts/make_placeholder_outfits.py <scale>` and `scripts/process_npc.py src/assets/npc_barista_sheet.png barista <scale>`.
+Seats now use their `pose` (the bed = lie down), and a seated player is drawn in front of the furniture (the beanbag no longer hides him).
+
 ## Open questions for Teera
-- **Outfit:** he wears swim trunks in the café and in My Room. Keep that as the game's signature, or add a land outfit (for example a tee + shorts, keeping the cap) that switches per room?
 - **Crispness:** `process_assets.py` downscales with LANCZOS, which makes soft edges and halos. A hard-alpha + palette-quantize pass makes the sprites sharper (comparison image in the chat, 2026-09-26). Apply it to all sprites?

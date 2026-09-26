@@ -42,6 +42,11 @@ const HEAD_ANCHOR = new Set([
   'walk_down1', 'walk_down2', 'walk_down_pass', 'walk_up1', 'walk_up2', 'walk_up_pass',
 ]);
 
+/** Sprite folder for a room's actor scale: 2 → 'land_2_0x' (made by scripts/process_land_scaled.py). */
+function landFolder(scale: number): string {
+  return `land_${scale.toFixed(1).replace('.', '_')}x`;
+}
+
 /** Optional idle fidgets, used automatically once their sprites are in the manifest. */
 const FIDGET_EXTRAS = ['yawn', 'stretch', 'look_back'];
 
@@ -143,7 +148,8 @@ export class GameEngine {
   // Room element derived data
   private actorScale: number;
   private mergedObstacles: Rect[] = [];
-  private mergedSeats: { x: number; y: number; facing: 1 | -1 }[] = [];
+  /** Seat spots. sortY = just in front of the furniture, so a seated player is drawn on top of it. */
+  private mergedSeats: { x: number; y: number; facing: 1 | -1; pose: 'sit' | 'lie'; sortY: number }[] = [];
   private elementInteractions: { id: string; label: string; x: number; y: number; radius: number }[] = [];
 
   // NPC talk spots: per-NPC interaction zones
@@ -212,7 +218,8 @@ export class GameEngine {
 
   private buildMergedData() {
     this.mergedObstacles = [...this.room.obstacles];
-    this.mergedSeats = this.room.seats ? [...this.room.seats] : [];
+    // Plain room seats (no furniture): sort by their own spot
+    this.mergedSeats = (this.room.seats ?? []).map((st) => ({ ...st, pose: 'sit' as const, sortY: st.y }));
     this.elementInteractions = [];
 
     if (this.room.elements) {
@@ -229,7 +236,9 @@ export class GameEngine {
           this.mergedSeats.push({
             x: el.x + el.seat.dx,
             y: el.y + el.seat.dy,
-            facing: el.seat.facing
+            facing: el.seat.facing,
+            pose: el.seat.pose ?? 'sit',
+            sortY: el.y + 1
           });
         }
         if (el.interact) {
@@ -463,12 +472,31 @@ export class GameEngine {
       }
     }
 
-    // 3. 1.5× land sprites (for rooms with actorScale > 1)
+    // 3. Bigger land sprites for close-up rooms (actorScale 2 → /sprites/land_2_0x/)
     if (this.actorScale > 1) {
-      const res15x = await fetch('/sprites/land_1_5x/manifest.json');
-      const manifest15x = await res15x.json() as Record<string, { path: string }>;
-      for (const [action, info] of Object.entries(manifest15x)) {
-        loadImg(`land_1_5x_${action}`, info.path, this.sprites);
+      const folder = landFolder(this.actorScale);
+      if (!this.sprites.has(`${folder}_idle`)) {
+        const resScaled = await fetch(`/sprites/${folder}/manifest.json`);
+        const manifestScaled = await resScaled.json() as Record<string, { path: string }>;
+        for (const [action, info] of Object.entries(manifestScaled)) {
+          loadImg(`${folder}_${action}`, info.path, this.sprites);
+        }
+      }
+    }
+
+    // 3b. Room outfit (café clothes, pajamas…). Missing folder → keeps the swimsuit.
+    const outfit = this.room.outfit;
+    if (outfit && outfit !== 'swim' && !this.sprites.has(`outfit_${outfit}_idle`)) {
+      try {
+        const res = await fetch(`/sprites/outfits/${outfit}/manifest.json`);
+        if (res.ok) {
+          const m = await res.json() as Record<string, { path: string }>;
+          for (const [action, info] of Object.entries(m)) {
+            loadImg(`outfit_${outfit}_${action}`, info.path, this.sprites);
+          }
+        }
+      } catch {
+        // No outfit art yet (dev server answers with index.html) — swimsuit it is
       }
     }
 
@@ -851,7 +879,7 @@ export class GameEngine {
       this.localPlayer.x = seat.x;
       this.localPlayer.y = seat.y;
       this.localPlayer.facing = seat.facing;
-      this.localPlayer.currentAction = 'sit';
+      this.localPlayer.currentAction = seat.pose; // bed = lie down, cushions/beanbag = sit
       this.clickTarget = null;
       this.broadcastState();
     }
@@ -1356,6 +1384,14 @@ export class GameEngine {
     }
   }
 
+  /** Sprite-key prefix for land poses in this room: the room's outfit if its art is
+   *  loaded, otherwise the swimsuit (land_2_0x in close-up rooms). */
+  private landPrefix(): string {
+    const o = this.room.outfit;
+    if (o && o !== 'swim' && this.sprites.has(`outfit_${o}_idle`)) return `outfit_${o}_`;
+    return this.actorScale > 1 ? `${landFolder(this.actorScale)}_` : 'land_';
+  }
+
   /** Standing pose that matches the last walking direction. */
   private idlePose(): string {
     if (this.moveDir === 'up') return 'back_idle';
@@ -1409,7 +1445,7 @@ export class GameEngine {
       back(() => { this.localPlayer.facing = original; }, 900);
     } else {
       // Think for a moment — or yawn / stretch / look back once that art exists
-      const prefix = this.actorScale > 1 ? 'land_1_5x_' : 'land_';
+      const prefix = this.landPrefix();
       const pool = ['thinking', ...FIDGET_EXTRAS.filter((a) => this.sprites.has(prefix + a))];
       const fidget = pool[Math.floor(Math.random() * pool.length)];
       const pose = this.idlePose();
@@ -1436,6 +1472,20 @@ export class GameEngine {
         maxLife: 16,
       });
     }
+  }
+
+  /** Depth-sort y for a player: someone sitting/lying on furniture is drawn just in front
+   *  of it (their feet are higher up than the furniture's base). Works for remote players
+   *  too, because a seated player's position is exactly the seat spot. */
+  private sortYFor(player: PlayerData): number {
+    if (player.currentAction === 'sit' || player.currentAction === 'lie') {
+      for (const seat of this.mergedSeats) {
+        if (Math.abs(seat.x - player.x) < 2 && Math.abs(seat.y - player.y) < 2) {
+          return Math.max(player.y, seat.sortY);
+        }
+      }
+    }
+    return player.y;
   }
 
   /** How long (ms) this player has been in their current pose. Tracked by watching
@@ -1776,7 +1826,7 @@ export class GameEngine {
       const capturedH = h;
       const capturedAir = air;
       drawFns.push({
-        y: player.y,
+        y: this.sortYFor(player),
         draw: () => {
           this.renderPlayerSprite(capturedPlayer, capturedDrawY, capturedSprite, capturedX, capturedAir);
           // Defer nametag + bubble as overlays
@@ -1860,7 +1910,7 @@ export class GameEngine {
     }
 
     const action = player.currentAction || 'idle';
-    const prefix = this.actorScale > 1 ? 'land_1_5x_' : 'land_';
+    const prefix = this.landPrefix();
 
     // Blink for ~140ms every ~4s while standing (only once idle_blink / side_idle_blink art exists).
     // Offset by player id so a crowd doesn't blink in sync.

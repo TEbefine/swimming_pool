@@ -7,7 +7,7 @@ Lessons learned while building the pool, café and My Room. Follow these and new
 |---|---|
 | Sprite sheets | 4×4 grid, one pose per cell, same size in every cell, feet on the same baseline, transparent background |
 | Pose order | idle, side_idle, back_idle, walk1 / walk2, wave, talk, happy / thinking, (special), (special), (special) / (special ×4) |
-| Size in game | 1× rooms (pool): 48×82 px frames. 1.5× rooms (café, My Room): 72×121 px frames |
+| Size in game | 1× rooms (pool): 48×82 px frames. 2× rooms (café, My Room): 96×160 px frames |
 | Style | big head, thick dark outline, flat colors + one highlight (see the player sheet) |
 | Dialogue portraits | REAL PHOTO style (Midjourney): half-body, plain white/beige backdrop, 5 faces: neutral, smile, thinking, idea, wai. Cut with `scripts/process_portraits.py` → 760×1000 transparent, aligned by head. The world stays pixel art; the photo appears only in conversations |
 | Identity image | realistic photo-style reference (Midjourney) — the "real person" every pixel version is drawn from |

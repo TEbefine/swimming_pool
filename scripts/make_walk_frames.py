@@ -5,8 +5,8 @@ other foot stays planted, so walking up/down steps instead of floating.
 
     python scripts/make_walk_frames.py
 
-Writes walk_down1/2 + walk_up1/2 into public/sprites/land and land_1_5x and
-adds them to both manifests. Re-run after replacing idle/back_idle art.
+Writes walk_down1/2 + walk_up1/2 into public/sprites/land and every land_<scale>x
+folder and adds them to their manifests. Re-run after replacing idle/back_idle art.
 Delete the generated files once hand-drawn walk frames replace them.
 """
 import json
@@ -44,7 +44,9 @@ def lift_leg(im: Image.Image, side: str) -> Image.Image:
 
 
 def main() -> None:
-    for folder, url in (("land", "/sprites/land"), ("land_1_5x", "/sprites/land_1_5x")):
+    folders = ["land"] + sorted(p.name for p in ROOT.glob("land_*x") if (p / "manifest.json").exists())
+    for folder in folders:
+        url = f"/sprites/{folder}"
         d = ROOT / folder
         entries = {}
         for base, name in (("idle", "walk_down"), ("back_idle", "walk_up")):

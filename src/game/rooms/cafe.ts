@@ -14,7 +14,7 @@ export const cafeRoom: RoomDefinition = {
   schedule: 'always',
   width: 1024,
   height: 576,
-  outfit: 'casual',
+  outfit: 'cafe',
   view: { cityOffsetX: CITY_OFFSET_X.cafe },
 
   bounds: { minX: 30, maxX: 994, minY: 275, maxY: 566 },

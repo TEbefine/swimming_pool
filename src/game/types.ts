@@ -90,7 +90,8 @@ export interface RoomDefinition {
   interactables?: Interactable[];
   elements?: ElementDef[];
   actorScale?: number;
-  outfit: 'swim' | 'casual';
+  /** What the player wears here: sprites in public/sprites/outfits/<outfit>/ ('swim' = the base swimsuit art). */
+  outfit: 'swim' | 'cafe' | 'pajamas';
   exits?: {
     triggerBox: [number, number, number, number];
     targetRoom: string;

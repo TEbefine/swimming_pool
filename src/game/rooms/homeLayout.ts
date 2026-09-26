@@ -1,4 +1,4 @@
-// "My Room" — the player's own quiet room. Characters at 1.5× (same as the café).
+// "My Room" — the player's own quiet room. Characters at 2× (same as the café).
 // Furniture is sized to the ROOM (door ≈ bookshelf height), not to the chibi body.
 // Background: /maps/home_empty.webp (1024×576). Elements placed by BOTTOM-CENTRE (x, y).
 // Seats: 'sit' (floor-sit pose) or 'lie' (lie pose on the bed).
@@ -6,7 +6,7 @@
 // diary → Write, record_player → Music.
 import type { ElementDef } from '../types';
 
-export const HOME_ACTOR_SCALE = 1.5;
+export const HOME_ACTOR_SCALE = 2;
 
 const H = (name: string) => `/sprites/elements/home/${name}.webp`;
 
