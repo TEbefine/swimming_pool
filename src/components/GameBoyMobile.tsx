@@ -302,41 +302,41 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       {/* ========================================================================= */}
       {/* UPPER SECTION: OLD GAME BOY SCREEN (EXPANDED TO FILL REST OF VIEWPORT) */}
       {/* ========================================================================= */}
-      <div className="flex-1 min-h-0 flex flex-col justify-center px-3 pt-1 pb-1 relative">
+      <div className="flex-1 min-h-0 flex flex-col justify-center px-3.5 pt-1 pb-1 relative">
         {/* Game Boy Classic Screen Bezel */}
-        <div className="w-full h-full gameboy-bezel p-2 flex flex-col justify-between relative rounded-t-xl rounded-br-xl rounded-bl-[32px]">
-          {/* Bezel Header: DOT MATRIX WITH STEREO SOUND & Magenta/Blue Stripes */}
-          <div className="w-full flex items-center justify-between pb-1 border-b border-black/30 shrink-0">
+        <div className="w-full h-full gameboy-bezel flex flex-col justify-between relative rounded-t-xl rounded-bl-xl rounded-br-[28px]">
+          {/* Bezel Header: Retro dual stripes + room name + battery LED */}
+          <div className="w-full flex items-center justify-between pb-1.5 shrink-0 gap-2 px-0.5">
             {/* Left stripes */}
-            <div className="flex flex-col gap-0.5 w-10">
-              <div className="h-[2px] w-full bg-[#9d174d]"></div>
-              <div className="h-[2px] w-full bg-[#1e3a8a]"></div>
+            <div className="flex flex-col gap-[3px] flex-1">
+              <div className="h-[1.5px] w-full bg-[#c05746] rounded-full"></div>
+              <div className="h-[1.5px] w-full bg-[#6b9080] rounded-full"></div>
             </div>
 
             {/* Center text */}
-            <span className="text-[7.5px] font-sans font-bold tracking-widest text-[#d1d5db] uppercase text-center px-1">
-              DOT MATRIX WITH STEREO SOUND
+            <span className="text-[7.5px] font-sans font-bold tracking-widest text-[#d6d8d6] uppercase text-center px-1.5 shrink-0">
+              {statusLabel || 'WEEKDAY CHILL CAFÉ'}
             </span>
 
             {/* Right stripes */}
-            <div className="flex flex-col gap-0.5 w-10">
-              <div className="h-[2px] w-full bg-[#9d174d]"></div>
-              <div className="h-[2px] w-full bg-[#1e3a8a]"></div>
+            <div className="flex flex-col gap-[3px] flex-1">
+              <div className="h-[1.5px] w-full bg-[#c05746] rounded-full"></div>
+              <div className="h-[1.5px] w-full bg-[#6b9080] rounded-full"></div>
+            </div>
+
+            {/* Red battery / power indicator dot */}
+            <div className="flex items-center pl-0.5 shrink-0">
+              <div
+                className="w-2.5 h-2.5 rounded-full bg-[#e0705c] shadow-[0_0_5px_#e0705c] border border-[#3d434f]"
+                title="Power"
+              />
             </div>
           </div>
 
-          {/* Screen Row: Battery LED on Grey Bezel Frame + Canvas Display Window */}
-          <div className="relative flex-1 w-full flex items-center gap-2 my-1 min-h-0 overflow-hidden">
-            {/* Battery Indicator on Grey Bezel */}
-            <div className="flex flex-col items-center justify-center gap-1 shrink-0 px-1 pointer-events-none">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-600 shadow-[0_0_8px_#ef4444] border border-red-800 animate-pulse"></div>
-              <span className="text-[6.5px] font-sans font-black tracking-tighter text-[#c0c7d4] uppercase">
-                BATTERY
-              </span>
-            </div>
-
+          {/* Screen Row: Symmetrical Display Window with Balanced Grey Space */}
+          <div className="relative flex-1 w-full my-1 min-h-0 overflow-hidden flex items-center justify-center">
             {/* Game Canvas Display Window */}
-            <div className="relative flex-1 h-full gameboy-screen-window rounded border-2 border-[#2b313d] overflow-hidden flex items-center justify-center">
+            <div className="relative w-full h-full gameboy-screen-window rounded overflow-hidden flex items-center justify-center">
               <canvas
                 ref={canvasRef}
                 width={1024}
@@ -364,16 +364,18 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               />
 
               {/* Subtle Screen Glass Corner Glare */}
-              <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-tr from-transparent via-white/[0.03] to-white/[0.12]" />
+              <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-tr from-transparent via-white/[0.03] to-white/[0.10]" />
 
-              {/* Floating Room Info Badge on Screen */}
-              <div className="absolute top-1.5 right-2 z-20 pointer-events-none flex items-center gap-1.5 bg-black/65 px-2 py-0.5 rounded border border-white/10 text-[8px] font-mono text-white/90 shadow-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>{playerCount} online</span>
-              </div>
+              {/* Floating Room Info Badge on Screen (hidden during dialog) */}
+              {!screenOverlay && (
+                <div className="absolute top-1.5 right-2 z-20 pointer-events-none flex items-center gap-1.5 bg-black/65 px-2 py-0.5 rounded border border-white/10 text-[8px] font-mono text-white/90 shadow-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>{playerCount} online</span>
+                </div>
+              )}
 
-              {/* Floating Land/Water Badge */}
-              {!hideStatusBadge && (
+              {/* Floating Land/Water Badge (hidden during dialog) */}
+              {!screenOverlay && !hideStatusBadge && (
                 <div className="absolute bottom-1.5 left-2 z-20 pointer-events-none flex items-center gap-1 bg-black/65 px-2 py-0.5 rounded border border-white/10 text-[8px] font-mono text-amber-300 font-bold uppercase shadow-md">
                   <span>{isWater ? '🏊 IN WATER' : '🏖️ ON LAND'}</span>
                 </div>
@@ -387,14 +389,6 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Bezel Bottom Status Bar */}
-          <div className="w-full flex items-center justify-between text-[8px] text-[#9ca3af] font-mono px-1 shrink-0 pt-0.5">
-            <span className="text-[#e2e8f0] font-bold">{statusLabel}</span>
-            {!hideStatusBadge && currentAction !== 'idle' && currentAction !== 'tread' && (
-              <span className="text-amber-300 font-bold">({currentAction})</span>
-            )}
           </div>
         </div>
       </div>
