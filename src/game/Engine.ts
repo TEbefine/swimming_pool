@@ -15,6 +15,49 @@ import { rooms } from './rooms';
 import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
 import { MoversManager } from './world/movers';
 
+/** Physical keys that move the player (KeyboardEvent.code, layout-independent). */
+const MOVE_CODES = new Set([
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS',
+]);
+
+/** Pose → art to borrow until a dedicated sprite exists. */
+const POSE_FALLBACK: Record<string, string> = {
+  walk_down1: 'idle', walk_down2: 'idle', walk_down_pass: 'idle',
+  walk_up1: 'back_idle', walk_up2: 'back_idle', walk_up_pass: 'back_idle',
+  side_pass: 'side_idle',
+};
+
+/** One hop: time in the air (ms) and peak height (art px at 1×). */
+const JUMP_MS = 520;
+const JUMP_HEIGHT = 18;
+
+/** Poses that stay until the player moves (or presses the same emote again). */
+const HOLD_POSES = new Set(['sit', 'lie']);
+
+/** Standing/walking poses are lined up on the head so the body doesn't slide between
+ *  frames. Others (wave, sit, …) keep the image center — raised arms would skew it,
+ *  and seat spots are tuned to it. */
+const HEAD_ANCHOR = new Set([
+  'idle', 'side_idle', 'back_idle', 'walk1', 'walk2', 'side_pass',
+  'walk_down1', 'walk_down2', 'walk_down_pass', 'walk_up1', 'walk_up2', 'walk_up_pass',
+]);
+
+/** Optional idle fidgets, used automatically once their sprites are in the manifest. */
+const FIDGET_EXTRAS = ['yawn', 'stretch', 'look_back'];
+
+/** Small stable number from a player id (desyncs blinks between players). */
+function idHash(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return Math.abs(h) % 4200;
+}
+
+const WALK_CYCLES = {
+  side: ['walk1', 'side_pass', 'walk2', 'side_pass'],
+  down: ['walk_down1', 'walk_down_pass', 'walk_down2', 'walk_down_pass'],
+  up: ['walk_up1', 'walk_up_pass', 'walk_up2', 'walk_up_pass'],
+} as const;
+
 interface RemotePlayer {
   data: PlayerData;
   targetX: number;
@@ -51,6 +94,26 @@ export class GameEngine {
   private clickTarget: { x: number; y: number } | null = null;
   private emoteTimeout: number | null = null;
   private lastFootstepTime: number = 0;
+
+  // Motion polish (4-direction facing, idle fidgets, stuck detection)
+  /** Which way the body faces on screen. 'side' uses `facing` for left/right. */
+  private moveDir: 'down' | 'up' | 'side' = 'down';
+  private idleTime: number = 0;
+  private nextFidgetAt: number = 8 + Math.random() * 6;
+  private fidgetTimeout: number | null = null;
+  private stuckTime: number = 0;
+
+  // Network throttle + heartbeat handle
+  private lastBroadcast: number = 0;
+  private lastSentAction: string = '';
+  private lastSentFacing: 1 | -1 = 1;
+  private heartbeatId: number | null = null;
+
+  // Animation timing shared by local + remote players: when did each player's pose start?
+  private poseStart: Map<string, { action: string; t: number }> = new Map();
+  // Head column of each sprite, so every pose lines up on the head (no wobble between frames)
+  private headAnchor: WeakMap<HTMLImageElement, number> = new WeakMap();
+  private jumpUntil: number = 0;
 
   // Remote Players
   private remotePlayers: Map<string, RemotePlayer> = new Map();
@@ -322,6 +385,8 @@ export class GameEngine {
           this.localPlayer.x = targetRoom.spawnPoint.x;
           this.localPlayer.y = targetRoom.spawnPoint.y;
           this.localPlayer.facing = 1;
+          this.moveDir = 'down';
+          this.idleTime = 0;
 
           // Clear dynamic elements & rebuild layout
           this.elementImages.clear();
@@ -480,15 +545,26 @@ export class GameEngine {
   private setupInputListeners() {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
+    window.addEventListener('blur', this.clearKeys);
+    document.addEventListener('visibilitychange', this.clearKeys);
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
   }
+
+  /** Release every held key — stops "walking forever" after alt-tab / tab switch. */
+  private clearKeys = () => {
+    this.keys = {};
+  };
 
   public destroy() {
     this.running = false;
     cancelAnimationFrame(this.animId);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
+    window.removeEventListener('blur', this.clearKeys);
+    document.removeEventListener('visibilitychange', this.clearKeys);
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+    if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
+    if (this.fidgetTimeout !== null) clearTimeout(this.fidgetTimeout);
     this.network.sendPlayerLeave(this.localPlayer.id);
     this.network.destroy();
   }
@@ -499,8 +575,9 @@ export class GameEngine {
       return;
     }
 
-    this.keys[e.key.toLowerCase()] = true;
-    this.clickTarget = null; // Keyboard overrides click-to-move
+    // e.code = physical key, so WASD / 1-5 also work with the Thai keyboard layout
+    this.keys[e.code] = true;
+    if (MOVE_CODES.has(e.code)) this.clickTarget = null; // Keyboard overrides click-to-move
 
     // F3 debug overlay toggle
     if (e.key === 'F3') {
@@ -508,25 +585,26 @@ export class GameEngine {
       this.showDebug = !this.showDebug;
     }
 
-    // Hotkeys 1-5 for Emotes
-    if (e.key === '1') this.triggerEmote('wave');
-    if (e.key === '2') {
+    // Hotkeys 1-5 for Emotes (ignore auto-repeat while held)
+    if (e.repeat) return;
+    if (e.code === 'Digit1') this.triggerEmote('wave');
+    if (e.code === 'Digit2') {
       if (this.localPlayer.state === 'land') this.triggerEmote('sit');
       else this.triggerEmote('relax');
     }
-    if (e.key === '3') {
+    if (e.code === 'Digit3') {
       if (this.localPlayer.state === 'land') this.triggerEmote('lie');
       else this.triggerEmote('happy');
     }
-    if (e.key === '4') this.triggerEmote('surprise');
-    if (e.key === '5') {
+    if (e.code === 'Digit4') this.triggerEmote('surprise');
+    if (e.code === 'Digit5') {
       if (this.localPlayer.state === 'land') this.triggerEmote('jump');
       else this.triggerEmote('wave');
     }
   };
 
   private handleKeyUp = (e: KeyboardEvent) => {
-    this.keys[e.key.toLowerCase()] = false;
+    this.keys[e.code] = false;
   };
 
   private handlePointerDown = (e: PointerEvent) => {
@@ -783,7 +861,9 @@ export class GameEngine {
   public standUp() {
     if (this.seatedIndex < 0) return;
     this.seatedIndex = -1;
+    this.moveDir = 'down';
     this.localPlayer.currentAction = 'idle';
+    this.idleTime = 0;
     this.broadcastState();
   }
 
@@ -880,26 +960,52 @@ export class GameEngine {
   }
 
   public triggerEmote(action: string) {
+    const p = this.localPlayer;
+    const now = performance.now();
+
+    // Pressing Sit / Lie again while already doing it = stand back up
+    if (HOLD_POSES.has(action) && p.currentAction === action && this.seatedIndex < 0) {
+      if (this.emoteTimeout) clearTimeout(this.emoteTimeout);
+      this.emoteTimeout = null;
+      p.currentAction = this.idlePose();
+      this.broadcastState();
+      return;
+    }
+    // No double-jumping in mid-air
+    if (action === 'jump' && now < this.jumpUntil) return;
+
     if (this.emoteTimeout) {
       clearTimeout(this.emoteTimeout);
+      this.emoteTimeout = null;
     }
-    this.localPlayer.currentAction = action;
+    if (this.fidgetTimeout) {
+      clearTimeout(this.fidgetTimeout);
+      this.fidgetTimeout = null;
+    }
+    this.idleTime = 0;
+    p.currentAction = action;
     sound.playEmoteSound(action);
 
     if (action === 'jump') {
-      this.createJumpParticles(this.localPlayer.x, this.localPlayer.y);
+      this.jumpUntil = now + JUMP_MS;
+      this.createJumpParticles(p.x, p.y); // take-off dust
     }
 
     this.broadcastState();
 
+    // Sit / lie on the floor stay until you walk away or press again
+    if (HOLD_POSES.has(action) && p.state === 'land') return;
+
+    const duration = action === 'jump' ? JUMP_MS : 2800;
     this.emoteTimeout = window.setTimeout(() => {
-      if (this.localPlayer.currentAction === action) {
-        this.localPlayer.currentAction = this.isMoving 
-          ? (this.localPlayer.state === 'water' ? 'swim1' : 'walk1') 
-          : (this.localPlayer.state === 'water' ? 'tread' : 'idle');
-        this.broadcastState();
-      }
-    }, 2800);
+      this.emoteTimeout = null;
+      if (p.currentAction !== action) return;
+      if (action === 'jump') this.createJumpParticles(p.x, p.y); // landing dust
+      p.currentAction = this.isMoving
+        ? (p.state === 'water' ? 'swim1' : WALK_CYCLES[this.moveDir][this.walkFrame])
+        : (p.state === 'water' ? 'tread' : this.idlePose());
+      this.broadcastState();
+    }, duration);
   }
 
   public setFloatColor(color: FloatColor) {
@@ -966,7 +1072,21 @@ export class GameEngine {
     }
   }
 
-  private broadcastState() {
+  /** Send local state. While walking we call with force=false: position is capped
+   *  at ~15 msgs/s, but a pose or facing change always goes out immediately. */
+  private broadcastState(force: boolean = true) {
+    const now = performance.now();
+    if (
+      !force &&
+      now - this.lastBroadcast < 66 &&
+      this.localPlayer.currentAction === this.lastSentAction &&
+      this.localPlayer.facing === this.lastSentFacing
+    ) {
+      return;
+    }
+    this.lastBroadcast = now;
+    this.lastSentAction = this.localPlayer.currentAction;
+    this.lastSentFacing = this.localPlayer.facing;
     this.localPlayer.timestamp = Date.now();
     this.network.broadcastPlayerState(this.localPlayer);
   }
@@ -976,8 +1096,9 @@ export class GameEngine {
     this.lastTime = performance.now();
     this.animId = requestAnimationFrame(this.gameLoop);
 
-    // Heartbeat broadcast every 1.5 seconds
-    setInterval(() => {
+    // Heartbeat broadcast every 1.5 seconds (kept so destroy() can clear it)
+    if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
+    this.heartbeatId = window.setInterval(() => {
       if (this.running) {
         this.broadcastState();
       }
@@ -1095,11 +1216,11 @@ export class GameEngine {
     let dx = 0;
     let dy = 0;
 
-    // Keyboard movement
-    if (this.keys['arrowleft'] || this.keys['a']) dx -= 1;
-    if (this.keys['arrowright'] || this.keys['d']) dx += 1;
-    if (this.keys['arrowup'] || this.keys['w']) dy -= 1;
-    if (this.keys['arrowdown'] || this.keys['s']) dy += 1;
+    // Keyboard movement (physical keys — see MOVE_CODES)
+    if (this.keys['ArrowLeft'] || this.keys['KeyA']) dx -= 1;
+    if (this.keys['ArrowRight'] || this.keys['KeyD']) dx += 1;
+    if (this.keys['ArrowUp'] || this.keys['KeyW']) dy -= 1;
+    if (this.keys['ArrowDown'] || this.keys['KeyS']) dy += 1;
 
     // Virtual D-pad movement (mobile controller)
     if (this.virtualDpad.dx !== 0 || this.virtualDpad.dy !== 0) {
@@ -1119,6 +1240,7 @@ export class GameEngine {
         dy = tdy / dist;
       } else {
         this.clickTarget = null;
+        this.stuckTime = 0;
       }
     }
 
@@ -1126,27 +1248,20 @@ export class GameEngine {
     this.isMoving = dx !== 0 || dy !== 0;
 
     if (this.isMoving) {
-      // Clear manual emote when starting to walk
-      if (this.emoteTimeout) {
+      this.idleTime = 0;
+
+      const airborne = performance.now() < this.jumpUntil;
+
+      // Clear manual emote / idle fidget when starting to walk (a jump finishes its hop)
+      if (this.emoteTimeout && !airborne) {
         clearTimeout(this.emoteTimeout);
         this.emoteTimeout = null;
       }
-
-      // Facing
-      if (dx < 0) this.localPlayer.facing = -1;
-      if (dx > 0) this.localPlayer.facing = 1;
-
-      // Speed (swimming is slightly slower than walking)
-      let speed = this.localPlayer.state === 'water' ? 120 : 160;
-
-      // Actor scale speed multiplier
-      speed *= this.actorScale;
-
-      // Sprint multiplier on land
-      if (this.isRunning && this.localPlayer.state === 'land') {
-        speed *= 1.6;
+      if (this.fidgetTimeout) {
+        clearTimeout(this.fidgetTimeout);
+        this.fidgetTimeout = null;
       }
-      
+
       // Normalize diagonal
       let moveX = dx;
       let moveY = dy;
@@ -1156,26 +1271,63 @@ export class GameEngine {
         moveY /= len;
       }
 
-      const newX = this.localPlayer.x + moveX * speed * dt;
-      const newY = this.localPlayer.y + moveY * speed * dt;
+      // Body direction from the dominant axis (pure diagonals read as side-walk)
+      if (Math.abs(moveX) >= Math.abs(moveY) * 0.75) {
+        this.moveDir = 'side';
+      } else {
+        this.moveDir = moveY < 0 ? 'up' : 'down';
+      }
+      // Left/right facing — ignore tiny x drift so click-to-move up/down doesn't flicker
+      if (moveX < -0.2) this.localPlayer.facing = -1;
+      if (moveX > 0.2) this.localPlayer.facing = 1;
 
-      // Check collision and clamp inside boundaries
-      this.attemptMove(newX, newY);
+      // Speed (swimming is slightly slower than walking)
+      let speed = this.localPlayer.state === 'water' ? 120 : 160;
+      speed *= this.actorScale;
+      const sprinting = this.isRunning && this.localPlayer.state === 'land';
+      if (sprinting) speed *= 1.6;
 
-      // Walk / Swim animation frame timer
-      this.walkTimer += dt;
-      if (this.walkTimer > 0.13) {
+      const oldX = this.localPlayer.x;
+      const oldY = this.localPlayer.y;
+      const moved = this.attemptMove(oldX + moveX * speed * dt, oldY + moveY * speed * dt);
+
+      // Click-to-move that runs into furniture gives up instead of walking in place forever
+      if (this.clickTarget) {
+        const progress = Math.hypot(this.localPlayer.x - oldX, this.localPlayer.y - oldY);
+        this.stuckTime = !moved || progress < speed * dt * 0.25 ? this.stuckTime + dt : 0;
+        if (this.stuckTime > 0.25) {
+          this.clickTarget = null;
+          this.stuckTime = 0;
+          this.isMoving = false;
+          this.localPlayer.currentAction =
+            this.localPlayer.state === 'water' ? 'tread' : this.idlePose();
+          this.broadcastState();
+          return;
+        }
+      }
+
+      // Step timing follows speed, so running feet don't slide
+      const stepInterval = sprinting ? 0.085 : 0.13;
+      if (!wasMoving) {
+        // First frame of a walk: show a stepping pose immediately (snappy start)
+        this.walkFrame = 0;
         this.walkTimer = 0;
+      } else {
+        this.walkTimer += dt;
+      }
+      if (this.walkTimer > stepInterval) {
+        this.walkTimer -= stepInterval;
         this.walkFrame = (this.walkFrame + 1) % 4;
 
         if (this.localPlayer.state === 'land') {
-          // Play soft footstep on contact frames
+          // Contact frames: soft footstep (+ a little dust when running)
           if (this.walkFrame === 0 || this.walkFrame === 2) {
             const now = Date.now();
-            if (now - this.lastFootstepTime > 260) {
+            if (now - this.lastFootstepTime > (sprinting ? 170 : 260)) {
               sound.playFootstep();
               this.lastFootstepTime = now;
             }
+            if (sprinting) this.createRunDust(this.localPlayer.x, this.localPlayer.y);
           }
         } else {
           // Water swim ripple
@@ -1184,57 +1336,182 @@ export class GameEngine {
       }
 
       if (this.localPlayer.state === 'land') {
-        if (dx !== 0) {
-          // Horizontal walk: step A -> passing pose (side_idle) -> step B -> passing pose (side_idle)
-          const walkCycle = ['walk1', 'side_idle', 'walk2', 'side_idle'];
-          this.localPlayer.currentAction = walkCycle[this.walkFrame];
-        } else if (dy < 0) {
-          // Moving up: back view
-          this.localPlayer.currentAction = 'back_idle';
-        } else {
-          // Moving down: front view
-          this.localPlayer.currentAction = (this.walkFrame % 2 === 0) ? 'idle' : 'walk1';
-        }
+        if (!airborne) this.localPlayer.currentAction = WALK_CYCLES[this.moveDir][this.walkFrame];
       } else {
         // Water swimming: alternate swim strokes
         this.localPlayer.currentAction = (this.walkFrame % 2 === 0) ? 'swim1' : 'swim2';
       }
 
-      this.broadcastState();
+      this.broadcastState(false);
     } else {
+      this.stuckTime = 0;
       if (wasMoving) {
-        if (this.localPlayer.state === 'land') {
-          if (this.localPlayer.currentAction === 'back_idle') {
-            this.localPlayer.currentAction = 'back_idle';
-          } else if (this.localPlayer.facing === 1 || this.localPlayer.facing === -1) {
-            this.localPlayer.currentAction = 'side_idle';
-          } else {
-            this.localPlayer.currentAction = 'idle';
-          }
-        } else {
-          this.localPlayer.currentAction = 'tread';
-        }
+        // Stop facing the way we walked: down → front, up → back, left/right → side
+        this.localPlayer.currentAction =
+          this.localPlayer.state === 'land' ? this.idlePose() : 'tread';
         this.broadcastState();
+      } else {
+        this.updateIdleFidget(dt);
       }
     }
   }
 
-  private attemptMove(targetX: number, targetY: number) {
+  /** Standing pose that matches the last walking direction. */
+  private idlePose(): string {
+    if (this.moveDir === 'up') return 'back_idle';
+    if (this.moveDir === 'side') return 'side_idle';
+    return 'idle';
+  }
+
+  /** True when the player is just standing around on land with nothing else going on. */
+  private isIdleStanding(): boolean {
+    const a = this.localPlayer.currentAction;
+    return (
+      this.localPlayer.state === 'land' &&
+      !this.isMoving &&
+      this.seatedIndex < 0 &&
+      !this.dialogFrozen &&
+      this.emoteTimeout === null &&
+      this.fidgetTimeout === null &&
+      (a === 'idle' || a === 'side_idle' || a === 'back_idle')
+    );
+  }
+
+  /** Small signs of life after standing still for a while (like Animal Crossing / Pokémon):
+   *  glance around, turn to face the camera, or think for a moment. */
+  private updateIdleFidget(dt: number) {
+    if (!this.isIdleStanding()) {
+      this.idleTime = 0;
+      return;
+    }
+    this.idleTime += dt;
+    if (this.idleTime < this.nextFidgetAt) return;
+    this.idleTime = 0;
+    this.nextFidgetAt = 7 + Math.random() * 9;
+
+    const back = (restore: () => void, ms: number) => {
+      this.fidgetTimeout = window.setTimeout(() => {
+        this.fidgetTimeout = null;
+        if (this.isMoving || this.seatedIndex >= 0 || this.dialogFrozen) return;
+        restore();
+        this.broadcastState();
+      }, ms);
+    };
+
+    if (this.moveDir === 'up') {
+      // Been staring at the wall — turn around to look at the player
+      this.moveDir = 'down';
+      this.localPlayer.currentAction = 'idle';
+    } else if (this.moveDir === 'side' && Math.random() < 0.6) {
+      // Glance the other way, then back
+      const original = this.localPlayer.facing;
+      this.localPlayer.facing = (original === 1 ? -1 : 1);
+      back(() => { this.localPlayer.facing = original; }, 900);
+    } else {
+      // Think for a moment — or yawn / stretch / look back once that art exists
+      const prefix = this.actorScale > 1 ? 'land_1_5x_' : 'land_';
+      const pool = ['thinking', ...FIDGET_EXTRAS.filter((a) => this.sprites.has(prefix + a))];
+      const fidget = pool[Math.floor(Math.random() * pool.length)];
+      const pose = this.idlePose();
+      this.localPlayer.currentAction = fidget;
+      back(() => {
+        if (this.localPlayer.currentAction === fidget) this.localPlayer.currentAction = pose;
+      }, 1600);
+    }
+    this.broadcastState();
+  }
+
+  private createRunDust(x: number, y: number) {
+    const behind = -this.localPlayer.facing;
+    for (let i = 0; i < 3; i++) {
+      this.particles.push({
+        x: x + behind * (6 + Math.random() * 6),
+        y: y - 1,
+        vx: behind * (0.3 + Math.random() * 0.5),
+        vy: -0.15 - Math.random() * 0.35,
+        size: 2 + Math.round(Math.random()),
+        alpha: 0.6,
+        color: '#d9cbb0',
+        life: 0,
+        maxLife: 16,
+      });
+    }
+  }
+
+  /** How long (ms) this player has been in their current pose. Tracked by watching
+   *  pose changes, so it works for remote players without any network change. */
+  private poseAge(player: PlayerData, now: number): number {
+    const rec = this.poseStart.get(player.id);
+    if (!rec || rec.action !== player.currentAction) {
+      this.poseStart.set(player.id, { action: player.currentAction, t: now });
+      return 0;
+    }
+    return now - rec.t;
+  }
+
+  /** Column of the head's center in a sprite (average of opaque pixels in the head band).
+   *  AI-drawn frames put the head at slightly different x positions; anchoring on it
+   *  stops the character sliding back and forth between walk frames. Cached per image. */
+  private getHeadAnchor(img: HTMLImageElement): number {
+    const cached = this.headAnchor.get(img);
+    if (cached !== undefined) return cached;
+    let ax = Math.floor(img.width / 2);
+    try {
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const g = c.getContext('2d', { willReadFrequently: true });
+      if (g && img.complete && img.width > 0) {
+        g.drawImage(img, 0, 0);
+        const y0 = Math.floor(img.height * 0.08);
+        const y1 = Math.floor(img.height * 0.3);
+        const data = g.getImageData(0, y0, img.width, y1 - y0).data;
+        let sum = 0;
+        let n = 0;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] > 100) {
+            sum += ((i - 3) / 4) % img.width;
+            n++;
+          }
+        }
+        if (n > 0) ax = Math.round(sum / n);
+      }
+    } catch {
+      // Canvas read blocked — fall back to the image center
+    }
+    if (img.complete) this.headAnchor.set(img, ax);
+    return ax;
+  }
+
+  /** Point-vs-obstacle test (the player's feet are the collision point). */
+  private isBlocked(x: number, y: number): boolean {
+    for (const obs of this.mergedObstacles) {
+      if (x >= obs.x && x <= obs.x + obs.width && y >= obs.y && y <= obs.y + obs.height) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Move with wall-sliding: if the diagonal is blocked, try each axis on its own.
+   *  Returns true when the player actually moved. */
+  private attemptMove(targetX: number, targetY: number): boolean {
     // Clamp to map boundaries using room bounds
     const { minX, maxX, minY, maxY } = this.room.bounds;
-    const clampedX = Math.max(minX, Math.min(maxX, targetX));
-    const clampedY = Math.max(minY, Math.min(maxY, targetY));
+    const cx = Math.max(minX, Math.min(maxX, targetX));
+    const cy = Math.max(minY, Math.min(maxY, targetY));
+    const ox = this.localPlayer.x;
+    const oy = this.localPlayer.y;
 
-    // Check obstacle collision (uses merged obstacles)
-    for (const obs of this.mergedObstacles) {
-      if (
-        clampedX >= obs.x &&
-        clampedX <= obs.x + obs.width &&
-        clampedY >= obs.y &&
-        clampedY <= obs.y + obs.height
-      ) {
-        // Obstructed, do not move into obstacle
-        return;
+    let nx = cx;
+    let ny = cy;
+    if (this.isBlocked(nx, ny)) {
+      if (cx !== ox && !this.isBlocked(cx, oy)) {
+        ny = oy; // slide horizontally along the obstacle
+      } else if (cy !== oy && !this.isBlocked(ox, cy)) {
+        nx = ox; // slide vertically along the obstacle
+      } else {
+        return false;
       }
     }
 
@@ -1242,25 +1519,26 @@ export class GameEngine {
     const hasWater = this.room.waterZones && this.room.waterZones.length > 0;
     if (hasWater) {
       const prevState = this.localPlayer.state;
-      const isInsideWater = this.isPointInWater(clampedX, clampedY);
+      const isInsideWater = this.isPointInWater(nx, ny);
 
       if (isInsideWater && prevState === 'land') {
         // Jump/step into water
         this.localPlayer.state = 'water';
         this.localPlayer.currentAction = this.isMoving ? 'swim1' : 'tread';
         sound.playSplash();
-        this.createSplashParticles(clampedX, clampedY);
+        this.createSplashParticles(nx, ny);
       } else if (!isInsideWater && prevState === 'water') {
         // Step onto land deck
         this.localPlayer.state = 'land';
-        this.localPlayer.currentAction = this.isMoving ? 'walk1' : 'idle';
+        this.localPlayer.currentAction = this.isMoving ? 'walk1' : this.idlePose();
         sound.playFootstep();
-        this.createLandDripParticles(clampedX, clampedY);
+        this.createLandDripParticles(nx, ny);
       }
     }
 
-    this.localPlayer.x = clampedX;
-    this.localPlayer.y = clampedY;
+    this.localPlayer.x = nx;
+    this.localPlayer.y = ny;
+    return nx !== ox || ny !== oy;
   }
 
   private isPointInWater(x: number, y: number): boolean {
@@ -1482,18 +1760,25 @@ export class GameEngine {
       if (player.state === 'water') {
         drawY += Math.sin((time * 0.0035) + player.x * 0.05) * 3;
       }
-      if (player.currentAction === 'jump') {
-        const jumpProgress = (time % 600) / 600;
-        drawY -= Math.sin(jumpProgress * Math.PI) * 16;
+      // Jump: one hop that starts when the jump pose starts (works for remote players too)
+      let air = 0; // 0 = on the ground, 1 = top of the hop
+      const age = this.poseAge(player, time); // track every frame so each new pose restarts its clock
+      if (player.currentAction === 'jump' && player.state === 'land') {
+        const t = Math.min(1, age / JUMP_MS);
+        air = 4 * t * (1 - t);
+        drawY -= Math.round(air * JUMP_HEIGHT * this.actorScale);
       }
+      // Feet stay planted on the ground: the legs in the walk frames do the stepping
+      const capturedX = player.x;
       const capturedPlayer = player;
       const capturedSprite = sprite;
       const capturedDrawY = drawY;
       const capturedH = h;
+      const capturedAir = air;
       drawFns.push({
         y: player.y,
         draw: () => {
-          this.renderPlayerSprite(capturedPlayer, capturedDrawY, capturedSprite);
+          this.renderPlayerSprite(capturedPlayer, capturedDrawY, capturedSprite, capturedX, capturedAir);
           // Defer nametag + bubble as overlays
           overlayFns.push(() => this.renderPlayerOverlay(capturedPlayer, capturedDrawY, capturedH));
         }
@@ -1575,22 +1860,26 @@ export class GameEngine {
     }
 
     const action = player.currentAction || 'idle';
+    const prefix = this.actorScale > 1 ? 'land_1_5x_' : 'land_';
 
-    // Use 1.5× sprites if room has actorScale > 1
-    if (this.actorScale > 1) {
-      let key15x = `land_1_5x_${action}`;
-      if (this.sprites.has(key15x)) return this.sprites.get(key15x);
-      // Fallback to 1.5× idle
-      key15x = 'land_1_5x_idle';
-      if (this.sprites.has(key15x)) return this.sprites.get(key15x);
+    // Blink for ~140ms every ~4s while standing (only once idle_blink / side_idle_blink art exists).
+    // Offset by player id so a crowd doesn't blink in sync.
+    if (action === 'idle' || action === 'side_idle') {
+      const blink = this.sprites.get(prefix + action + '_blink');
+      if (blink && (performance.now() + idHash(player.id)) % 4200 < 140) return blink;
     }
 
-    // Standard 1× sprites
-    let spriteKey = `land_${action}`;
-    if (!this.sprites.has(spriteKey)) {
-      spriteKey = 'land_idle';
-    }
-    return this.sprites.get(spriteKey) || this.sprites.get('land_idle');
+    // Walk frames we don't have art for yet borrow the nearest idle pose
+    // (drop real walk_down1.webp etc. into the manifest and they're used automatically)
+    const fallback = POSE_FALLBACK[action] ?? 'idle';
+
+    return (
+      this.sprites.get(prefix + action) ||
+      this.sprites.get(prefix + fallback) ||
+      this.sprites.get(prefix + 'idle') ||
+      this.sprites.get('land_' + action) ||
+      this.sprites.get('land_idle')
+    );
   }
 
   /** Pick a pose for an NPC based on time. Respects pose overrides and uses
@@ -1709,32 +1998,42 @@ export class GameEngine {
   }
 
   /** Draw a player's sprite (shadow, character, jump). */
-  private renderPlayerSprite(player: PlayerData, drawY: number, spriteImg: HTMLImageElement | undefined) {
+  private renderPlayerSprite(player: PlayerData, drawY: number, spriteImg: HTMLImageElement | undefined, drawX: number = player.x, air: number = 0) {
     if (!spriteImg) return;
     const isWater = player.state === 'water';
+    // Snap to whole pixels so the sprite never blurs between two pixels
+    const sx = Math.round(drawX);
+    const sy = Math.round(drawY);
+    const groundX = Math.round(player.x);
+    const groundY = Math.round(player.y);
 
     // Shadow on land
     if (!isWater) {
       this.ctx.save();
-      this.ctx.fillStyle = 'rgba(20, 25, 40, 0.28)';
+      // Shadow shrinks and fades while in the air
+      this.ctx.fillStyle = `rgba(20, 25, 40, ${(0.28 * (1 - 0.45 * air)).toFixed(3)})`;
       this.ctx.beginPath();
-      const shadowRadiusX = Math.max(16, Math.round(spriteImg.width * 0.38));
-      const shadowRadiusY = Math.max(5, Math.round(spriteImg.width * 0.13));
-      this.ctx.ellipse(player.x, player.y - 2, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+      const shrink = 1 - 0.3 * air;
+      const shadowRadiusX = Math.round(Math.max(16, spriteImg.width * 0.38) * shrink);
+      const shadowRadiusY = Math.round(Math.max(5, spriteImg.width * 0.13) * shrink);
+      this.ctx.ellipse(groundX, groundY - 2, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.restore();
     }
 
     // Character sprite with horizontal flipping
     this.ctx.save();
-    this.ctx.translate(player.x, drawY);
+    this.ctx.translate(sx, sy);
     if (player.facing === -1) {
       this.ctx.scale(-1, 1);
     }
-    // Anchor: bottom center
+    // Anchor: bottom, lined up on the head so the body doesn't wobble between poses
     const w = spriteImg.width;
     const h = spriteImg.height;
-    this.ctx.drawImage(spriteImg, -Math.floor(w / 2), -h);
+    const ax = !isWater && HEAD_ANCHOR.has(player.currentAction)
+      ? this.getHeadAnchor(spriteImg)
+      : Math.floor(w / 2);
+    this.ctx.drawImage(spriteImg, -ax, -h);
     this.ctx.restore();
   }
 

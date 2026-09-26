@@ -58,5 +58,25 @@
     "width": 72,
     "height": 119,
     "path": "/sprites/land_1_5x/jump.webp"
+  },
+  "walk_down1": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 72,
+    "height": 121,
+    "path": "/sprites/land_1_5x/walk_up2.webp"
   }
 }

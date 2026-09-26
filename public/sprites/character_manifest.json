@@ -59,6 +59,26 @@
       "width": 48,
       "height": 79,
       "path": "/sprites/land/jump.webp"
+    },
+    "walk_down1": {
+      "width": 48,
+      "height": 82,
+      "path": "/sprites/land/walk_down1.webp"
+    },
+    "walk_down2": {
+      "width": 48,
+      "height": 82,
+      "path": "/sprites/land/walk_down2.webp"
+    },
+    "walk_up1": {
+      "width": 48,
+      "height": 82,
+      "path": "/sprites/land/walk_up1.webp"
+    },
+    "walk_up2": {
+      "width": 48,
+      "height": 82,
+      "path": "/sprites/land/walk_up2.webp"
     }
   },
   "water": {
