@@ -1,81 +1,81 @@
 {
   "idle": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/idle.webp"
   },
   "side_idle": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/side_idle.webp"
   },
   "back_idle": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/back_idle.webp"
   },
   "walk1": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/walk1.webp"
   },
   "walk2": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/walk2.webp"
   },
   "wave": {
-    "width": 96,
-    "height": 149,
+    "width": 146,
+    "height": 160,
     "path": "/sprites/npc/barista/wave.webp"
   },
   "talk": {
-    "width": 100,
-    "height": 149,
+    "width": 146,
+    "height": 160,
     "path": "/sprites/npc/barista/talk.webp"
   },
   "happy": {
-    "width": 108,
-    "height": 150,
+    "width": 146,
+    "height": 160,
     "path": "/sprites/npc/barista/happy.webp"
   },
   "thinking": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/thinking.webp"
   },
   "wai": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/wai.webp"
   },
   "pour": {
-    "width": 113,
-    "height": 151,
+    "width": 146,
+    "height": 160,
     "path": "/sprites/npc/barista/pour.webp"
   },
   "serve": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/serve.webp"
   },
   "read": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/read.webp"
   },
   "idea": {
-    "width": 94,
-    "height": 151,
+    "width": 146,
+    "height": 160,
     "path": "/sprites/npc/barista/idea.webp"
   },
   "point": {
-    "width": 106,
-    "height": 150,
+    "width": 146,
+    "height": 160,
     "path": "/sprites/npc/barista/point.webp"
   },
   "blink": {
-    "width": 96,
+    "width": 146,
     "height": 160,
     "path": "/sprites/npc/barista/blink.webp"
   }

@@ -51,6 +51,18 @@ interface NpcWanderSegment {
   facing: 1 | -1;
 }
 
+/** 4-frame NPC side walk (the idle side pose is the passing frame between the two strides). */
+const NPC_WALK_CYCLE = ['walk1', 'side_idle', 'walk2', 'side_idle'] as const;
+/** Ground covered per walk frame at 1× (px). Frames advance by distance, so the feet never slide. */
+const NPC_STRIDE_PX = 9;
+/** After arriving, stand still this long before starting the pause pose (looks less robotic). */
+const NPC_SETTLE_MS = 450;
+
+function npcWalkFrame(distancePx: number, actorScale: number): string {
+  const i = Math.floor(distancePx / (NPC_STRIDE_PX * (actorScale || 1))) % NPC_WALK_CYCLE.length;
+  return NPC_WALK_CYCLE[i];
+}
+
 interface NpcWanderCycle {
   segments: NpcWanderSegment[];
   totalCycleMs: number;
@@ -83,8 +95,20 @@ function buildWanderCycle(npc: NpcDef, actorScale: number): NpcWanderCycle | nul
       tx = homeX;
       ty = homeY;
     } else {
+      // NPC sheets only have SIDE walk frames, so keep walks mostly sideways:
+      // at least a short stroll left/right, and never more than ~0.35 px up/down per px across.
+      const minDx = Math.min(90 * (actorScale || 1), wander.area.width * 0.35);
       tx = Math.round(wander.area.x + rng() * wander.area.width);
-      ty = Math.round(wander.area.y + rng() * wander.area.height);
+      if (Math.abs(tx - prevX) < minDx) {
+        const dir = tx >= prevX ? 1 : -1;
+        tx = prevX + dir * minDx;
+        if (tx > wander.area.x + wander.area.width || tx < wander.area.x) tx = prevX - dir * minDx;
+        tx = Math.round(Math.max(wander.area.x, Math.min(wander.area.x + wander.area.width, tx)));
+      }
+      const maxDy = Math.abs(tx - prevX) * 0.35;
+      const wantY = wander.area.y + rng() * wander.area.height;
+      ty = Math.round(Math.max(wander.area.y, Math.min(wander.area.y + wander.area.height,
+        Math.max(prevY - maxDy, Math.min(prevY + maxDy, wantY)))));
     }
 
     const dist = Math.hypot(tx - prevX, ty - prevY);
@@ -2187,16 +2211,16 @@ export class GameEngine {
     }
 
     if (elapsedInSeg < seg.walkMs) {
-      // Walking: alternate walk1/walk2 every 160 ms
+      // Walking: frame chosen by distance travelled (4-frame cycle), so steps match the speed
       const progress = elapsedInSeg / seg.walkMs;
       const x = Math.round(seg.startX + (seg.targetX - seg.startX) * progress);
       const y = Math.round(seg.startY + (seg.targetY - seg.startY) * progress);
-      const walkStep = Math.floor(elapsedInSeg / 160) % 2;
-      const action = overridePose || (walkStep === 0 ? 'walk1' : 'walk2');
+      const travelled = Math.hypot(x - seg.startX, y - seg.startY);
+      const action = overridePose || npcWalkFrame(travelled, this.actorScale);
       return { x, y, facing: seg.facing, action };
     } else {
-      // Paused: show idlePose from manifest, blink sometimes
-      let action = seg.idlePose;
+      // Paused: settle in the side pose first, then the idle pose; blink sometimes
+      let action = (elapsedInSeg - seg.walkMs) < NPC_SETTLE_MS ? 'side_idle' : seg.idlePose;
       if (this.isNpcBlinking(npc.id, perfTime)) {
         action = 'blink';
       }
@@ -2249,8 +2273,8 @@ export class GameEngine {
         const curX = Math.round((1 - ease) * rt.easeStartX + ease * sched.x);
         const curY = Math.round((1 - ease) * rt.easeStartY + ease * sched.y);
         const facing: 1 | -1 = sched.x >= curX ? 1 : -1;
-        const walkStep = Math.floor(elapsedEase / 160) % 2;
-        const action = overridePose || (walkStep === 0 ? 'walk1' : 'walk2');
+        const travelled = Math.hypot(curX - rt.easeStartX, curY - rt.easeStartY);
+        const action = overridePose || (travelled < 2 ? 'side_idle' : npcWalkFrame(travelled, this.actorScale));
         return { x: curX, y: curY, facing, action };
       } else {
         rt.easeStartTime = 0;
@@ -2298,8 +2322,8 @@ export class GameEngine {
     this.ctx.save();
     this.ctx.fillStyle = 'rgba(20, 25, 40, 0.22)';
     this.ctx.beginPath();
-    const shadowRx = Math.max(16, Math.round(sprite.width * 0.35));
-    const shadowRy = Math.max(5, Math.round(sprite.width * 0.12));
+    const shadowRx = Math.round(17 * (this.actorScale || 1));
+    const shadowRy = Math.round(5 * (this.actorScale || 1));
     this.ctx.ellipse(state.x, state.y - 2, shadowRx, shadowRy, 0, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.restore();

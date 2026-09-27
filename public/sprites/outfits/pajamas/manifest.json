@@ -25,39 +25,19 @@
     "path": "/sprites/outfits/pajamas/walk2.webp"
   },
   "wave": {
-    "width": 100,
-    "height": 152,
+    "width": 88,
+    "height": 143,
     "path": "/sprites/outfits/pajamas/wave.webp"
   },
   "talk": {
-    "width": 102,
-    "height": 151,
+    "width": 89,
+    "height": 142,
     "path": "/sprites/outfits/pajamas/talk.webp"
   },
   "happy": {
-    "width": 120,
-    "height": 152,
+    "width": 104,
+    "height": 143,
     "path": "/sprites/outfits/pajamas/happy.webp"
-  },
-  "thinking": {
-    "width": 96,
-    "height": 160,
-    "path": "/sprites/outfits/pajamas/thinking.webp"
-  },
-  "sit": {
-    "width": 97,
-    "height": 119,
-    "path": "/sprites/outfits/pajamas/sit.webp"
-  },
-  "lie": {
-    "width": 167,
-    "height": 89,
-    "path": "/sprites/outfits/pajamas/lie.webp"
-  },
-  "jump": {
-    "width": 97,
-    "height": 158,
-    "path": "/sprites/outfits/pajamas/jump.webp"
   },
   "walk_down1": {
     "width": 96,
@@ -78,5 +58,25 @@
     "width": 96,
     "height": 160,
     "path": "/sprites/outfits/pajamas/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/outfits/pajamas/thinking.webp"
+  },
+  "sit": {
+    "width": 78,
+    "height": 104,
+    "path": "/sprites/outfits/pajamas/sit.webp"
+  },
+  "lie": {
+    "width": 123,
+    "height": 82,
+    "path": "/sprites/outfits/pajamas/lie.webp"
+  },
+  "jump": {
+    "width": 96,
+    "height": 137,
+    "path": "/sprites/outfits/pajamas/jump.webp"
   }
 }

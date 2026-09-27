@@ -1,81 +1,81 @@
 {
   "idle": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/idle.webp"
   },
   "side_idle": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/side_idle.webp"
   },
   "back_idle": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/back_idle.webp"
   },
   "walk1": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/walk1.webp"
   },
   "walk2": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/walk2.webp"
   },
   "wave": {
-    "width": 101,
-    "height": 151,
+    "width": 126,
+    "height": 160,
     "path": "/sprites/npc/server/wave.webp"
   },
   "talk": {
-    "width": 93,
-    "height": 151,
+    "width": 126,
+    "height": 160,
     "path": "/sprites/npc/server/talk.webp"
   },
   "happy": {
-    "width": 89,
-    "height": 149,
+    "width": 126,
+    "height": 160,
     "path": "/sprites/npc/server/happy.webp"
   },
   "thinking": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/thinking.webp"
   },
   "carry_tray": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/carry_tray.webp"
   },
   "wipe": {
-    "width": 129,
-    "height": 137,
+    "width": 126,
+    "height": 160,
     "path": "/sprites/npc/server/wipe.webp"
   },
   "read": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/read.webp"
   },
   "shy": {
-    "width": 85,
-    "height": 140,
+    "width": 126,
+    "height": 160,
     "path": "/sprites/npc/server/shy.webp"
   },
   "wai": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/wai.webp"
   },
   "excited": {
-    "width": 90,
-    "height": 148,
+    "width": 126,
+    "height": 160,
     "path": "/sprites/npc/server/excited.webp"
   },
   "blink": {
-    "width": 103,
+    "width": 126,
     "height": 160,
     "path": "/sprites/npc/server/blink.webp"
   }

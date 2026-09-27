@@ -1,4 +1,4 @@
-"""Cut an NPC 4x4 sprite sheet (transparent WebP/PNG) into game-ready frames.
+"""Cut an NPC 4x4 sprite sheet (transparent PNG) into game-ready frames.
 
 Usage:
   python scripts/process_npc.py src/assets/npc_barista_sheet.webp barista [scale]
@@ -24,7 +24,6 @@ POSES = [
     'thinking', 'wai', 'pour', 'serve',
     'read', 'idea', 'point', 'blink',
 ]
-# Standing poses share one canvas so switching between them never jitters
 STAND_POSES = {'idle', 'side_idle', 'back_idle', 'walk1', 'walk2', 'thinking', 'wai', 'serve', 'read', 'blink'}
 TARGET_IDLE_HEIGHT = 75.0   # player idle height at 1x (scripts/process_assets.py)
 ALPHA_CUTOFF = 40           # drop faint anti-alias noise around the edges
@@ -49,6 +48,16 @@ def detect_cells(alpha: np.ndarray):
                  slice(min(o[1].start, s[1].start), max(o[1].stop, s[1].stop)))
         cells[key] = s
     return [cells[k] for k in sorted(cells)]
+
+
+def head_center_x(img: Image.Image) -> float:
+    """X centre of the head: mean x of opaque pixels in the top 28% of the figure."""
+    a = np.array(img)[..., 3] > 128
+    ys = np.where(a.any(axis=1))[0]
+    top = ys.min()
+    band = a[top: top + max(4, int(img.height * 0.28))]
+    xs = np.where(band)[1]
+    return float(xs.mean()) if len(xs) else img.width / 2
 
 
 def load_poses(name: str):
@@ -82,19 +91,22 @@ def main(src: str, name: str, k: float = 1.0):
     scaled = {p: c.resize((max(1, round(c.width * scale)), max(1, round(c.height * scale))),
                           Image.Resampling.LANCZOS) for p, c in crops.items()}
 
-    stand_w = max(round(48 * k), max(scaled[p].width for p in stand_poses if p in scaled))
-    stand_h = max(round(78 * k) + 4, max(scaled[p].height for p in stand_poses if p in scaled) + 4)
+    # Every pose goes on ONE shared canvas, lined up on the HEAD (not the image centre):
+    # the engine draws sprites bottom-centre, so this keeps the head still when the NPC
+    # switches walk1 -> side_idle -> walk2 or stops to wave / carry a tray (no side-to-side jitter).
+    heads = {p: head_center_x(img) for p, img in scaled.items()}
+    half = max(max(heads[p], img.width - heads[p]) for p, img in scaled.items())
+    canvas_w = max(round(48 * k), 2 * int(np.ceil(half)) + 2)
+    canvas_h = max(round(78 * k) + 4, max(img.height for img in scaled.values()) + 4)
 
     out_dir = os.path.join(ROOT, 'public', 'sprites', 'npc', name)
     os.makedirs(out_dir, exist_ok=True)
     manifest = {}
     for pose, img in scaled.items():
-        if pose in stand_poses:
-            canvas = Image.new('RGBA', (stand_w, stand_h), (0, 0, 0, 0))
-            canvas.paste(img, ((stand_w - img.width) // 2, stand_h - img.height), img)
-            img = canvas
-        img.save(os.path.join(out_dir, f'{pose}.webp'), 'WEBP', lossless=True)
-        manifest[pose] = {'width': img.width, 'height': img.height,
+        canvas = Image.new('RGBA', (canvas_w, canvas_h), (0, 0, 0, 0))
+        canvas.paste(img, (round(canvas_w / 2 - heads[pose]), canvas_h - img.height), img)
+        canvas.save(os.path.join(out_dir, f'{pose}.webp'), 'WEBP', lossless=True)
+        manifest[pose] = {'width': canvas_w, 'height': canvas_h,
                           'path': f'/sprites/npc/{name}/{pose}.webp'}
 
     with open(os.path.join(out_dir, 'manifest.json'), 'w') as f:
