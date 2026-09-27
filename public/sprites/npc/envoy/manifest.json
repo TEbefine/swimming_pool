@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/idle.webp"
+  },
+  "side_idle": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/back_idle.webp"
+  },
+  "walk1": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/walk1.webp"
+  },
+  "walk2": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/walk2.webp"
+  },
+  "wave": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/wave.webp"
+  },
+  "talk": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/talk.webp"
+  },
+  "happy": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/happy.webp"
+  },
+  "walk_down1": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/thinking.webp"
+  },
+  "sit": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/sit.webp"
+  },
+  "lie": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/lie.webp"
+  },
+  "jump": {
+    "width": 94,
+    "height": 86,
+    "path": "/sprites/npc/envoy/jump.webp"
+  }
+}

@@ -72,6 +72,6 @@ export const clubRoom: RoomDefinition = {
   ],
 
   exits: [
-    { triggerBox: [950, 280, 70, 24], targetRoom: 'poolside' },
+    { triggerBox: [950, 280, 70, 24], targetRoom: 'town' },
   ],
 };

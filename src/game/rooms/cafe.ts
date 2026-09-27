@@ -43,6 +43,6 @@ export const cafeRoom: RoomDefinition = {
   ],
 
   exits: [
-    { triggerBox: [946, 262, 58, 30], targetRoom: 'poolside' },
+    { triggerBox: [946, 262, 58, 30], targetRoom: 'town' },
   ],
 };

@@ -32,8 +32,18 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def detect_cells(alpha: np.ndarray):
+    # Try a generous merge first; if two poses touch (e.g. a jump arm reaching the cell
+    # above) fall back to a tighter merge so every grid cell still gives one pose.
+    for it in (8, 4, 2):
+        cells = _detect_cells(alpha, it)
+        if len(cells) == 16:
+            return cells
+    return cells
+
+
+def _detect_cells(alpha: np.ndarray, iterations: int):
     fg = alpha > ALPHA_CUTOFF
-    lab, _ = ndimage.label(ndimage.binary_dilation(fg, iterations=8))
+    lab, _ = ndimage.label(ndimage.binary_dilation(fg, iterations=iterations))
     boxes = [s for s in ndimage.find_objects(lab)
              if (s[0].stop - s[0].start) * (s[1].stop - s[1].start) > 2000]
     # Merge pieces that belong to the same grid cell (e.g. a whistle's sound lines or a

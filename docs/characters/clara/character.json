@@ -1,0 +1,36 @@
+{
+  "id": "clara",
+  "displayName": "Clara",
+  "role": "Bookish, kind scholar who explains things gently; the town's thinking-habits teacher (Claude vibe, placeholder name)",
+  "room": "town",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "shoulder-length wavy warm brown, half-up with an orange clip",
+    "cardigan": "#D27A56 terracotta knit",
+    "blouse": "#F4EBDD",
+    "skirt": "#C9A67A camel",
+    "prop": "small clay-orange hardcover book"
+  },
+  "voice": {
+    "tone": ["calm", "kind", "curious", "clear"],
+    "languages": ["en"],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "small polite wave"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "wave", "talk", "happy",
+    "walk_down1", "walk_down2", "walk_up1", "walk_up2",
+    "thinking", "sit", "lie", "jump"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "walk_down1", "walk_down2", "walk_up1", "walk_up2", "thinking"],
+  "portraits": {
+    "dir": "/sprites/npc/clara/portrait/",
+    "faces": { "neutral": "identity", "smile": "closed-eye smile, hugging the book", "thinking": "finger on chin, eyes up", "explain": "book open, explaining", "idea": "finger up, idea" }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/clara/",
+    "spriteManifest": "/sprites/npc/clara/manifest.json",
+    "sheetSource": "src/assets/npc_clara_sheet.webp"
+  }
+}

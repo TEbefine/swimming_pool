@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/idle.webp"
+  },
+  "side_idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/back_idle.webp"
+  },
+  "walk1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/walk1.webp"
+  },
+  "walk2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/walk2.webp"
+  },
+  "wave": {
+    "width": 50,
+    "height": 72,
+    "path": "/sprites/outfits/town/wave.webp"
+  },
+  "talk": {
+    "width": 45,
+    "height": 72,
+    "path": "/sprites/outfits/town/talk.webp"
+  },
+  "happy": {
+    "width": 55,
+    "height": 72,
+    "path": "/sprites/outfits/town/happy.webp"
+  },
+  "walk_down1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/town/thinking.webp"
+  },
+  "sit": {
+    "width": 44,
+    "height": 56,
+    "path": "/sprites/outfits/town/sit.webp"
+  },
+  "lie": {
+    "width": 68,
+    "height": 47,
+    "path": "/sprites/outfits/town/lie.webp"
+  },
+  "jump": {
+    "width": 51,
+    "height": 68,
+    "path": "/sprites/outfits/town/jump.webp"
+  }
+}

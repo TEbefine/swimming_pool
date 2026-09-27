@@ -25,18 +25,18 @@
     "path": "/sprites/outfits/cafe/walk2.webp"
   },
   "wave": {
-    "width": 84,
-    "height": 141,
+    "width": 100,
+    "height": 145,
     "path": "/sprites/outfits/cafe/wave.webp"
   },
   "talk": {
-    "width": 87,
-    "height": 141,
+    "width": 90,
+    "height": 144,
     "path": "/sprites/outfits/cafe/talk.webp"
   },
   "happy": {
-    "width": 100,
-    "height": 141,
+    "width": 110,
+    "height": 145,
     "path": "/sprites/outfits/cafe/happy.webp"
   },
   "walk_down1": {
@@ -65,18 +65,18 @@
     "path": "/sprites/outfits/cafe/thinking.webp"
   },
   "sit": {
-    "width": 77,
-    "height": 106,
+    "width": 88,
+    "height": 112,
     "path": "/sprites/outfits/cafe/sit.webp"
   },
   "lie": {
-    "width": 124,
-    "height": 82,
+    "width": 137,
+    "height": 95,
     "path": "/sprites/outfits/cafe/lie.webp"
   },
   "jump": {
-    "width": 93,
-    "height": 138,
+    "width": 101,
+    "height": 137,
     "path": "/sprites/outfits/cafe/jump.webp"
   }
 }

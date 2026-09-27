@@ -1,3 +1,24 @@
+# Style candidate "Soft pastel" (2026-09-27, Teera's new reference)
+Traits taken from Teera's reference image (4 small indie-style characters): soft dark-plum outline
+instead of pure black · muted pastel palette with warm/cool hue-shifted shading · very simple face
+(two dot eyes, pink blush, no mouth) · hair = the big, readable silhouette (ponytail, spikes, long) ·
+small narrow body, thin tapered arms/legs, tiny hands and feet · clothes = simple blocks + one accent
+detail. Fits the Lumen Bay pastel world. Test on the player first; if approved, redo all sheets.
+
+STYLE BLOCK (paste into every character prompt):
+```
+STYLE: soft modern indie pixel art. Visible square pixels, stair-stepped edges, no
+anti-aliasing. Outline in soft dark plum-brown, not pure black. Muted pastel palette,
+2-3 shades per color with hue-shifted shadows (warm light, cool shadow). Very simple
+face: two small dark dot eyes, pink blush pixels on the cheeks, no mouth unless
+talking or smiling. Hair is a big, clear, readable shape with one soft highlight.
+Small narrow body, thin arms and legs that taper, tiny hands and small feet.
+Clothes are simple color blocks with one small accent detail. Chibi proportions:
+head about 40% of the height.
+```
+
+---
+
 # Body Standard — FINAL (2026-09-27): copy the lifeguard
 
 **Decision (Teera):** the lifeguard sheet (`src/assets/npc_lifeguard_sheet.webp`) is the

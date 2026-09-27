@@ -1,6 +1,8 @@
 import { getTipForDate } from './tips';
 import { getTonightGenre } from '../rooms/club';
 import { npcName } from './npcNames';
+import { getAiTipForDate, getPromptTrickForDate, getThinkingHabitForDate } from './aiTips';
+import { getNewsLine } from './aiNews';
 
 /** Face expression shown on the portrait photo. */
 export type PortraitFace = 'neutral' | 'smile' | 'thinking' | 'idea' | 'wai' | 'finger_heart' | 'whistle' | 'explain' | 'confident' | 'shy' | 'grin';
@@ -219,6 +221,190 @@ export const dialogues: Record<string, DialogScript> = {
       },
     },
   },
+  tycoon: {
+    name: npcName('tycoon'),
+    portraitDir: '/sprites/npc/tycoon/portrait',
+    faces: ['neutral', 'smile', 'grin', 'thinking', 'explain'],
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: '{greeting}, young friend! Welcome to my little town.', pose: 'wave', face: 'smile' },
+          { text: 'I own half of it, you know. The other half owns my heart.', pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'AI TIP', next: 'tip' },
+          { label: 'YOUR SECRET?', next: 'secret' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      tip: {
+        lines: [
+          { text: 'Ah, today\'s AI news. Let me see...', pose: 'thinking', face: 'thinking' },
+          { text: '{aiTip}', pose: 'talk', face: 'explain' },
+          { text: 'A good question is worth more than gold!', pose: 'happy', face: 'grin' },
+        ],
+        choices: [
+          { label: 'AI TIP', next: 'tip' },
+          { label: 'YOUR SECRET?', next: 'secret' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      secret: {
+        lines: [
+          { text: 'My secret? One small thing learned every day.', pose: 'thinking', face: 'thinking' },
+          { text: 'Knowledge grows like interest. Start small, start today.', pose: 'talk', face: 'explain' },
+        ],
+        choices: [
+          { label: 'AI TIP', next: 'tip' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'Good day to you! Come back tomorrow for fresh news.', pose: 'wave', face: 'smile' },
+        ],
+      },
+    },
+  },
+  nova: {
+    name: npcName('nova'),
+    portraitDir: '/sprites/npc/nova/portrait',
+    faces: ['neutral', 'smile', 'grin', 'thinking', 'explain'],
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Hey, new face. Nice.', pose: 'wave', face: 'smile' },
+          { text: "I'm Nova. I know every trick for talking to AI.", pose: 'idle', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'PROMPT TRICK', next: 'trick' },
+          { label: 'WHY THE SHADES?', next: 'shades' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      trick: {
+        lines: [
+          { text: "Okay, today's trick. Don't tell the old man.", pose: 'thinking', face: 'thinking' },
+          { text: '{promptTrick}', pose: 'talk', face: 'explain' },
+          { text: 'Try it once today. You\'ll see.', pose: 'happy', face: 'grin' },
+        ],
+        choices: [
+          { label: 'PROMPT TRICK', next: 'trick' },
+          { label: 'WHY THE SHADES?', next: 'shades' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      shades: {
+        lines: [
+          { text: 'The shades? So I look like I have all the answers.', pose: 'thinking', face: 'thinking' },
+          { text: "Real secret: I don't. I just ask better questions.", pose: 'talk', face: 'explain' },
+        ],
+        choices: [
+          { label: 'PROMPT TRICK', next: 'trick' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'Later. Stay curious.', pose: 'wave', face: 'grin' },
+        ],
+      },
+    },
+  },
+  clara: {
+    name: npcName('clara'),
+    portraitDir: '/sprites/npc/clara/portrait',
+    faces: ['neutral', 'smile', 'thinking', 'explain', 'idea'],
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Oh, hello! Sorry, I was lost in my book.', pose: 'wave', face: 'smile' },
+          { text: "I'm Clara. I love helping people think things through.", pose: 'idle', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'THINKING HABIT', next: 'habit' },
+          { label: "WHAT'S THE BOOK?", next: 'book' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      habit: {
+        lines: [
+          { text: "Let me think... here's one I like.", pose: 'thinking', face: 'thinking' },
+          { text: '{thinkingHabit}', pose: 'talk', face: 'explain' },
+          { text: "AI is a great helper. But the thinking? That part is yours.", pose: 'happy', face: 'idea' },
+        ],
+        choices: [
+          { label: 'THINKING HABIT', next: 'habit' },
+          { label: "WHAT'S THE BOOK?", next: 'book' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      book: {
+        lines: [
+          { text: 'It\'s my notebook. One line for every small thing I learn.', pose: 'talk', face: 'explain' },
+          { text: 'Small notes, every day. They add up, you know?', pose: 'happy', face: 'smile' },
+        ],
+        choices: [
+          { label: 'THINKING HABIT', next: 'habit' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'Take care! Learn one small thing today.', pose: 'wave', face: 'smile' },
+        ],
+      },
+    },
+  },
+  envoy: {
+    name: npcName('envoy'),
+    portraitDir: '/sprites/npc/envoy/portrait',
+    faces: ['neutral', 'smile', 'grin', 'thinking', 'explain'],
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Hi there! Envoy, live from Lakeside Square.', pose: 'wave', face: 'smile' },
+          { text: 'I speak for all the other AIs in town. Want the latest?', pose: 'idle', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'AI NEWS', next: 'news' },
+          { label: 'WHO ARE THE AIS?', next: 'who' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      news: {
+        lines: [
+          { text: 'One second, checking my notes...', pose: 'thinking', face: 'thinking' },
+          { text: '{aiNews}', pose: 'talk', face: 'explain' },
+          { text: "And that's the news! Back to you.", pose: 'happy', face: 'grin' },
+        ],
+        choices: [
+          { label: 'AI NEWS', next: 'news' },
+          { label: 'WHO ARE THE AIS?', next: 'who' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      who: {
+        lines: [
+          { text: "There are many AIs out there, big and small. Each one's good at different things.", pose: 'talk', face: 'explain' },
+          { text: 'Try a few, compare them, and keep what works for you!', pose: 'happy', face: 'grin' },
+        ],
+        choices: [
+          { label: 'AI NEWS', next: 'news' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: "This has been Envoy. Stay informed, stay kind!", pose: 'wave', face: 'smile' },
+        ],
+      },
+    },
+  },
 
 };
 
@@ -250,6 +436,21 @@ export function resolveDialogText(text: string): string {
   if (resolved.includes('{tip}')) {
     const tip = getTipForDate();
     resolved = resolved.replace('{tip}', `${tip.title}: ${tip.body}`);
+  }
+  if (resolved.includes('{aiTip}')) {
+    const t = getAiTipForDate();
+    resolved = resolved.replace('{aiTip}', `${t.title}: ${t.body}`);
+  }
+  if (resolved.includes('{promptTrick}')) {
+    const t = getPromptTrickForDate();
+    resolved = resolved.replace('{promptTrick}', `${t.title}: ${t.body}`);
+  }
+  if (resolved.includes('{thinkingHabit}')) {
+    const t = getThinkingHabitForDate();
+    resolved = resolved.replace('{thinkingHabit}', `${t.title}: ${t.body}`);
+  }
+  if (resolved.includes('{aiNews}')) {
+    resolved = resolved.replace('{aiNews}', getNewsLine());
   }
   if (resolved.includes('{genre}')) {
     const genre = getTonightGenre();

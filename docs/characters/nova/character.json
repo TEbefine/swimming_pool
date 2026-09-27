@@ -1,0 +1,35 @@
+{
+  "id": "nova",
+  "displayName": "Nova",
+  "role": "Effortlessly cool girl, the town's prompt-trick queen (ChatGPT vibe, placeholder name)",
+  "room": "town",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "short choppy platinum blonde, round black sunglasses pushed up",
+    "jacket": "#2E2A33 black leather",
+    "tee": "#F7F4EE",
+    "accent": "#4FB7A6 teal earring + boot stripe"
+  },
+  "voice": {
+    "tone": ["confident", "playful", "a little rebellious", "friendly"],
+    "languages": ["en"],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "two-finger peace sign"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "wave", "talk", "happy",
+    "walk_down1", "walk_down2", "walk_up1", "walk_up2",
+    "thinking", "sit", "lie", "jump"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "walk_down1", "walk_down2", "walk_up1", "walk_up2", "thinking"],
+  "portraits": {
+    "dir": "/sprites/npc/nova/portrait/",
+    "faces": { "neutral": "identity", "smile": "peace sign", "grin": "wink, big smile", "thinking": "sunglasses pulled down", "explain": "talking, hand gesture" }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/nova/",
+    "spriteManifest": "/sprites/npc/nova/manifest.json",
+    "sheetSource": "src/assets/npc_nova_sheet.webp"
+  }
+}

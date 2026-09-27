@@ -15,6 +15,7 @@ import { NetworkManager } from './network';
 import { rooms } from './rooms';
 import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
 import { MoversManager } from './world/movers';
+import { renderAmbient } from './world/ambient';
 import { getTonightGenre } from './rooms/club';
 
 /** Hash string into 32-bit unsigned integer (FNV-1a). */
@@ -51,16 +52,25 @@ interface NpcWanderSegment {
   facing: 1 | -1;
 }
 
-/** 4-frame NPC side walk (the idle side pose is the passing frame between the two strides). */
-const NPC_WALK_CYCLE = ['walk1', 'side_idle', 'walk2', 'side_idle'] as const;
-/** Ground covered per walk frame at 1× (px). Frames advance by distance, so the feet never slide. */
-const NPC_STRIDE_PX = 9;
+/** NPC side walk: the two STRIDE frames only (a standing frame in between made them look like they glide). */
+const NPC_WALK_CYCLE = ['walk1', 'walk2'] as const;
+/** Ground covered per step at 1× (px). Steps advance by distance, so the feet never slide. */
+const NPC_STRIDE_PX = 7;
+/** Body lift in the middle of each step at 1× (px) — the little up-down that makes it read as walking. */
+const NPC_STEP_BOB_PX = 1.5;
 /** After arriving, stand still this long before starting the pause pose (looks less robotic). */
 const NPC_SETTLE_MS = 450;
 
 function npcWalkFrame(distancePx: number, actorScale: number): string {
   const i = Math.floor(distancePx / (NPC_STRIDE_PX * (actorScale || 1))) % NPC_WALK_CYCLE.length;
   return NPC_WALK_CYCLE[i];
+}
+
+/** Up-down bob for the current step: 0 when a foot lands, highest halfway through the step. */
+function npcStepBob(distancePx: number, actorScale: number): number {
+  const k = actorScale || 1;
+  const phase = (distancePx / (NPC_STRIDE_PX * k)) % 1;
+  return Math.round(Math.sin(phase * Math.PI) * NPC_STEP_BOB_PX * k);
 }
 
 interface NpcWanderCycle {
@@ -175,6 +185,8 @@ interface NpcRenderState {
   y: number;
   facing: 1 | -1;
   action: string;
+  /** Walking bob in px (sprite drawn this much higher; shadow stays on the floor). */
+  bob?: number;
 }
 
 /** Physical keys that move the player (KeyboardEvent.code, layout-independent). */
@@ -218,6 +230,13 @@ function idHash(id: string): number {
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   return Math.abs(h) % 4200;
 }
+
+/** Walk bounce (art px at 1×) on the passing frames. */
+const STEP_LIFT_PX = 2;
+/** Standing breath: one slow cycle, upper body (above BREATHE_SPLIT of the height) sinks 1 px. */
+const BREATHE_MS = 2600;
+const BREATHE_SPLIT = 0.62;
+const BREATHE_POSES = new Set(['idle', 'side_idle', 'back_idle']);
 
 const WALK_CYCLES = {
   side: ['walk1', 'side_pass', 'walk2', 'side_pass'],
@@ -1339,7 +1358,7 @@ export class GameEngine {
       this.skyCanvas.height = this.canvas.height;
     }
     const skyCtx = this.skyCanvas.getContext('2d')!;
-    const grad = skyCtx.createLinearGradient(0, 0, 0, this.skyCanvas.height);
+    const grad = skyCtx.createLinearGradient(0, 0, 0, this.room.view?.skyBottomY ?? this.skyCanvas.height);
     grad.addColorStop(0, `rgb(${Math.round(sky.top[0])}, ${Math.round(sky.top[1])}, ${Math.round(sky.top[2])})`);
     grad.addColorStop(1, `rgb(${Math.round(sky.bottom[0])}, ${Math.round(sky.bottom[1])}, ${Math.round(sky.bottom[2])})`);
     skyCtx.fillStyle = grad;
@@ -1888,16 +1907,20 @@ export class GameEngine {
 
       // L0. Sky gradient (full canvas)
       this.ctx.drawImage(this.skyCanvas, 0, 0);
+      renderAmbient(this.ctx, this.room.roomId, 'sky', performance.now(), sky.night);
 
       // L0.5. Far movers (clouds, birds, plane)
       this.movers.render(this.ctx, 'far', this.moverSprites, sky.night);
 
       // L0.7. City panorama at (cityOffsetX, CITY.y), multiplied by skyAt().cityTint
-      const offsetX = this.room.view!.cityOffsetX;
-      this.ctx.drawImage(this.cityCanvas, offsetX, CITY.y);
+      // (rooms with view.city === false — painted postcard scenes — have no city and no train)
+      if (this.room.view!.city !== false) {
+        const offsetX = this.room.view!.cityOffsetX;
+        this.ctx.drawImage(this.cityCanvas, offsetX, CITY.y);
 
-      // L0.8. Near movers (train)
-      this.movers.render(this.ctx, 'near', this.moverSprites, sky.night);
+        // L0.8. Near movers (train)
+        this.movers.render(this.ctx, 'near', this.moverSprites, sky.night);
+      }
 
       // L1. Room background (transparent windows)
       if (this.bgImage) {
@@ -1912,6 +1935,9 @@ export class GameEngine {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       }
     }
+
+    // 1b. Ambient water glints on the painted background
+    renderAmbient(this.ctx, this.room.roomId, 'back', performance.now(), sky.night);
 
     // 2. Click destination marker
     if (this.clickTarget) {
@@ -2029,12 +2055,15 @@ export class GameEngine {
       d.draw();
     }
 
+    // 6d. Ambient sparkles / petals (darkened by the night overlay below)
+    renderAmbient(this.ctx, this.room.roomId, 'front', time, sky.night);
+
     // L4. Night: if night > 0, multiply canvas with rgba(20,24,60, 0.45*night),
     // then add ROOM_LIGHTS as soft radial glows ('lighter', alpha 0.35*night)
     if (hasView && sky.night > 0) {
       this.ctx.save();
       this.ctx.globalCompositeOperation = 'multiply';
-      this.ctx.fillStyle = `rgba(20, 24, 60, ${0.45 * sky.night})`;
+      this.ctx.fillStyle = `rgba(20, 24, 60, ${(this.room.view?.nightDarkness ?? 0.45) * sky.night})`;
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       this.ctx.restore();
 
@@ -2055,6 +2084,9 @@ export class GameEngine {
         this.ctx.restore();
       }
     }
+
+    // L4b. Beacon glows (lighthouse) on top of the night
+    if (hasView) renderAmbient(this.ctx, this.room.roomId, 'glow', time, sky.night);
 
     // 7. Overlays (name tags, speech bubbles) — always on top
     for (const fn of overlayFns) {
@@ -2217,7 +2249,8 @@ export class GameEngine {
       const y = Math.round(seg.startY + (seg.targetY - seg.startY) * progress);
       const travelled = Math.hypot(x - seg.startX, y - seg.startY);
       const action = overridePose || npcWalkFrame(travelled, this.actorScale);
-      return { x, y, facing: seg.facing, action };
+      const bob = overridePose ? 0 : npcStepBob(travelled, this.actorScale);
+      return { x, y, facing: seg.facing, action, bob };
     } else {
       // Paused: settle in the side pose first, then the idle pose; blink sometimes
       let action = (elapsedInSeg - seg.walkMs) < NPC_SETTLE_MS ? 'side_idle' : seg.idlePose;
@@ -2274,8 +2307,10 @@ export class GameEngine {
         const curY = Math.round((1 - ease) * rt.easeStartY + ease * sched.y);
         const facing: 1 | -1 = sched.x >= curX ? 1 : -1;
         const travelled = Math.hypot(curX - rt.easeStartX, curY - rt.easeStartY);
-        const action = overridePose || (travelled < 2 ? 'side_idle' : npcWalkFrame(travelled, this.actorScale));
-        return { x: curX, y: curY, facing, action };
+        const walking = !overridePose && travelled >= 2;
+        const action = overridePose || (walking ? npcWalkFrame(travelled, this.actorScale) : 'side_idle');
+        const bob = walking ? npcStepBob(travelled, this.actorScale) : 0;
+        return { x: curX, y: curY, facing, action, bob };
       } else {
         rt.easeStartTime = 0;
       }
@@ -2330,7 +2365,7 @@ export class GameEngine {
 
     // Sprite (bottom-centre anchor, native size; side frames face RIGHT so flip for leftward)
     this.ctx.save();
-    this.ctx.translate(state.x, state.y);
+    this.ctx.translate(state.x, state.y - (state.bob ?? 0));
     if (state.facing === -1) {
       this.ctx.scale(-1, 1);
     }
@@ -2406,7 +2441,21 @@ export class GameEngine {
     const ax = !isWater && HEAD_ANCHOR.has(player.currentAction)
       ? this.getHeadAnchor(spriteImg)
       : Math.floor(w / 2);
-    this.ctx.drawImage(spriteImg, -ax, -h);
+    const action = player.currentAction;
+    const k = this.actorScale || 1;
+    if (!isWater && air === 0 && action.endsWith('_pass')) {
+      // Step bounce: on the passing step (legs together) the whole body is 1 art-pixel higher
+      this.ctx.drawImage(spriteImg, -ax, -h - Math.round(STEP_LIFT_PX * k));
+    } else if (!isWater && air === 0 && BREATHE_POSES.has(action)) {
+      // Breathing: head + chest sink 1 px for half of each breath, feet stay planted
+      const t = (performance.now() + idHash(player.id)) % BREATHE_MS;
+      const down = t > BREATHE_MS / 2 ? Math.round(k) : 0;
+      const cut = Math.round(h * BREATHE_SPLIT);
+      this.ctx.drawImage(spriteImg, 0, cut, w, h - cut, -ax, -h + cut, w, h - cut);
+      this.ctx.drawImage(spriteImg, 0, 0, w, cut, -ax, -h + down, w, cut);
+    } else {
+      this.ctx.drawImage(spriteImg, -ax, -h);
+    }
     this.ctx.restore();
   }
 

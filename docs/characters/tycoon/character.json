@@ -1,0 +1,37 @@
+{
+  "id": "tycoon",
+  "displayName": "Sir Ledger",
+  "role": "Old-money tycoon grandpa who owns half of Lumen Bay; the town's AI news walker (Gemini vibe, placeholder name)",
+  "room": "town",
+  "status": "sprite-approved",
+  "look": {
+    "hat": "short cream top hat with a navy band",
+    "suit": "#EFE3C8",
+    "vest": "#34406B",
+    "gold": "#D9B25F",
+    "pin": "blue-to-violet two-pointed star",
+    "prop": "dark cane with a blue-violet gem"
+  },
+  "voice": {
+    "tone": ["cheerful", "proud", "generous", "grandpa"],
+    "languages": ["en"],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "tips his top hat"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "wave", "talk", "happy",
+    "walk_down1", "walk_down2", "walk_up1", "walk_up2",
+    "thinking", "sit", "lie", "jump"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "walk_down1", "walk_down2", "walk_up1", "walk_up2", "thinking"],
+  "portraits": {
+    "dir": "/sprites/npc/tycoon/portrait/",
+    "faces": { "neutral": "identity", "smile": "tips top hat", "grin": "gold coin, laughing", "thinking": "strokes mustache", "explain": "open hand, explaining" }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/tycoon/",
+    "spriteManifest": "/sprites/npc/tycoon/manifest.json",
+    "sheetSource": "src/assets/npc_tycoon_sheet.webp"
+  }
+}

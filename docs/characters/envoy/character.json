@@ -1,0 +1,37 @@
+{
+  "id": "envoy",
+  "displayName": "Envoy",
+  "role": "Spokesperson and news anchor for all the other AIs; reports AI news, or an AI word of the day (placeholder name)",
+  "room": "town",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "long black, high sleek ponytail, gold stud earrings",
+    "blazer": "#B9A7E0 soft lavender",
+    "top": "#F6F4F8",
+    "trousers": "#4A4652 charcoal",
+    "pins": "row of red, yellow, sky-blue pins",
+    "prop": "handheld microphone, lanyard ID card"
+  },
+  "voice": {
+    "tone": ["energetic", "organized", "warm", "reporter"],
+    "languages": ["en"],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "signs off like a news anchor"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "wave", "talk", "happy",
+    "walk_down1", "walk_down2", "walk_up1", "walk_up2",
+    "thinking", "sit", "lie", "jump"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "walk_down1", "walk_down2", "walk_up1", "walk_up2", "thinking"],
+  "portraits": {
+    "dir": "/sprites/npc/envoy/portrait/",
+    "faces": { "neutral": "identity, mic at chest", "smile": "friendly wave", "grin": "excited, mic up", "thinking": "glancing down", "explain": "reporting, pointing at you" }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/envoy/",
+    "spriteManifest": "/sprites/npc/envoy/manifest.json",
+    "sheetSource": "src/assets/npc_envoy_sheet.webp"
+  }
+}

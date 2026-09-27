@@ -114,7 +114,7 @@ export interface RoomDefinition {
   elements?: ElementDef[];
   actorScale?: number;
   /** What the player wears here: sprites in public/sprites/outfits/<outfit>/ ('swim' = the base swimsuit art). */
-  outfit: 'swim' | 'cafe' | 'pajamas';
+  outfit: 'swim' | 'cafe' | 'pajamas' | 'town';
   exits?: {
     triggerBox: [number, number, number, number];
     targetRoom: string;
@@ -130,6 +130,12 @@ export interface RoomDefinition {
     cityOffsetX: number;
     /** Always show this Bangkok hour in this room (e.g. 21 = night club), ignoring the real clock */
     fixedHour?: number;
+    /** false = painted postcard scene: no Bangkok city panorama and no skytrain behind it */
+    city?: boolean;
+    /** Sky gradient reaches its bottom colour at this y (the scene's horizon). Default: canvas bottom */
+    skyBottomY?: number;
+    /** How dark the night overlay gets (0–1). Default 0.45; outdoor scenes go darker */
+    nightDarkness?: number;
   };
 }
 

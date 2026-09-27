@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/idle.webp"
+  },
+  "side_idle": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/back_idle.webp"
+  },
+  "walk1": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/walk1.webp"
+  },
+  "walk2": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/walk2.webp"
+  },
+  "wave": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/wave.webp"
+  },
+  "talk": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/talk.webp"
+  },
+  "happy": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/happy.webp"
+  },
+  "walk_down1": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/thinking.webp"
+  },
+  "sit": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/sit.webp"
+  },
+  "lie": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/lie.webp"
+  },
+  "jump": {
+    "width": 122,
+    "height": 94,
+    "path": "/sprites/npc/tycoon/jump.webp"
+  }
+}

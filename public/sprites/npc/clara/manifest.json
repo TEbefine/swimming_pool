@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/idle.webp"
+  },
+  "side_idle": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/back_idle.webp"
+  },
+  "walk1": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/walk1.webp"
+  },
+  "walk2": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/walk2.webp"
+  },
+  "wave": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/wave.webp"
+  },
+  "talk": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/talk.webp"
+  },
+  "happy": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/happy.webp"
+  },
+  "walk_down1": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/thinking.webp"
+  },
+  "sit": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/sit.webp"
+  },
+  "lie": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/lie.webp"
+  },
+  "jump": {
+    "width": 106,
+    "height": 82,
+    "path": "/sprites/npc/clara/jump.webp"
+  }
+}

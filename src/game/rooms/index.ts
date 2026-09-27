@@ -3,8 +3,10 @@ import { poolsideRoom } from './poolside';
 import { cafeRoom } from './cafe';
 import { homeRoom } from './home';
 import { clubRoom } from './club';
+import { townRoom } from './town';
 
 export const rooms: Record<string, RoomDefinition> = {
+  town: townRoom,
   poolside: poolsideRoom,
   cafe: cafeRoom,
   home: homeRoom,

@@ -4,6 +4,8 @@ Usage:
   python scripts/process_player_sheet.py src/assets/player_swim_sheet.webp swim
   python scripts/process_player_sheet.py src/assets/outfit_cafe_sheet.webp cafe
   python scripts/process_player_sheet.py src/assets/outfit_pajamas_sheet.webp pajamas
+  python scripts/process_player_sheet.py src/assets/outfit_cafe_sheet.webp town 1
+  (optional 3rd argument: scale for outfits, default 2 = café / My Room size; 1 = pool / town size)
 
 Sheet order (docs: characters/body-standard.md), row by row:
   idle, side_idle, back_idle, walk1 / walk2, wave, talk, happy /
@@ -71,7 +73,7 @@ def write(crops, out_dir: str, url_dir: str, k: float) -> dict:
     return manifest
 
 
-def main(src: str, name: str) -> None:
+def main(src: str, name: str, k: float = 2.0) -> None:
     crops = cut(src)
     sprites = os.path.join(ROOT, 'public', 'sprites')
     if name == 'swim':
@@ -88,13 +90,13 @@ def main(src: str, name: str) -> None:
         print('Saved swimsuit: land (1x) + land_2_0x (2x)')
     else:
         out = os.path.join(sprites, 'outfits', name)
-        m = write(crops, out, f'/sprites/outfits/{name}', 2.0)
+        m = write(crops, out, f'/sprites/outfits/{name}', k)
         with open(os.path.join(out, 'manifest.json'), 'w') as f:
             json.dump(m, f, indent=2)
-        print(f'Saved outfit {name} (2x)')
+        print(f'Saved outfit {name} ({k:g}x)')
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], float(sys.argv[3]) if len(sys.argv) == 4 else 2.0)

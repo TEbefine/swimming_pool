@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/idle.webp"
+  },
+  "side_idle": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/back_idle.webp"
+  },
+  "walk1": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/walk1.webp"
+  },
+  "walk2": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/walk2.webp"
+  },
+  "wave": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/wave.webp"
+  },
+  "talk": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/talk.webp"
+  },
+  "happy": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/happy.webp"
+  },
+  "walk_down1": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/thinking.webp"
+  },
+  "sit": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/sit.webp"
+  },
+  "lie": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/lie.webp"
+  },
+  "jump": {
+    "width": 106,
+    "height": 86,
+    "path": "/sprites/npc/nova/jump.webp"
+  }
+}

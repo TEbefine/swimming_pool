@@ -29,6 +29,15 @@ export const ROOM_LIGHTS: Record<string, { x: number; y: number; radius: number;
     { x: 555, y: 58, radius: 140, color: [255, 214, 150] },
     { x: 978, y: 58, radius: 120, color: [255, 214, 150] },
   ],
+  town: [
+    { x: 268, y: 225, radius: 80, color: [255, 214, 150] },   // street lamp left
+    { x: 773, y: 225, radius: 80, color: [255, 214, 150] },   // street lamp right
+    { x: 362, y: 220, radius: 55, color: [255, 205, 140] },   // café window
+    { x: 435, y: 222, radius: 30, color: [255, 205, 140] },   // café door glass
+    { x: 477, y: 213, radius: 36, color: [255, 214, 150] },   // café wall lamp
+    { x: 546, y: 212, radius: 36, color: [255, 214, 150] },   // bookshop wall lamp
+    { x: 663, y: 225, radius: 55, color: [255, 205, 140] },   // bookshop window
+  ],
   club: [
     { x: 78, y: 73, radius: 130, color: [255, 200, 130] },    // left sconce
     { x: 564, y: 73, radius: 130, color: [255, 200, 130] },   // middle sconce

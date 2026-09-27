@@ -56,6 +56,6 @@ export const poolsideRoom: RoomDefinition = {
 
   exits: [
     { triggerBox: [0, 500, 30, 76], targetRoom: 'beach_coming_soon' },
-    { triggerBox: [994, 500, 30, 76], targetRoom: 'lounge_coming_soon' }
+    { triggerBox: [994, 500, 30, 76], targetRoom: 'town' }
   ]
 };
