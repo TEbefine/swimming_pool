@@ -1,8 +1,8 @@
-"""Cut a player OUTFIT 4x4 sprite sheet (transparent PNG from ChatGPT) into game frames.
+"""Cut a player OUTFIT 4x4 sprite sheet (transparent WebP/PNG from ChatGPT) into game frames.
 
 Usage:
-  python scripts/process_outfit.py src/assets/outfit_cafe_sheet.png cafe
-  python scripts/process_outfit.py src/assets/outfit_pajamas_sheet.png pajamas
+  python scripts/process_outfit.py src/assets/outfit_cafe_sheet.webp cafe
+  python scripts/process_outfit.py src/assets/outfit_pajamas_sheet.webp pajamas
   (optional 3rd argument: scale, default 2.0 = café / My Room size)
 
 Sheet order (row by row, left to right — same as the prompt in docs/characters/player/README.md):

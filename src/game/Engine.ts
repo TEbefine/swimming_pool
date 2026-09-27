@@ -669,7 +669,7 @@ export class GameEngine {
     // 5. NPC sprites (manifest-based or single image)
     if (this.room.npcs) {
       for (const npc of this.room.npcs) {
-        const isFile = npc.sprite.endsWith('.webp') || npc.sprite.endsWith('.png');
+        const isFile = npc.sprite.endsWith('.webp');
         if (isFile) {
           loadImg(`npc_${npc.id}_idle`, npc.sprite, this.npcSprites);
         } else {

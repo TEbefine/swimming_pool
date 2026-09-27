@@ -36,7 +36,7 @@ docs/characters/
 
 - [ ] Copy the `barista/` folder, rename it (lowercase id, e.g. `librarian`)
 - [ ] Fill `profile.md` (name, look, personality, voice) — decisions first, images second
-- [ ] Generate identity image → approve → save to `references/identity_front.png`
+- [ ] Generate identity image → approve → save to `references/identity_front.webp`
 - [ ] Generate expressions / turnaround with the same reference → approve → save
 - [ ] Pixel sprite sheet (4×4) + dialogue portraits (8 frames) → cut into `public/sprites/npc/<id>/`
 - [ ] Fill `character.json` and log everything in `prompts.md`

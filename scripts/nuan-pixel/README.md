@@ -25,6 +25,6 @@ is released under the SIL Open Font License 1.1 too.
 pip install fonttools brotli uharfbuzz pillow scikit-image
 python3 build.py          # -> out/NuanPixel-Regular.ttf/.woff2
 python3 build.py --bold   # -> out/NuanPixel-Bold.ttf/.woff2
-python3 hbrender.py out/NuanPixel-Regular.ttf preview.png "สวัสดีครับ|Pixel Poolside" 6
+python3 hbrender.py out/NuanPixel-Regular.ttf preview.webp "สวัสดีครับ|Pixel Poolside" 6
 ```
 Then copy the `.woff2` files into `public/fonts/`.

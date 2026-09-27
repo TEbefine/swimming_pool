@@ -30,7 +30,7 @@
     "sprites": "/sprites/npc/dj/",
     "spriteManifest": "/sprites/npc/dj/manifest.json",
     "portraits": "/sprites/npc/dj/portrait/",
-    "sheetSource": "src/assets/npc_dj_sheet.png",
-    "identity": "docs/characters/dj/references/identity_front.png"
+    "sheetSource": "src/assets/npc_dj_sheet.webp",
+    "identity": "docs/characters/dj/references/identity_front.webp"
   }
 }

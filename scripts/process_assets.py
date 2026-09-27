@@ -17,8 +17,7 @@ MANIFEST_PATH = os.path.join(SPRITES_DIR, "character_manifest.json")
 
 # 4x4 Action Sprite Sheet source
 SRC_CANDIDATES = [
-    os.path.join(WORKSPACE_DIR, "src", "assets", "spritesheet.png"),
-    "/Users/teerathongbai/.gemini/antigravity-ide/brain/aa89b6d8-2609-4ee2-83fc-dc5a6f86246a/.user_uploaded/media_1790171789714.png"
+    os.path.join(WORKSPACE_DIR, "src", "assets", "spritesheet.webp"),
 ]
 SPRITE_SRC = next((p for p in SRC_CANDIDATES if os.path.exists(p)), SRC_CANDIDATES[-1])
 

@@ -47,8 +47,8 @@ ROLE: serves drinks, wipes tables, looks after the café bookshelf.
 ## Assets & status
 | Asset | Status | Where |
 |---|---|---|
-| Pixel sprite sheet (16 poses) | ⏳ prompt in `prompts.md` §1 | `src/assets/npc_server_sheet.png` → `public/sprites/npc/server/` |
-| Identity photo | ⏳ | `references/identity_front.png` |
+| Pixel sprite sheet (16 poses) | ⏳ prompt in `prompts.md` §1 | `src/assets/npc_server_sheet.webp` → `public/sprites/npc/server/` |
+| Identity photo | ⏳ | `references/identity_front.webp` |
 
 ## Decision log
 | Date | Decision |

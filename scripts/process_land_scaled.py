@@ -9,7 +9,7 @@ import json, os, sys
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, 'src', 'assets', 'spritesheet.png')
+SRC = os.path.join(ROOT, 'src', 'assets', 'spritesheet.webp')
 SPECS = {  # keep in sync with scripts/process_assets.py
     'idle': (110, 60, 180, 205), 'side_idle': (355, 60, 425, 205), 'back_idle': (590, 60, 665, 205),
     'walk1': (840, 60, 915, 205), 'walk2': (110, 245, 185, 390), 'wave': (350, 245, 445, 390),

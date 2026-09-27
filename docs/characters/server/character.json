@@ -29,6 +29,6 @@
   "assets": {
     "sprites": "/sprites/npc/server/",
     "spriteManifest": "/sprites/npc/server/manifest.json",
-    "sheetSource": "src/assets/npc_server_sheet.png"
+    "sheetSource": "src/assets/npc_server_sheet.webp"
   }
 }

@@ -1,5 +1,5 @@
 // Music Club layout. Characters at 2x (same as the café). Background: /maps/club_room.webp (1024×576,
-// see-through window). Pieces cut from src/assets/club_elements_sheet.png, sized with the DOOR as ruler.
+// see-through window). Pieces cut from src/assets/club_elements_sheet.webp, sized with the DOOR as ruler.
 // Every element is placed by its BOTTOM-CENTRE (x, y). Move a piece = change x/y; collider/seat/interact follow.
 // Stage pieces (y < 300) sit on the stage platform; the stage itself is out of bounds (minY = 300).
 

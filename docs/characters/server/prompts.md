@@ -1,7 +1,7 @@
 # Café Server — Prompts & Version Log
 
 ## 1. ChatGPT — pixel sprite sheet
-Attach `src/assets/spritesheet.png` (player) and `src/assets/npc_barista_sheet.png`
+Attach `src/assets/spritesheet.webp` (player) and `src/assets/npc_barista_sheet.webp`
 (barista, his co-worker, for the same style, size and apron).
 
 ```
@@ -33,9 +33,9 @@ front idle with eyes closed (blink).
 No text, no shadows, no background, no props except the tray, cup, cloth and book.
 ```
 
-**Cut it into the game** (save as `src/assets/npc_server_sheet.png`):
+**Cut it into the game** (save as `src/assets/npc_server_sheet.webp`):
 ```
-.venv/bin/python scripts/process_npc.py src/assets/npc_server_sheet.png server 2
+.venv/bin/python scripts/process_npc.py src/assets/npc_server_sheet.webp server 2
 ```
 
 **Check before approving:** 16 separate figures, same height as the barista, the

@@ -1,6 +1,6 @@
 # Barista — Character Profile
 
-> Status: **identity approved (Midjourney v1)** — see references/identity_front.png. Fields marked `TODO` are Teera's decisions.
+> Status: **identity approved (Midjourney v1)** — see references/identity_front.webp. Fields marked `TODO` are Teera's decisions.
 > Fields marked *(draft)* are proposals — keep, change or delete.
 
 ## AI BRIEF (copy-paste this into any AI first)
@@ -63,9 +63,9 @@ Examples:
 ## Assets & status
 | Asset | Status | Where |
 |---|---|---|
-| Pixel sprite sheet (16 poses) | ✅ done | `src/assets/npc_barista_sheet.png` → `public/sprites/npc/barista/` |
-| Identity photo (Midjourney) | ✅ done | `references/identity_front.png` |
-| Expression set | ✅ done (smile, thinking, idea, wai) | `references/expressions_v1.png` |
+| Pixel sprite sheet (16 poses) | ✅ done | `src/assets/npc_barista_sheet.webp` → `public/sprites/npc/barista/` |
+| Identity photo (Midjourney) | ✅ done | `references/identity_front.webp` |
+| Expression set | ✅ done (smile, thinking, idea, wai) | `references/expressions_v1.webp` |
 | Turnaround (front/side/back) | ⏳ optional | `references/` |
 | Dialogue portraits (PHOTO, 5 faces) | ✅ done: neutral, smile, thinking, idea, wai | `public/sprites/npc/barista/portrait/` (made with `scripts/process_portraits.py`) |
 

@@ -2,7 +2,7 @@
 
 ## 1. ChatGPT — pixel sprite sheet (do this first)
 Attach **two** images so the style and size match the game:
-`src/assets/spritesheet.png` (player) and `src/assets/npc_barista_sheet.png` (barista).
+`src/assets/spritesheet.webp` (player) and `src/assets/npc_barista_sheet.webp` (barista).
 
 ```
 Pixel-art sprite sheet, 4x4 grid, 16 equal cells, transparent background.
@@ -31,9 +31,9 @@ No text, no shadows, no background, no props except the microphone.
 ```
 (Decided 2026-09-26: male idol. An earlier draft was a woman with a high ponytail.)
 
-**Cut it into the game** (save the image as `src/assets/npc_dj_sheet.png`):
+**Cut it into the game** (save the image as `src/assets/npc_dj_sheet.webp`):
 ```
-.venv/bin/python scripts/process_npc.py src/assets/npc_dj_sheet.png dj 2
+.venv/bin/python scripts/process_npc.py src/assets/npc_dj_sheet.webp dj 2
 ```
 The pose names come from `character.json` → `sheetPoses`. The `2` means café / club size (2×).
 

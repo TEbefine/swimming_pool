@@ -62,7 +62,7 @@ npm run build
 ```
 ├── public/
 │   ├── maps/
-│   │   └── poolside.png              # Poolside resort scene
+│   │   └── poolside.webp             # Poolside resort scene
 │   └── sprites/
 │       ├── land/                     # Transparent land animation frames
 │       ├── water/                    # Water animation frames for all 8 float colors

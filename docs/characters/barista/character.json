@@ -30,8 +30,8 @@
     "sprites": "/sprites/npc/barista/",
     "spriteManifest": "/sprites/npc/barista/manifest.json",
     "portraits": "/sprites/npc/barista/portrait/",
-    "sheetSource": "src/assets/npc_barista_sheet.png",
-    "identity": "docs/characters/barista/references/identity_front.png",
-    "expressions": "docs/characters/barista/references/expressions_v1.png"
+    "sheetSource": "src/assets/npc_barista_sheet.webp",
+    "identity": "docs/characters/barista/references/identity_front.webp",
+    "expressions": "docs/characters/barista/references/expressions_v1.webp"
   }
 }

@@ -22,7 +22,7 @@
 | Network | About 15 position updates/s while walking (was about 60). Pose changes still send instantly |
 
 ## Art to make next (ChatGPT → 4×4 sheet → `scripts/process_assets.py`)
-Attach `src/assets/spritesheet.png` as the reference, then:
+Attach `src/assets/spritesheet.webp` as the reference, then:
 
 ```
 Pixel-art sprite sheet, 4x4 grid, 16 equal cells, transparent background.
@@ -54,12 +54,12 @@ The code already picks up rows 1–2 and yawn/stretch/look_back. Wai, clap, peac
 
 - Each room sets `outfit` in `src/game/rooms/*.ts`. The Engine loads `outfits/<outfit>/manifest.json`. If the folder is missing, he wears the swimsuit. Everyone in the same room wears the same outfit, so no network change is needed.
 - **Right now these are placeholders.** `scripts/make_placeholder_outfits.py` recolors the swimsuit sprites (torso → shirt, trunks + legs → pants, feet → shoes, swim cap → black hair).
-- **To use real art:** make a sheet in ChatGPT with the prompt below and save it as `src/assets/outfit_cafe_sheet.png` or `outfit_pajamas_sheet.png`. Then run
-  `.venv/bin/python scripts/process_outfit.py src/assets/outfit_cafe_sheet.png cafe`
-  (or `... outfit_pajamas_sheet.png pajamas`). It replaces the placeholder at the same size.
+- **To use real art:** make a sheet in ChatGPT with the prompt below and save it as `src/assets/outfit_cafe_sheet.webp` or `outfit_pajamas_sheet.webp`. Then run
+  `.venv/bin/python scripts/process_outfit.py src/assets/outfit_cafe_sheet.webp cafe`
+  (or `... outfit_pajamas_sheet.webp pajamas`). It replaces the placeholder at the same size.
 - **Watch out:** `scripts/process_assets.py` rewrites `character_manifest.json` from scratch. After running it, run `scripts/make_walk_frames.py` again.
 
-### ChatGPT prompt — café outfit (attach `src/assets/spritesheet.png`)
+### ChatGPT prompt — café outfit (attach `src/assets/spritesheet.webp`)
 ```
 Pixel-art sprite sheet, 4x4 grid, 16 equal cells, transparent background.
 Same character as the attached sheet: same chibi boy, big head, same face, same
@@ -88,7 +88,7 @@ and long pants with thin white stripes, barefoot.
 ## Size (2026-09-26)
 Café and My Room draw characters at **2×** the pool size (`CAFE_ACTOR_SCALE` / `HOME_ACTOR_SCALE` = 2), with 96×160 standing frames.
 2× is close to the original sheet's own resolution, so the art stays sharp. Bigger than that would stretch it.
-To change the size: set the scale in both layout files, then run `scripts/process_land_scaled.py <scale>`, `scripts/make_walk_frames.py`, `scripts/make_placeholder_outfits.py <scale>` and `scripts/process_npc.py src/assets/npc_barista_sheet.png barista <scale>`.
+To change the size: set the scale in both layout files, then run `scripts/process_land_scaled.py <scale>`, `scripts/make_walk_frames.py`, `scripts/make_placeholder_outfits.py <scale>` and `scripts/process_npc.py src/assets/npc_barista_sheet.webp barista <scale>`.
 Seats now use their `pose` (the bed = lie down), and a seated player is drawn in front of the furniture (the beanbag no longer hides him).
 
 ## Open questions for Teera

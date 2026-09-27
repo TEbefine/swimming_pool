@@ -1,7 +1,7 @@
-"""Cut an NPC 4x4 sprite sheet (transparent PNG) into game-ready frames.
+"""Cut an NPC 4x4 sprite sheet (transparent WebP/PNG) into game-ready frames.
 
 Usage:
-  python scripts/process_npc.py src/assets/npc_barista_sheet.png barista [scale]
+  python scripts/process_npc.py src/assets/npc_barista_sheet.webp barista [scale]
   (scale 1.5 for close-up rooms like the café; default 1)
 
 Writes public/sprites/npc/<name>/<pose>.webp and public/sprites/npc/<name>/manifest.json.

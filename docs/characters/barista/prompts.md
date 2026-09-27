@@ -1,6 +1,6 @@
 # Barista — Prompts & Version Log
 
-Always attach the approved identity image (`references/identity_front.png`) when a tool accepts images.
+Always attach the approved identity image (`references/identity_front.webp`) when a tool accepts images.
 Log every image you approve at the bottom.
 
 ## 1. Midjourney — identity (the "real person")
@@ -21,7 +21,7 @@ morning window light, pour-over kettle in hand, shallow depth of field --ar 4:5 
 ```
 
 ## 2. Midjourney — same person, new expressions (Edit Model)
-Web: Imagine bar → image icon → add `identity_front.png` as reference.
+Web: Imagine bar → image icon → add `identity_front.webp` as reference.
 Discord: add `--edit <image URL>` (up to 4 reference images).
 One prompt per image, keep `--ar 4:5 --raw`:
 ```
@@ -46,13 +46,13 @@ Row 2: thinking, hand on chin | excited, one finger raised | Thai wai, eyes clos
 ```
 
 ## 4. ChatGPT — pixel sprite sheet (✅ used 2026-09-25)
-See `src/assets/npc_barista_sheet.png` (4×4, poses: idle, side_idle, back_idle, walk1 /
+See `src/assets/npc_barista_sheet.webp` (4×4, poses: idle, side_idle, back_idle, walk1 /
 walk2, wave, talk, happy / thinking, wai, pour, serve / read, idea, point, blink).
 
 ## Version log
 | Date | Tool | What | File | Approved |
 |---|---|---|---|---|
-| 2026-09-25 | ChatGPT | pixel sprite sheet, 16 poses | src/assets/npc_barista_sheet.png | ✅ |
-| 2026-09-26 | Midjourney V8.2 | identity front (plain beige backdrop) | references/identity_front.png | ✅ |
-| 2026-09-26 | Midjourney Edit Model | expressions: smile, thinking, idea, wai | references/expressions_v1.png | ✅ |
+| 2026-09-25 | ChatGPT | pixel sprite sheet, 16 poses | src/assets/npc_barista_sheet.webp | ✅ |
+| 2026-09-26 | Midjourney V8.2 | identity front (plain beige backdrop) | references/identity_front.webp | ✅ |
+| 2026-09-26 | Midjourney Edit Model | expressions: smile, thinking, idea, wai | references/expressions_v1.webp | ✅ |
 | 2026-09-26 | rembg + scripts/process_portraits.py | 5 photo portraits cut & aligned | public/sprites/npc/barista/portrait/*.webp | ✅ |

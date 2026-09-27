@@ -4,8 +4,8 @@ Usage (from the project root):
   pip install rembg onnxruntime
   python scripts/process_portraits.py barista
 
-Reads  docs/characters/<id>/references/expressions_v1_whitebg.png  (2x2 grid: smile, thinking / idea, wai)
-       docs/characters/<id>/references/identity_front_whitebg.png  (neutral)
+Reads  docs/characters/<id>/references/expressions_v1_whitebg.webp  (2x2 grid: smile, thinking / idea, wai)
+       docs/characters/<id>/references/identity_front_whitebg.webp  (neutral)
 Writes public/sprites/npc/<id>/portrait/<face>.webp  — 760x1000, transparent,
        every face scaled/aligned by the beret so the head never jumps between expressions.
 """
@@ -19,7 +19,10 @@ CID=sys.argv[1] if len(sys.argv)>1 else 'barista'
 REF=os.path.join(ROOT,'docs','characters',CID,'references')
 OUT=os.path.join(ROOT,'public','sprites','npc',CID,'portrait'); os.makedirs(OUT,exist_ok=True)
 sess=new_session('u2net_human_seg')
-grid=Image.open(os.path.join(REF,'expressions_v1_whitebg.png')).convert('RGB'); ident=Image.open(os.path.join(REF,'identity_front_whitebg.png')).convert('RGB')
+def _find_ref(name):
+    return os.path.join(REF, name + '.webp')
+
+grid=Image.open(_find_ref('expressions_v1_whitebg')).convert('RGB'); ident=Image.open(_find_ref('identity_front_whitebg')).convert('RGB')
 W,H=grid.size
 cells={'smile':grid.crop((0,0,W//2,H//2)),'thinking':grid.crop((W//2,0,W,H//2)),
        'idea':grid.crop((0,H//2,W//2,H)),'wai':grid.crop((W//2,H//2,W,H)),'neutral':ident}

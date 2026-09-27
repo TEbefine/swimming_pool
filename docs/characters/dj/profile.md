@@ -67,8 +67,8 @@ Examples:
 ## Assets & status
 | Asset | Status | Where |
 |---|---|---|
-| Pixel sprite sheet (16 poses) | ⏳ make with the prompt in `prompts.md` §1 | `src/assets/npc_dj_sheet.png` → `public/sprites/npc/dj/` |
-| Identity photo (Midjourney) | ⏳ | `references/identity_front.png` |
+| Pixel sprite sheet (16 poses) | ⏳ make with the prompt in `prompts.md` §1 | `src/assets/npc_dj_sheet.webp` → `public/sprites/npc/dj/` |
+| Identity photo (Midjourney) | ⏳ | `references/identity_front.webp` |
 | Dialogue portraits (PHOTO, 5 faces) | ⏳ neutral, smile, thinking, idea, finger heart | `public/sprites/npc/dj/portrait/` |
 
 ## Decision log

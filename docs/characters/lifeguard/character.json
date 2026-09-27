@@ -20,6 +20,6 @@
   "assets": {
     "sprites": "/sprites/npc/lifeguard/",
     "spriteManifest": "/sprites/npc/lifeguard/manifest.json",
-    "sheetSource": "src/assets/npc_lifeguard_sheet.png"
+    "sheetSource": "src/assets/npc_lifeguard_sheet.webp"
   }
 }
