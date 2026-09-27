@@ -1,0 +1,34 @@
+{
+  "id": "server",
+  "displayName": "Sun",
+  "nickname": "หมาเด็ก",
+  "role": "Quiet café server, the barista's co-worker",
+  "room": "cafe",
+  "status": "concept",
+  "look": {
+    "gender": "male",
+    "hair": "fluffy dark brown with bangs, two puppy-ear tufts",
+    "sweater": "#D9CBB0",
+    "apron": "#3E2A1E",
+    "leafEmblem": "#5E9A3A",
+    "pants": "#4A4F36"
+  },
+  "voice": {
+    "tone": ["quiet", "shy", "warm", "loyal"],
+    "languages": ["en", "th"],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "wai"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "wave", "talk", "happy",
+    "thinking", "carry_tray", "wipe", "read",
+    "shy", "wai", "excited", "blink"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "thinking", "carry_tray", "read", "wai", "blink"],
+  "assets": {
+    "sprites": "/sprites/npc/server/",
+    "spriteManifest": "/sprites/npc/server/manifest.json",
+    "sheetSource": "src/assets/npc_server_sheet.png"
+  }
+}

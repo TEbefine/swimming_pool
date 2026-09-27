@@ -73,6 +73,29 @@ export interface ContextAction {
 
 export type RoomSchedule = 'always' | 'weekdays' | 'weekends';
 
+/** Where an NPC may stroll. Feet stay inside `area`; it pauses between walks and plays one of `idlePoses`. */
+export interface NpcWander {
+  area: Rect;
+  /** px per second at actorScale 1 (multiply by the room's actorScale) */
+  speed: number;
+  /** Random pause between walks, [min, max] ms */
+  pauseMs: [number, number];
+  /** Pose names from the NPC's manifest shown while pausing */
+  idlePoses: string[];
+}
+
+export interface NpcDef {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  sprite: string;
+  facing: 1 | -1;
+  standAt?: { dx: number; dy: number; facing: 1 | -1 };
+  /** Optional: the NPC walks around instead of standing still */
+  wander?: NpcWander;
+}
+
 export interface RoomDefinition {
   roomId: string;
   name: string;
@@ -86,7 +109,7 @@ export interface RoomDefinition {
   ladderTriggers?: LadderTrigger[];
   obstacles: Rect[];
   seats?: { x: number; y: number; facing: 1 | -1 }[];
-  npcs?: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1; standAt?: { dx: number; dy: number; facing: 1 | -1 } }[];
+  npcs?: NpcDef[];
   interactables?: Interactable[];
   elements?: ElementDef[];
   actorScale?: number;
@@ -105,6 +128,8 @@ export interface RoomDefinition {
   /** Outside city view seen through transparent windows. */
   view?: {
     cityOffsetX: number;
+    /** Always show this Bangkok hour in this room (e.g. 21 = night club), ignoring the real clock */
+    fixedHour?: number;
   };
 }
 

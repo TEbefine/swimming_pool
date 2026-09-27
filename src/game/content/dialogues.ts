@@ -1,7 +1,9 @@
 import { getTipForDate } from './tips';
+import { getTonightGenre } from '../rooms/club';
+import { npcName } from './npcNames';
 
 /** Face expression shown on the portrait photo. */
-export type PortraitFace = 'neutral' | 'smile' | 'thinking' | 'idea' | 'wai';
+export type PortraitFace = 'neutral' | 'smile' | 'thinking' | 'idea' | 'wai' | 'finger_heart' | 'whistle' | 'explain' | 'confident' | 'shy' | 'grin';
 
 /** A single line of dialog text. */
 export interface DialogLine {
@@ -32,9 +34,9 @@ export interface DialogNode {
 export interface DialogScript {
   name: string;
   /** Path to the portrait directory (e.g. '/sprites/npc/barista/portrait'). */
-  portraitDir: string;
+  portraitDir?: string;
   /** Available portrait faces. */
-  faces: PortraitFace[];
+  faces?: PortraitFace[];
   /** Starting node id. */
   start: string;
   /** All dialog nodes keyed by id. */
@@ -43,7 +45,7 @@ export interface DialogScript {
 
 export const dialogues: Record<string, DialogScript> = {
   barista: {
-    name: 'Barista',
+    name: npcName('barista'),
     portraitDir: '/sprites/npc/barista/portrait',
     faces: ['neutral', 'smile', 'thinking', 'idea', 'wai'],
     start: 'greet',
@@ -90,6 +92,141 @@ export const dialogues: Record<string, DialogScript> = {
       },
     },
   },
+  dj: {
+    name: npcName('dj'),
+    portraitDir: '/sprites/npc/dj/portrait',
+    faces: ['neutral', 'smile', 'thinking', 'idea', 'finger_heart'],
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Hey, welcome to the club! Tonight is {genre} night.', pose: 'wave', face: 'smile' },
+          { text: 'What do you feel like hearing?', pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'TRACK OF THE DAY', next: 'track' },
+          { label: "TONIGHT'S GENRE", next: 'genre' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      track: {
+        lines: [
+          { text: 'Hmm, which one today...', pose: 'thinking', face: 'thinking' },
+          { text: 'Got it! A chorus is the part everyone sings together.', pose: 'mic', face: 'idea' },
+          { text: 'Sing it loud tonight, okay?', pose: 'happy', face: 'smile' },
+        ],
+        choices: [
+          { label: 'TRACK OF THE DAY', next: 'track' },
+          { label: "TONIGHT'S GENRE", next: 'genre' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      genre: {
+        lines: [
+          { text: "Tonight's vibe is {genre}. Turn it up and enjoy!", pose: 'dance1', face: 'smile' },
+        ],
+        choices: [
+          { label: 'TRACK OF THE DAY', next: 'track' },
+          { label: "TONIGHT'S GENRE", next: 'genre' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'See you on the dance floor.', pose: 'finger_heart', face: 'finger_heart' },
+        ],
+      },
+    },
+  },
+  server: {
+    name: npcName('server'),
+    portraitDir: '/sprites/npc/server/portrait',
+    faces: ['neutral', 'smile', 'shy', 'thinking', 'grin'],
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: "Hey. I'm Sun.", pose: 'wave', face: 'neutral' },
+          { text: "The window table's free, if you want it.", pose: 'talk', face: 'smile' },
+        ],
+        choices: [
+          { label: 'COFFEE TIP', next: 'tip' },
+          { label: 'BOOK FOR TODAY', next: 'book' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      tip: {
+        lines: [
+          { text: 'Hmm... okay, one small thing.', pose: 'thinking', face: 'thinking' },
+          { text: "Let hot coffee cool for a minute. You'll taste more of its flavor.", pose: 'carry_tray', face: 'grin' },
+          { text: "...don't tell the barista I told you.", pose: 'shy', face: 'shy' },
+        ],
+        choices: [
+          { label: 'COFFEE TIP', next: 'tip' },
+          { label: 'BOOK FOR TODAY', next: 'book' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      book: {
+        lines: [
+          { text: 'Pick any book from the shelf.', pose: 'read', face: 'thinking' },
+          { text: 'Just one chapter today. Small is enough.', pose: 'read', face: 'smile' },
+        ],
+        choices: [
+          { label: 'COFFEE TIP', next: 'tip' },
+          { label: 'BOOK FOR TODAY', next: 'book' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'See you. ...come back tomorrow, okay?', pose: 'wai', face: 'shy' },
+        ],
+      },
+    },
+  },
+  lifeguard: {
+    name: npcName('lifeguard'),
+    portraitDir: '/sprites/npc/lifeguard/portrait',
+    faces: ['neutral', 'smile', 'whistle', 'explain', 'confident'],
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: "Hi! Water's great today.", pose: 'wave', face: 'smile' },
+          { text: 'Want a tip from your coach?', pose: 'idle', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'HEALTH TIP', next: 'tip' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      tip: {
+        lines: [
+          { text: 'Tweet! Okay, listen up.', pose: 'whistle', face: 'whistle' },
+          { text: 'Rest a little after eating, then swim. Your body will thank you.', pose: 'point', face: 'explain' },
+          { text: 'Small habits every day make a strong body.', pose: 'lookout', face: 'confident' },
+        ],
+        choices: [
+          { label: 'HEALTH TIP', next: 'tip' },
+          { label: 'BYE', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'Stay safe and enjoy the water!', pose: 'wave', face: 'smile' },
+        ],
+      },
+    },
+  },
+
+};
+
+const GENRE_LABELS: Record<string, string> = {
+  jazz: 'Jazz',
+  classical: 'Classical',
+  rock: 'Rock',
+  star_night: 'Star Night',
 };
 
 /** Get a time-of-day greeting based on Asia/Bangkok local hour. */
@@ -113,6 +250,10 @@ export function resolveDialogText(text: string): string {
   if (resolved.includes('{tip}')) {
     const tip = getTipForDate();
     resolved = resolved.replace('{tip}', `${tip.title}: ${tip.body}`);
+  }
+  if (resolved.includes('{genre}')) {
+    const genre = getTonightGenre();
+    resolved = resolved.replace('{genre}', GENRE_LABELS[genre] || genre);
   }
   return resolved;
 }

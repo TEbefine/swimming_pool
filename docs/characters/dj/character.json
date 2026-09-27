@@ -1,0 +1,36 @@
+{
+  "id": "dj",
+  "displayName": null,
+  "role": "Music Club DJ and host, keeper of the track of the day",
+  "room": "club",
+  "status": "concept",
+  "look": {
+    "hair": "soft two-block cut with fluffy bangs, jet-black with lavender tips",
+    "jacket": "#B9A3E3",
+    "starPatch": "#E8B84A",
+    "top": "#F5F5F2",
+    "gender": "male",
+    "pants": "#1F1F24",
+    "headphones": "white over-ear, around the neck"
+  },
+  "voice": {
+    "tone": ["upbeat", "kind", "playful", "story-first"],
+    "languages": ["en", "th"],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "finger_heart"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "wave", "talk", "happy",
+    "thinking", "finger_heart", "dj_scratch", "mic",
+    "dance1", "dance2", "point", "blink"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "thinking", "finger_heart", "blink"],
+  "assets": {
+    "sprites": "/sprites/npc/dj/",
+    "spriteManifest": "/sprites/npc/dj/manifest.json",
+    "portraits": "/sprites/npc/dj/portrait/",
+    "sheetSource": "src/assets/npc_dj_sheet.png",
+    "identity": "docs/characters/dj/references/identity_front.png"
+  }
+}

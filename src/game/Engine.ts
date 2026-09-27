@@ -7,13 +7,151 @@ import type {
   Rect,
   ElementDef,
   ContextAction,
-  ContextActionId
+  ContextActionId,
+  NpcDef
 } from './types';
 import { sound } from './audio';
 import { NetworkManager } from './network';
 import { rooms } from './rooms';
 import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
 import { MoversManager } from './world/movers';
+import { getTonightGenre } from './rooms/club';
+
+/** Hash string into 32-bit unsigned integer (FNV-1a). */
+function hashString(str: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
+  }
+  return h;
+}
+
+/** Seeded PRNG (Mulberry32) returning values in [0, 1). */
+function seededRandom(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+interface NpcWanderSegment {
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
+  walkMs: number;
+  pauseMs: number;
+  totalMs: number;
+  startTime: number;
+  endTime: number;
+  idlePose: string;
+  facing: 1 | -1;
+}
+
+interface NpcWanderCycle {
+  segments: NpcWanderSegment[];
+  totalCycleMs: number;
+}
+
+/** Precompute 1000 deterministic wander segments for an NPC, looping seamlessly. */
+function buildWanderCycle(npc: NpcDef, actorScale: number): NpcWanderCycle | null {
+  const wander = npc.wander;
+  if (!wander) return null;
+
+  const segments: NpcWanderSegment[] = [];
+  const speedPxPerMs = Math.max(0.01, (wander.speed * (actorScale || 1)) / 1000);
+  const count = 1000;
+
+  const homeX = Math.max(wander.area.x, Math.min(wander.area.x + wander.area.width, npc.x));
+  const homeY = Math.max(wander.area.y, Math.min(wander.area.y + wander.area.height, npc.y));
+
+  let prevX = homeX;
+  let prevY = homeY;
+  let currentTime = 0;
+
+  for (let i = 0; i < count; i++) {
+    const seed = hashString(`${npc.id}_${i}`);
+    const rng = seededRandom(seed);
+
+    let tx: number;
+    let ty: number;
+    if (i === count - 1) {
+      // Loop ends back at starting position
+      tx = homeX;
+      ty = homeY;
+    } else {
+      tx = Math.round(wander.area.x + rng() * wander.area.width);
+      ty = Math.round(wander.area.y + rng() * wander.area.height);
+    }
+
+    const dist = Math.hypot(tx - prevX, ty - prevY);
+    const walkMs = Math.max(100, Math.round(dist / speedPxPerMs));
+    const pauseMs = Math.round(wander.pauseMs[0] + rng() * (wander.pauseMs[1] - wander.pauseMs[0]));
+    const totalMs = walkMs + pauseMs;
+    const poseIdx = Math.floor(rng() * wander.idlePoses.length);
+    const idlePose = wander.idlePoses[poseIdx] || 'idle';
+    const facing: 1 | -1 = tx >= prevX ? 1 : -1;
+
+    segments.push({
+      startX: prevX,
+      startY: prevY,
+      targetX: tx,
+      targetY: ty,
+      walkMs,
+      pauseMs,
+      totalMs,
+      startTime: currentTime,
+      endTime: currentTime + totalMs,
+      idlePose,
+      facing,
+    });
+
+    currentTime += totalMs;
+    prevX = tx;
+    prevY = ty;
+  }
+
+  return { segments, totalCycleMs: Math.max(1, currentTime) };
+}
+
+/** Binary search for the active segment at a given cycle time offset. */
+function findWanderSegment(segments: NpcWanderSegment[], t: number): NpcWanderSegment {
+  let low = 0;
+  let high = segments.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const seg = segments[mid];
+    if (t < seg.startTime) {
+      high = mid - 1;
+    } else if (t >= seg.endTime) {
+      low = mid + 1;
+    } else {
+      return seg;
+    }
+  }
+  return segments[Math.min(Math.max(0, low), segments.length - 1)];
+}
+
+interface NpcRuntimeState {
+  frozen: boolean;
+  frozenX: number;
+  frozenY: number;
+  frozenFacing: 1 | -1;
+  easeStartTime: number;
+  easeDuration: number;
+  easeStartX: number;
+  easeStartY: number;
+}
+
+interface NpcRenderState {
+  x: number;
+  y: number;
+  facing: 1 | -1;
+  action: string;
+}
 
 /** Physical keys that move the player (KeyboardEvent.code, layout-independent). */
 const MOVE_CODES = new Set([
@@ -155,6 +293,10 @@ export class GameEngine {
   // NPC talk spots: per-NPC interaction zones
   private npcTalkSpots: Map<string, { dx: number; dy: number; radius: number }> = new Map();
 
+  // NPC wander precalculated cycles & local runtime state
+  private npcWanderCycles: Map<string, NpcWanderCycle> = new Map();
+  private npcRuntime: Map<string, NpcRuntimeState> = new Map();
+
   // NPC blink timers: next blink time per NPC
   private npcBlinkTimers: Map<string, { nextBlink: number; blinkEnd: number }> = new Map();
 
@@ -262,9 +404,14 @@ export class GameEngine {
     };
     if (this.room.npcs) {
       for (const npc of this.room.npcs) {
-        const spot = defaultSpots[npc.id];
-        if (spot) {
-          this.npcTalkSpots.set(npc.id, spot);
+        if (npc.standAt) {
+          this.npcTalkSpots.set(npc.id, {
+            dx: npc.standAt.dx,
+            dy: npc.standAt.dy,
+            radius: 65,
+          });
+        } else if (defaultSpots[npc.id]) {
+          this.npcTalkSpots.set(npc.id, defaultSpots[npc.id]);
         }
       }
     }
@@ -400,6 +547,8 @@ export class GameEngine {
           // Clear dynamic elements & rebuild layout
           this.elementImages.clear();
           this.npcSprites.clear();
+          this.npcWanderCycles.clear();
+          this.npcRuntime.clear();
           this.buildMergedData();
           this.buildNpcTalkSpots();
           this.npcBlinkTimers.clear();
@@ -509,6 +658,12 @@ export class GameEngine {
           loadImg(el.asset, el.asset, this.elementImages);
         }
       }
+    }
+
+    // 4b. Club stage banner (tonight's genre)
+    if (this.room.roomId === 'club') {
+      const genre = getTonightGenre();
+      loadImg('club_stage_banner', `/sprites/banners/banner_${genre}.webp`, this.elementImages);
     }
 
     // 5. NPC sprites (manifest-based or single image)
@@ -715,25 +870,11 @@ export class GameEngine {
       }
     }
 
-    // Priority 3: NPC talk spot (radius-based) → talk
+    // Priority 3: NPC talk spot / in range → talk
     if (this.room.npcs) {
       for (const npc of this.room.npcs) {
-        const spot = this.npcTalkSpots.get(npc.id);
-        if (spot) {
-          const spotX = npc.x + spot.dx;
-          const spotY = npc.y + spot.dy;
-          const dx = px - spotX;
-          const dy = py - spotY;
-          if (Math.sqrt(dx * dx + dy * dy) <= spot.radius) {
-            return { id: 'talk', label: 'Talk' };
-          }
-        } else {
-          // Fallback: 50px from NPC position
-          const dx = px - npc.x;
-          const dy = py - npc.y;
-          if (Math.sqrt(dx * dx + dy * dy) <= 50) {
-            return { id: 'talk', label: 'Talk' };
-          }
+        if (this.isPlayerInNpcTalkRange(npc)) {
+          return { id: 'talk', label: 'Talk' };
         }
       }
     }
@@ -907,30 +1048,20 @@ export class GameEngine {
 
 
   /** Find the nearest NPC whose talkSpot the local player is inside. */
-  private findNearestTalkSpotNpc() {
+  private findNearestTalkSpotNpc(): { id: string; name: string; x: number; y: number } | null {
     if (!this.room.npcs) return null;
     const px = this.localPlayer.x;
     const py = this.localPlayer.y;
     let best: { id: string; name: string; x: number; y: number } | null = null;
     let bestDist = Infinity;
     for (const npc of this.room.npcs) {
-      const spot = this.npcTalkSpots.get(npc.id);
-      let cx: number, cy: number, radius: number;
-      if (spot) {
-        cx = npc.x + spot.dx;
-        cy = npc.y + spot.dy;
-        radius = spot.radius;
-      } else {
-        cx = npc.x;
-        cy = npc.y;
-        radius = 50;
-      }
-      const dx = px - cx;
-      const dy = py - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= radius && dist < bestDist) {
-        bestDist = dist;
-        best = npc;
+      const curState = this.getNpcCurrentState(npc);
+      if (this.isPlayerInNpcTalkRange(npc, curState)) {
+        const dist = Math.hypot(px - curState.x, py - curState.y);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = { id: npc.id, name: npc.name, x: curState.x, y: curState.y };
+        }
       }
     }
     return best;
@@ -1159,7 +1290,7 @@ export class GameEngine {
     this.updateContextAction();
 
     if (this.room.view) {
-      const hour = bangkokHour();
+      const hour = bangkokHour(undefined, this.room.view.fixedHour);
       const sky = skyAt(hour);
       this.movers.update(dt, sky.night, this.moverSprites);
     }
@@ -1588,6 +1719,20 @@ export class GameEngine {
 
     this.localPlayer.x = nx;
     this.localPlayer.y = ny;
+
+    // Check room exits
+    if (this.room.exits && this.fadeDirection === 'none') {
+      for (const exit of this.room.exits) {
+        const [ex, ey, ew, eh] = exit.triggerBox;
+        if (nx >= ex && nx <= ex + ew && ny >= ey && ny <= ey + eh) {
+          if (rooms[exit.targetRoom]) {
+            this.changeRoom(exit.targetRoom);
+            break;
+          }
+        }
+      }
+    }
+
     return nx !== ox || ny !== oy;
   }
 
@@ -1711,7 +1856,7 @@ export class GameEngine {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     const hasView = !!this.room.view;
-    const hour = bangkokHour();
+    const hour = bangkokHour(undefined, this.room.view?.fixedHour);
     const sky = skyAt(hour);
 
     if (hasView) {
@@ -1756,6 +1901,23 @@ export class GameEngine {
       }
     }
 
+    // 3b. Club genre banner (wall layer, stage panel rect x 141–516, y 42–219)
+    if (this.room.roomId === 'club') {
+      const bannerImg = this.elementImages.get('club_stage_banner');
+      if (bannerImg && bannerImg.complete && bannerImg.width > 0) {
+        const boxX = 141;
+        const boxY = 42;
+        const boxW = 516 - 141; // 375
+        const boxH = 219 - 42;  // 177
+        const scale = Math.min(boxW / bannerImg.width, boxH / bannerImg.height);
+        const dw = Math.round(bannerImg.width * scale);
+        const dh = Math.round(bannerImg.height * scale);
+        const dx = Math.round(boxX + (boxW - dw) / 2);
+        const dy = Math.round(boxY + (boxH - dh) / 2);
+        this.ctx.drawImage(bannerImg, dx, dy, dw, dh);
+      }
+    }
+
     // 4. Floor elements (under all characters)
     if (this.room.elements) {
       for (const el of this.room.elements) {
@@ -1781,16 +1943,18 @@ export class GameEngine {
       }
     }
 
-    // 6b. NPCs
+    // 6b. NPCs (depth-sorted by dynamic feet y)
     if (this.room.npcs) {
       for (const npc of this.room.npcs) {
+        const state = this.getNpcRenderState(npc, time);
         const capturedNpc = npc;
+        const capturedState = state;
         drawFns.push({
-          y: npc.y,
+          y: capturedState.y,
           draw: () => {
-            this.renderNpcSprite(capturedNpc, time);
+            this.renderNpcSprite(capturedNpc, capturedState, time);
             // Defer NPC nametag + prompt bubble as overlay
-            overlayFns.push(() => this.renderNpcOverlay(capturedNpc, time));
+            overlayFns.push(() => this.renderNpcOverlay(capturedNpc, capturedState, time));
           }
         });
       }
@@ -1977,15 +2141,156 @@ export class GameEngine {
     this.ctx.drawImage(img, el.x - Math.floor(img.width / 2), el.y - img.height);
   }
 
-  /** Draw an NPC sprite at native size (already café-scale). */
+  /** Check if NPC is currently in a natural blink frame. */
+  private isNpcBlinking(npcId: string, time: number): boolean {
+    if (!this.npcSprites.has(`npc_${npcId}_blink`)) return false;
+    let timer = this.npcBlinkTimers.get(npcId);
+    if (!timer) {
+      timer = { nextBlink: time + 3000 + Math.random() * 2000, blinkEnd: 0 };
+      this.npcBlinkTimers.set(npcId, timer);
+    }
+    if (time >= timer.blinkEnd && time >= timer.nextBlink) {
+      timer.blinkEnd = time + 150;
+      timer.nextBlink = time + 3500 + Math.random() * 2000;
+    }
+    return time < timer.blinkEnd;
+  }
+
+  /** Compute deterministic scheduled state for an NPC from global Date.now(). */
+  private getScheduledNpcState(npc: NpcDef, clockNow: number, perfTime: number): NpcRenderState {
+    let cycle = this.npcWanderCycles.get(npc.id);
+    if (!cycle) {
+      cycle = buildWanderCycle(npc, this.actorScale) ?? undefined;
+      if (cycle) this.npcWanderCycles.set(npc.id, cycle);
+    }
+    if (!cycle) {
+      return {
+        x: npc.x,
+        y: npc.y,
+        facing: npc.facing,
+        action: this.getNpcAction(npc.id, perfTime),
+      };
+    }
+
+    const cycleTime = clockNow % cycle.totalCycleMs;
+    const seg = findWanderSegment(cycle.segments, cycleTime);
+    const elapsedInSeg = cycleTime - seg.startTime;
+
+    const override = this.npcPoseOverride.get(npc.id);
+    let overridePose: string | null = null;
+    if (override) {
+      if (perfTime < override.until) {
+        overridePose = override.pose;
+      } else {
+        this.npcPoseOverride.delete(npc.id);
+      }
+    }
+
+    if (elapsedInSeg < seg.walkMs) {
+      // Walking: alternate walk1/walk2 every 160 ms
+      const progress = elapsedInSeg / seg.walkMs;
+      const x = Math.round(seg.startX + (seg.targetX - seg.startX) * progress);
+      const y = Math.round(seg.startY + (seg.targetY - seg.startY) * progress);
+      const walkStep = Math.floor(elapsedInSeg / 160) % 2;
+      const action = overridePose || (walkStep === 0 ? 'walk1' : 'walk2');
+      return { x, y, facing: seg.facing, action };
+    } else {
+      // Paused: show idlePose from manifest, blink sometimes
+      let action = seg.idlePose;
+      if (this.isNpcBlinking(npc.id, perfTime)) {
+        action = 'blink';
+      }
+      if (overridePose) {
+        action = overridePose;
+      }
+      return { x: seg.targetX, y: seg.targetY, facing: seg.facing, action };
+    }
+  }
+
+  /** Compute full render state (wander, dialog freeze, or ease). */
+  private getNpcRenderState(npc: NpcDef, perfTime: number): NpcRenderState {
+    if (!npc.wander) {
+      return {
+        x: npc.x,
+        y: npc.y,
+        facing: npc.facing,
+        action: this.getNpcAction(npc.id, perfTime),
+      };
+    }
+
+    const rt = this.npcRuntime.get(npc.id);
+    const override = this.npcPoseOverride.get(npc.id);
+    let overridePose: string | null = null;
+    if (override) {
+      if (perfTime < override.until) {
+        overridePose = override.pose;
+      } else {
+        this.npcPoseOverride.delete(npc.id);
+      }
+    }
+
+    // 1. Frozen locally during dialog
+    if (rt && rt.frozen) {
+      return {
+        x: rt.frozenX,
+        y: rt.frozenY,
+        facing: rt.frozenFacing,
+        action: overridePose || 'idle',
+      };
+    }
+
+    // 2. Easing back to scheduled position after dialog closes (600ms)
+    if (rt && rt.easeStartTime > 0) {
+      const elapsedEase = perfTime - rt.easeStartTime;
+      if (elapsedEase < rt.easeDuration) {
+        const t = Math.min(1, Math.max(0, elapsedEase / rt.easeDuration));
+        const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        const sched = this.getScheduledNpcState(npc, Date.now(), perfTime);
+        const curX = Math.round((1 - ease) * rt.easeStartX + ease * sched.x);
+        const curY = Math.round((1 - ease) * rt.easeStartY + ease * sched.y);
+        const facing: 1 | -1 = sched.x >= curX ? 1 : -1;
+        const walkStep = Math.floor(elapsedEase / 160) % 2;
+        const action = overridePose || (walkStep === 0 ? 'walk1' : 'walk2');
+        return { x: curX, y: curY, facing, action };
+      } else {
+        rt.easeStartTime = 0;
+      }
+    }
+
+    // 3. Normal scheduled position
+    return this.getScheduledNpcState(npc, Date.now(), perfTime);
+  }
+
+  private getNpcCurrentState(npc: NpcDef): NpcRenderState {
+    return this.getNpcRenderState(npc, performance.now());
+  }
+
+  private isPlayerInNpcTalkRange(npc: NpcDef, state?: NpcRenderState): boolean {
+    const px = this.localPlayer.x;
+    const py = this.localPlayer.y;
+    const curState = state ?? this.getNpcCurrentState(npc);
+    const spot = this.npcTalkSpots.get(npc.id);
+
+    if (spot) {
+      const spotX = curState.x + spot.dx;
+      const spotY = curState.y + spot.dy;
+      const dx = px - spotX;
+      const dy = py - spotY;
+      if (Math.hypot(dx, dy) <= spot.radius) return true;
+    }
+    const distToBody = Math.hypot(px - curState.x, py - curState.y);
+    return distToBody <= 65;
+  }
+
+  /** Draw an NPC sprite at native size. */
   private renderNpcSprite(
-    npc: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 },
-    time: number
+    npc: NpcDef,
+    state: NpcRenderState,
+    _time: number
   ) {
-    if (this.dialogFrozen && this.dialogNpcId === npc.id) return;
-    const action = this.getNpcAction(npc.id, time);
-    if (action === 'hidden') return;
-    const spriteKey = `npc_${npc.id}_${action}`;
+    if (this.dialogFrozen && this.dialogNpcId === npc.id && !npc.wander) return;
+    if (state.action === 'hidden') return;
+    const spriteKey = `npc_${npc.id}_${state.action}`;
     const sprite = this.npcSprites.get(spriteKey) || this.npcSprites.get(`npc_${npc.id}_idle`);
     if (!sprite) return;
 
@@ -1995,14 +2300,14 @@ export class GameEngine {
     this.ctx.beginPath();
     const shadowRx = Math.max(16, Math.round(sprite.width * 0.35));
     const shadowRy = Math.max(5, Math.round(sprite.width * 0.12));
-    this.ctx.ellipse(npc.x, npc.y - 2, shadowRx, shadowRy, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(state.x, state.y - 2, shadowRx, shadowRy, 0, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.restore();
 
-    // Sprite (bottom-centre anchor, native size)
+    // Sprite (bottom-centre anchor, native size; side frames face RIGHT so flip for leftward)
     this.ctx.save();
-    this.ctx.translate(npc.x, npc.y);
-    if (npc.facing === -1) {
+    this.ctx.translate(state.x, state.y);
+    if (state.facing === -1) {
       this.ctx.scale(-1, 1);
     }
     this.ctx.drawImage(sprite, -Math.floor(sprite.width / 2), -sprite.height);
@@ -2011,7 +2316,8 @@ export class GameEngine {
 
   /** Deferred: NPC name tag + prompt bubble (drawn above all depth-sorted items). */
   private renderNpcOverlay(
-    npc: { id: string; name: string; x: number; y: number; sprite: string; facing: 1 | -1 },
+    npc: NpcDef,
+    state: NpcRenderState,
     time: number
   ) {
     const sprite = this.npcSprites.get(`npc_${npc.id}_idle`);
@@ -2021,28 +2327,21 @@ export class GameEngine {
       const tagData: PlayerData = {
         id: '__npc_' + npc.id,
         name: npc.name,
-        x: npc.x,
-        y: npc.y,
+        x: state.x,
+        y: state.y,
         state: 'land',
-        facing: npc.facing,
+        facing: state.facing,
         floatColor: 'gray',
         currentAction: 'idle',
         timestamp: 0
       };
-      this.renderNameTag(tagData, npc.x, npc.y - h - 6);
+      this.renderNameTag(tagData, state.x, state.y - h - 6);
     }
 
-    // Prompt bubble: show "◯" above NPC when player is in talkSpot and no dialog open
+    // Prompt bubble: show "◯" above NPC when player is in range and no dialog open
     if (!this.dialogFrozen) {
-      const spot = this.npcTalkSpots.get(npc.id);
-      if (spot) {
-        const spotX = npc.x + spot.dx;
-        const spotY = npc.y + spot.dy;
-        const dx = this.localPlayer.x - spotX;
-        const dy = this.localPlayer.y - spotY;
-        if (Math.sqrt(dx * dx + dy * dy) <= spot.radius) {
-          this.renderPromptBubble(npc.x, npc.y - h - 24, time);
-        }
+      if (this.isPlayerInNpcTalkRange(npc, state)) {
+        this.renderPromptBubble(state.x, state.y - h - 24, time);
       }
     }
   }
@@ -2286,22 +2585,58 @@ export class GameEngine {
   /** Freeze local movement (called when dialog opens). */
   public setDialogFrozen(frozen: boolean, npcId?: string) {
     this.dialogFrozen = frozen;
+    const targetNpcId = frozen && npcId ? npcId : this.dialogNpcId;
     this.dialogNpcId = frozen && npcId ? npcId : null;
 
     if (frozen) {
       // Stop any current movement
       this.clickTarget = null;
       this.isMoving = false;
-      // Face toward the NPC
+
       if (npcId && this.room.npcs) {
         const npc = this.room.npcs.find(n => n.id === npcId);
         if (npc) {
-          this.localPlayer.facing = npc.x > this.localPlayer.x ? 1 : -1;
+          if (npc.wander) {
+            const currentPos = this.getNpcCurrentState(npc);
+            const facing: 1 | -1 = this.localPlayer.x > currentPos.x ? 1 : -1;
+            this.npcRuntime.set(npcId, {
+              frozen: true,
+              frozenX: currentPos.x,
+              frozenY: currentPos.y,
+              frozenFacing: facing,
+              easeStartTime: 0,
+              easeDuration: 0,
+              easeStartX: 0,
+              easeStartY: 0,
+            });
+
+            // Player moves to standAt relative to the NPC's CURRENT position
+            if (npc.standAt) {
+              const targetX = currentPos.x + npc.standAt.dx;
+              const targetY = currentPos.y + npc.standAt.dy;
+              const playerFacing = npc.standAt.facing;
+              this.walkPlayerTo(targetX, targetY, playerFacing);
+            }
+          } else {
+            // Static NPC (e.g. barista)
+            this.localPlayer.facing = npc.x > this.localPlayer.x ? 1 : -1;
+          }
         }
       }
       this.localPlayer.currentAction = 'talk';
       this.broadcastState();
     } else {
+      // Unfreeze: ease NPC back (600ms) to scheduled position
+      if (targetNpcId) {
+        const rt = this.npcRuntime.get(targetNpcId);
+        if (rt && rt.frozen) {
+          rt.frozen = false;
+          rt.easeStartTime = performance.now();
+          rt.easeDuration = 600;
+          rt.easeStartX = rt.frozenX;
+          rt.easeStartY = rt.frozenY;
+        }
+      }
       this.localPlayer.currentAction = 'idle';
       this.broadcastState();
     }
@@ -2323,9 +2658,12 @@ export class GameEngine {
     if (!this.room.npcs) return;
     const npc = this.room.npcs.find(n => n.id === npcId);
     if (npc) {
-      // We can't directly mutate facing on the room def, but we can use the
-      // mutable reference since the room object is long-lived.
-      (npc as { facing: 1 | -1 }).facing = this.localPlayer.x > npc.x ? 1 : -1;
+      const rt = this.npcRuntime.get(npcId);
+      if (rt && rt.frozen) {
+        rt.frozenFacing = this.localPlayer.x > rt.frozenX ? 1 : -1;
+      } else {
+        (npc as { facing: 1 | -1 }).facing = this.localPlayer.x > npc.x ? 1 : -1;
+      }
     }
   }
 
@@ -2403,15 +2741,16 @@ export class GameEngine {
       this.ctx.fill();
     }
 
-    // NPC talk spots — magenta circles
+    // NPC talk spots & wander areas — magenta circles and yellow bounds
     this.ctx.strokeStyle = '#ff00ff';
     this.ctx.lineWidth = 1.5;
     if (this.room.npcs) {
       for (const npc of this.room.npcs) {
+        const curState = this.getNpcCurrentState(npc);
         const spot = this.npcTalkSpots.get(npc.id);
         if (spot) {
-          const cx = npc.x + spot.dx;
-          const cy = npc.y + spot.dy;
+          const cx = curState.x + spot.dx;
+          const cy = curState.y + spot.dy;
           this.ctx.beginPath();
           this.ctx.arc(cx, cy, spot.radius, 0, Math.PI * 2);
           this.ctx.stroke();
@@ -2419,6 +2758,14 @@ export class GameEngine {
           this.ctx.font = '8px monospace';
           this.ctx.textAlign = 'center';
           this.ctx.fillText('Talk', cx, cy - spot.radius - 4);
+        }
+        if (npc.wander) {
+          this.ctx.save();
+          this.ctx.strokeStyle = '#ffff00';
+          this.ctx.lineWidth = 1;
+          this.ctx.setLineDash([4, 4]);
+          this.ctx.strokeRect(npc.wander.area.x, npc.wander.area.y, npc.wander.area.width, npc.wander.area.height);
+          this.ctx.restore();
         }
       }
     }

@@ -195,21 +195,25 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     }
   }, [node, currentLine, nodeId, lineIndex, script, handleClose]);
 
-  // Preload all portrait faces on mount
+  const hasPortrait = Boolean(script.portraitDir && script.faces && script.faces.length > 0);
+
+  // Preload all portrait faces on mount (only when portraits are defined)
   useEffect(() => {
+    if (!hasPortrait || !script.portraitDir || !script.faces) return;
     const paths = script.faces.map(f => `${script.portraitDir}/${f}.webp`);
     preloadImages(paths);
     const t = setTimeout(() => setPortraitVisible(true), 50);
     return () => clearTimeout(t);
-  }, [script.faces, script.portraitDir]);
+  }, [hasPortrait, script.faces, script.portraitDir]);
 
-  // Hide the small NPC canvas sprite while dialog is open; restore on close
+  // Hide the small NPC canvas sprite while dialog is open ONLY if portrait is present
   useEffect(() => {
+    if (!hasPortrait) return;
     onLineChange?.(0, 'hidden');
     return () => {
       onLineChange?.(0, 'idle');
     };
-  }, [onLineChange]);
+  }, [hasPortrait, onLineChange]);
 
   // Update face when line changes
   useEffect(() => {
@@ -395,8 +399,8 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     return null;
   }
 
-  const portraitSrc = `${script.portraitDir}/${currentFace}.webp`;
-  const prevPortraitSrc = prevFace ? `${script.portraitDir}/${prevFace}.webp` : null;
+  const portraitSrc = hasPortrait ? `${script.portraitDir}/${currentFace}.webp` : '';
+  const prevPortraitSrc = hasPortrait && prevFace ? `${script.portraitDir}/${prevFace}.webp` : null;
 
   // Debug flag (?debugDialog=1)
   const isDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debugDialog') === '1';
@@ -446,37 +450,26 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       {/* ============================================= */}
       {/* PORTRAIT (right side, chest cut hidden)      */}
       {/* ============================================= */}
-      <div
-        className={`dialog-portrait-container ${portraitVisible && !portraitExiting ? 'dialog-portrait-enter' : ''} ${portraitExiting ? 'dialog-portrait-exit' : ''}`}
-        style={{
-          position: 'absolute',
-          right: `${portraitRight}px`,
-          bottom: `${portraitBottom}px`,
-          height: `${portraitHeight}px`,
-          maxWidth: `${portraitMaxWidth}px`,
-          zIndex: 31,
-          pointerEvents: 'none',
-          transformOrigin: 'bottom center',
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'flex-end',
-        }}
-      >
-        {/* Continuous breathing wrapper */}
+      {hasPortrait && (
         <div
-          className="dialog-portrait-breathe"
+          className={`dialog-portrait-container ${portraitVisible && !portraitExiting ? 'dialog-portrait-enter' : ''} ${portraitExiting ? 'dialog-portrait-exit' : ''}`}
           style={{
-            position: 'relative',
-            height: '100%',
+            position: 'absolute',
+            right: `${portraitRight}px`,
+            bottom: `${portraitBottom}px`,
+            height: `${portraitHeight}px`,
+            maxWidth: `${portraitMaxWidth}px`,
+            zIndex: 31,
+            pointerEvents: 'none',
+            transformOrigin: 'bottom center',
             display: 'flex',
             alignItems: 'flex-end',
-            transformOrigin: 'bottom center',
+            justifyContent: 'flex-end',
           }}
         >
-          {/* Lean wrapper (re-triggered on each new line / page) */}
+          {/* Continuous breathing wrapper */}
           <div
-            key={leanKey}
-            className="dialog-portrait-lean"
+            className="dialog-portrait-breathe"
             style={{
               position: 'relative',
               height: '100%',
@@ -485,16 +478,44 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
               transformOrigin: 'bottom center',
             }}
           >
-            {/* Previous face (crossfade out) */}
-            {prevPortraitSrc && faceTransition && (
+            {/* Lean wrapper (re-triggered on each new line / page) */}
+            <div
+              key={leanKey}
+              className="dialog-portrait-lean"
+              style={{
+                position: 'relative',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'flex-end',
+                transformOrigin: 'bottom center',
+              }}
+            >
+              {/* Previous face (crossfade out) */}
+              {prevPortraitSrc && faceTransition && (
+                <img
+                  src={prevPortraitSrc}
+                  alt=""
+                  className="dialog-portrait-face-out"
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: 0,
+                    height: '100%',
+                    width: 'auto',
+                    maxWidth: '100%',
+                    objectFit: 'contain',
+                    objectPosition: 'right bottom',
+                    imageRendering: 'auto',
+                    filter: 'drop-shadow(-8px 8px 14px rgba(20,12,8,0.45))',
+                  }}
+                />
+              )}
+              {/* Current face */}
               <img
-                src={prevPortraitSrc}
-                alt=""
-                className="dialog-portrait-face-out"
+                src={portraitSrc}
+                alt={script.name}
+                className={faceTransition ? 'dialog-portrait-face-in' : ''}
                 style={{
-                  position: 'absolute',
-                  right: 0,
-                  bottom: 0,
                   height: '100%',
                   width: 'auto',
                   maxWidth: '100%',
@@ -504,25 +525,10 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   filter: 'drop-shadow(-8px 8px 14px rgba(20,12,8,0.45))',
                 }}
               />
-            )}
-            {/* Current face */}
-            <img
-              src={portraitSrc}
-              alt={script.name}
-              className={faceTransition ? 'dialog-portrait-face-in' : ''}
-              style={{
-                height: '100%',
-                width: 'auto',
-                maxWidth: '100%',
-                objectFit: 'contain',
-                objectPosition: 'right bottom',
-                imageRendering: 'auto',
-                filter: 'drop-shadow(-8px 8px 14px rgba(20,12,8,0.45))',
-              }}
-            />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ============================================= */}
       {/* CHOICE PANEL (above the box, LEFT side)      */}

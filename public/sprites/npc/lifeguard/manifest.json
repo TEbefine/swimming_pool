@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/npc/lifeguard/idle.webp"
+  },
+  "side_idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/npc/lifeguard/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/npc/lifeguard/back_idle.webp"
+  },
+  "walk1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/npc/lifeguard/walk1.webp"
+  },
+  "walk2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/npc/lifeguard/walk2.webp"
+  },
+  "wave": {
+    "width": 47,
+    "height": 74,
+    "path": "/sprites/npc/lifeguard/wave.webp"
+  },
+  "whistle": {
+    "width": 54,
+    "height": 73,
+    "path": "/sprites/npc/lifeguard/whistle.webp"
+  },
+  "point": {
+    "width": 54,
+    "height": 74,
+    "path": "/sprites/npc/lifeguard/point.webp"
+  },
+  "lookout": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/npc/lifeguard/lookout.webp"
+  },
+  "run": {
+    "width": 51,
+    "height": 71,
+    "path": "/sprites/npc/lifeguard/run.webp"
+  },
+  "carry_ring": {
+    "width": 57,
+    "height": 72,
+    "path": "/sprites/npc/lifeguard/carry_ring.webp"
+  },
+  "reach": {
+    "width": 63,
+    "height": 62,
+    "path": "/sprites/npc/lifeguard/reach.webp"
+  },
+  "swim_idle": {
+    "width": 82,
+    "height": 56,
+    "path": "/sprites/npc/lifeguard/swim_idle.webp"
+  },
+  "swim": {
+    "width": 89,
+    "height": 52,
+    "path": "/sprites/npc/lifeguard/swim.webp"
+  },
+  "swim_ring": {
+    "width": 104,
+    "height": 51,
+    "path": "/sprites/npc/lifeguard/swim_ring.webp"
+  },
+  "swim_wave": {
+    "width": 77,
+    "height": 57,
+    "path": "/sprites/npc/lifeguard/swim_wave.webp"
+  }
+}

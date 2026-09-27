@@ -1,6 +1,7 @@
 import type { RoomDefinition } from '../types';
 import { cafeElements, CAFE_ACTOR_SCALE, BARISTA_SPOT } from './cafeLayout';
 import { CITY_OFFSET_X } from '../world/cityView';
+import { npcName } from '../content/npcNames';
 
 // Weekday café — data-driven layout from cafeLayout.ts.
 // Obstacles, seats and interaction points are derived from element definitions.
@@ -32,7 +33,13 @@ export const cafeRoom: RoomDefinition = {
   actorScale: CAFE_ACTOR_SCALE,
 
   npcs: [
-    { id: 'barista', name: 'Barista', x: BARISTA_SPOT.x, y: BARISTA_SPOT.y, sprite: '/sprites/npc/barista', facing: BARISTA_SPOT.facing, standAt: { dx: 90, dy: 54, facing: -1 } },
+    { id: 'barista', name: npcName('barista'), x: BARISTA_SPOT.x, y: BARISTA_SPOT.y, sprite: '/sprites/npc/barista', facing: BARISTA_SPOT.facing, standAt: { dx: 90, dy: 54, facing: -1 } },
+    {
+      // หมาเด็ก — the café server. Walks the aisle in front of the tables (no colliders inside this box).
+      id: 'server', name: npcName('server'), x: 520, y: 500, sprite: '/sprites/npc/server', facing: -1,
+      standAt: { dx: 90, dy: 8, facing: -1 },
+      wander: { area: { x: 150, y: 458, width: 720, height: 80 }, speed: 40, pauseMs: [2500, 6000], idlePoses: ['carry_tray', 'wipe', 'read', 'thinking', 'happy'] },
+    },
   ],
 
   exits: [

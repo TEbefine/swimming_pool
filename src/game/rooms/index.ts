@@ -2,11 +2,13 @@ import type { RoomDefinition, RoomSchedule } from '../types';
 import { poolsideRoom } from './poolside';
 import { cafeRoom } from './cafe';
 import { homeRoom } from './home';
+import { clubRoom } from './club';
 
 export const rooms: Record<string, RoomDefinition> = {
   poolside: poolsideRoom,
   cafe: cafeRoom,
   home: homeRoom,
+  club: clubRoom,
 };
 
 /** All room IDs in display order for the scene selector. */

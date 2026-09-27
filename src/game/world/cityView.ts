@@ -19,6 +19,7 @@ export const CITY = {
 export const CITY_OFFSET_X: Record<string, number> = {
   cafe: -31,
   home: -62,
+  club: -110,
 };
 
 /** Warm lamp glows drawn at night (layer 4). */
@@ -27,6 +28,12 @@ export const ROOM_LIGHTS: Record<string, { x: number; y: number; radius: number;
     { x: 170, y: 58, radius: 140, color: [255, 214, 150] },
     { x: 555, y: 58, radius: 140, color: [255, 214, 150] },
     { x: 978, y: 58, radius: 120, color: [255, 214, 150] },
+  ],
+  club: [
+    { x: 78, y: 73, radius: 130, color: [255, 200, 130] },    // left sconce
+    { x: 564, y: 73, radius: 130, color: [255, 200, 130] },   // middle sconce
+    { x: 972, y: 73, radius: 110, color: [255, 200, 130] },   // door sconce
+    { x: 968, y: 400, radius: 90, color: [255, 170, 90] },    // jukebox glow
   ],
   home: [
     { x: 576, y: 85, radius: 190, color: [255, 205, 140] },   // paper lamp
@@ -58,10 +65,13 @@ export const SKY_KEYS: SkyKey[] = [
 ];
 
 /** Current hour (0–24, fractional) in Asia/Bangkok. `?hour=19.5` in the URL overrides it. */
-export function bangkokHour(now: Date = new Date()): number {
+export function bangkokHour(now: Date = new Date(), fixedHour?: number): number {
   if (typeof window !== 'undefined') {
     const forced = new URLSearchParams(window.location.search).get('hour');
     if (forced !== null && !Number.isNaN(Number(forced))) return Number(forced) % 24;
+  }
+  if (fixedHour !== undefined) {
+    return fixedHour % 24;
   }
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,

@@ -1,4 +1,5 @@
 import type { RoomDefinition } from '../types';
+import { npcName } from '../content/npcNames';
 
 export const poolsideRoom: RoomDefinition = {
   roomId: 'poolside',
@@ -43,6 +44,14 @@ export const poolsideRoom: RoomDefinition = {
     // Background deck furniture & structure
     { x: 0, y: 150, width: 165, height: 95 },     // Lifeguard house & bench
     { x: 720, y: 180, width: 304, height: 65 },   // Sun loungers & umbrellas
+  ],
+
+  npcs: [
+    {
+      id: 'lifeguard', name: npcName('lifeguard'), x: 300, y: 470, sprite: '/sprites/npc/lifeguard', facing: 1,
+      standAt: { dx: 45, dy: 10, facing: -1 },
+      wander: { area: { x: 130, y: 448, width: 760, height: 90 }, speed: 45, pauseMs: [2000, 5000], idlePoses: ['lookout', 'whistle', 'point', 'wave'] },
+    },
   ],
 
   exits: [

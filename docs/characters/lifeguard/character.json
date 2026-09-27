@@ -1,0 +1,25 @@
+{
+  "id": "lifeguard",
+  "displayName": null,
+  "role": "Poolside lifeguard, keeps everyone safe and cheerful",
+  "room": "poolside",
+  "status": "sprite-approved",
+  "look": {
+    "cap": "white cap with red cross",
+    "tank": "#D8322B",
+    "shorts": "#D8322B",
+    "hair": "short black"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "wave", "whistle", "point",
+    "lookout", "run", "carry_ring", "reach",
+    "swim_idle", "swim", "swim_ring", "swim_wave"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "lookout"],
+  "assets": {
+    "sprites": "/sprites/npc/lifeguard/",
+    "spriteManifest": "/sprites/npc/lifeguard/manifest.json",
+    "sheetSource": "src/assets/npc_lifeguard_sheet.png"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/npc/dj/idle.webp"
+  },
+  "side_idle": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/npc/dj/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/npc/dj/back_idle.webp"
+  },
+  "walk1": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/npc/dj/walk1.webp"
+  },
+  "walk2": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/npc/dj/walk2.webp"
+  },
+  "wave": {
+    "width": 105,
+    "height": 151,
+    "path": "/sprites/npc/dj/wave.webp"
+  },
+  "talk": {
+    "width": 111,
+    "height": 151,
+    "path": "/sprites/npc/dj/talk.webp"
+  },
+  "happy": {
+    "width": 123,
+    "height": 151,
+    "path": "/sprites/npc/dj/happy.webp"
+  },
+  "thinking": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/npc/dj/thinking.webp"
+  },
+  "finger_heart": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/npc/dj/finger_heart.webp"
+  },
+  "dj_scratch": {
+    "width": 111,
+    "height": 151,
+    "path": "/sprites/npc/dj/dj_scratch.webp"
+  },
+  "mic": {
+    "width": 112,
+    "height": 151,
+    "path": "/sprites/npc/dj/mic.webp"
+  },
+  "dance1": {
+    "width": 105,
+    "height": 152,
+    "path": "/sprites/npc/dj/dance1.webp"
+  },
+  "dance2": {
+    "width": 109,
+    "height": 153,
+    "path": "/sprites/npc/dj/dance2.webp"
+  },
+  "point": {
+    "width": 112,
+    "height": 151,
+    "path": "/sprites/npc/dj/point.webp"
+  },
+  "blink": {
+    "width": 96,
+    "height": 160,
+    "path": "/sprites/npc/dj/blink.webp"
+  }
+}
