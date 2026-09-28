@@ -2509,11 +2509,11 @@ export class GameEngine {
     const isMe = player.id === this.localPlayer.id;
     const nameText = isMe ? `${player.name} (You)` : player.name;
 
-    this.ctx.font = '8px "Nuan Pixel", monospace';
+    this.ctx.font = '16px "Sabai Pixel", monospace';
     const textWidth = this.ctx.measureText(nameText).width;
     const paddingX = 6;
     const boxW = textWidth + paddingX * 2;
-    const boxH = 14;
+    const boxH = 20;
 
     const boxX = Math.floor(x - boxW / 2);
     const boxY = Math.floor(y - boxH);
@@ -2540,7 +2540,7 @@ export class GameEngine {
     this.ctx.save();
     this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-    this.ctx.font = '16px "Nuan Pixel", monospace';
+    this.ctx.font = '16px "Sabai Pixel", monospace';
     const maxLineWidth = 180;
     const words = text.split(' ');
     const lines: string[] = [];
@@ -2563,7 +2563,7 @@ export class GameEngine {
       maxMeasured = Math.max(maxMeasured, this.ctx.measureText(l).width);
     }
 
-    const lineHeight = 22; // Nuan Pixel 16px + room for Thai tone marks
+    const lineHeight = 24; // Sabai Pixel 16px + room for stacked Thai tone marks
     const padX = 10;
     const padY = 8;
     const bw = maxMeasured + padX * 2;

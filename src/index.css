@@ -1,9 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  /* Nuan Pixel: 8px em grid — use multiples of 8 (8, 16, 24, 32) so pixels stay crisp */
-  --font-pixel: 'Nuan Pixel', monospace;
-  --font-sub: 'Nuan Pixel', monospace;
+  /* Pixel Style: Pixelify Sans for crisp legible English, Sabai Pixel for Thai */
+  --font-pixel: 'Pixelify Sans', 'Sabai Pixel', monospace;
+  --font-sub: 'Pixelify Sans', 'Sabai Pixel', monospace;
   
   --bg-dark: #0f1423;
   --panel-bg: rgba(18, 25, 44, 0.88);
@@ -313,11 +314,22 @@ html, body {
 }
 
 /* ========================================================= */
+/* DIALOG / VN SMOOTH TYPOGRAPHY                             */
+/* ========================================================= */
+
+.dialog-text-smooth {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  image-rendering: auto !important;
+}
+
+/* ========================================================= */
 /* DIALOG / VN CANVAS BLUR (applied to canvas when dialog)   */
 /* ========================================================= */
 
 .dialog-world-blur {
-  filter: blur(1.5px) brightness(0.62);
+  filter: blur(6px) saturate(1.05) brightness(0.9);
   transition: filter 250ms ease;
 }
 .dialog-world-unblur {

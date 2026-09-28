@@ -1,0 +1,34 @@
+{
+  "id": "spirit",
+  "displayName": "Spirit",
+  "role": "Ancient temple keeper, reads daily omens from the old signs",
+  "room": "temple",
+  "status": "sprite-approved",
+  "look": {
+    "cloak": "#F0EDE6 near-white linen hooded cloak",
+    "face": "hidden in shadow under the hood",
+    "accent": "#2A2233 dark outline"
+  },
+  "voice": {
+    "tone": ["calm", "honest", "gentle", "ancient"],
+    "languages": ["en"],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "slight bow"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "reach", "talk", "tilt",
+    "front_walk1", "front_walk2", "back_walk1", "back_walk2",
+    "look_back", "sit", "bow", "lean"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "front_walk1", "front_walk2", "back_walk1", "back_walk2", "look_back"],
+  "portraits": {
+    "dir": "/sprites/npc/spirit/portrait/",
+    "faces": { "neutral": "identity", "reach": "hand extended", "hood_peek": "hand on hood", "solemn": "head bowed", "turn": "looking away" }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/spirit/",
+    "spriteManifest": "/sprites/npc/spirit/manifest.json",
+    "sheetSource": "src/assets/npc_spirit_sheet.webp"
+  }
+}

@@ -1,5 +1,5 @@
 // Ambient life drawn in code on top of painted postcard scenes (stars, water glints, sparkles,
-// falling petals, lighthouse beacon). Everything is deterministic from the clock — no state.
+// falling petals, lighthouse beacon, temple magic: floor ring, doorway specks + glow, light motes). Everything is deterministic from the clock — no state.
 // Passes (called by Engine.render):
 //   'sky'   → right after the sky gradient, behind the painting (stars)
 //   'back'  → right after the room background (water glints on the painted lake)
@@ -18,6 +18,12 @@ export interface AmbientConfig {
   sparkles?: [number, number][];
   petals?: { x: number; y: number; w: number; h: number; fall: number; drift: number; count: number; colors: string[] };
   beacons?: { x: number; y: number; radius: number; periodMs: number; color: RGB }[];
+  /** Tiny lights drifting slowly UP (sun dust by day, fireflies by night) inside an area */
+  motes?: { x: number; y: number; w: number; h: number; rise: number; count: number };
+  /** A dark doorway that "breathes": star specks inside (behind people) + soft edge glow at night */
+  portal?: { x: number; y: number; w: number; h: number; color: RGB };
+  /** Dotted ring on the floor, turning very slowly (centre x/y, radii rx/ry) */
+  ring?: { x: number; y: number; rx: number; ry: number; dots: number; periodMs: number };
 }
 
 /** Stable 0..1 random from an integer seed */
@@ -50,6 +56,22 @@ export const AMBIENT: Record<string, AmbientConfig> = {
     },
     beacons: [{ x: 799, y: 126, radius: 22, periodMs: 4200, color: [255, 236, 170] }],
   },
+  // Quiet Temple: magic stays SUBTLE (quiet, sacred, never flashy). Everything here is code, not paint,
+  // so it moves and reacts to day/night.
+  temple: {
+    stars: { count: 80, maxY: 160 },
+    glints: [
+      [255, 169, 4], [893, 169, 5], [172, 170, 5], [772, 170, 2], [897, 172, 4], [861, 173, 2], [884, 173, 5],
+      [107, 174, 3], [817, 174, 2], [877, 174, 5], [837, 176, 4], [261, 177, 4], [139, 179, 3], [197, 179, 3],
+      [279, 179, 2], [760, 179, 4], [114, 180, 4], [167, 180, 4], [913, 181, 2], [820, 182, 2], [120, 184, 3],
+      [865, 184, 3], [863, 187, 5], [117, 188, 5], [251, 188, 5], [810, 188, 4], [142, 190, 2], [175, 190, 4],
+      [185, 190, 5], [211, 190, 5], [850, 190, 5], [867, 190, 2], [881, 191, 2], [757, 195, 3], [850, 195, 2],
+      [203, 196, 4], [814, 196, 5], [192, 197, 5], [920, 197, 3], [190, 200, 4], [743, 201, 3], [148, 203, 4],
+    ],
+    motes: { x: 60, y: 250, w: 904, h: 300, rise: 70, count: 26 },
+    portal: { x: 490, y: 127, w: 44, h: 105, color: [196, 186, 255] },
+    ring: { x: 512, y: 318, rx: 118, ry: 26, dots: 120, periodMs: 90000 },
+  },
 };
 
 export function renderAmbient(ctx: CanvasRenderingContext2D, roomId: string, pass: AmbientPass, t: number, night: number) {
@@ -57,9 +79,10 @@ export function renderAmbient(ctx: CanvasRenderingContext2D, roomId: string, pas
   if (!cfg) return;
   ctx.save();
   if (pass === 'sky') drawStars(ctx, cfg, t, night);
-  if (pass === 'back') drawGlints(ctx, cfg, t, night);
+  if (pass === 'back') { drawGlints(ctx, cfg, t, night); drawRing(ctx, cfg, t, night); drawPortalSpecks(ctx, cfg, t, night); }
   if (pass === 'front') { drawSparkles(ctx, cfg, t, night); drawPetals(ctx, cfg, t); }
-  if (pass === 'glow') drawBeacons(ctx, cfg, t, night);
+  // motes go after the night overlay so fireflies really glow in the dark
+  if (pass === 'glow') { drawBeacons(ctx, cfg, t, night); drawPortalGlow(ctx, cfg, t, night); drawMotes(ctx, cfg, t, night); }
   ctx.restore();
 }
 
@@ -143,5 +166,76 @@ function drawBeacons(ctx: CanvasRenderingContext2D, cfg: AmbientConfig, t: numbe
     ctx.globalAlpha = k;
     ctx.fillStyle = '#fff6d8';
     ctx.fillRect(b.x - 1, b.y - 1, 3, 2);
+  }
+}
+
+/** Floor ring: a dotted inlay that turns slowly, with one brighter spot travelling around it.
+ *  Cream marble is almost white, so the ring shows by COLOUR, not brightness: old gold by day, violet by night. */
+function drawRing(ctx: CanvasRenderingContext2D, cfg: AmbientConfig, t: number, night: number) {
+  const r = cfg.ring;
+  if (!r) return;
+  const turn = (t / r.periodMs) * Math.PI * 2;
+  const breathe = 0.8 + 0.2 * Math.sin(t / 2600);
+  const col = night > 0.5 ? '#8c79ff' : '#b08f45';
+  for (let i = 0; i < r.dots; i++) {
+    const ang = (i / r.dots) * Math.PI * 2 + turn;
+    const x = Math.round(r.x + Math.cos(ang) * r.rx);
+    const y = Math.round(r.y + Math.sin(ang) * r.ry);
+    const head = Math.pow(Math.max(0, Math.cos(ang - turn * 3)), 12); // the travelling spot
+    ctx.globalAlpha = Math.min(1, (0.42 + 0.25 * night) * breathe + head * 0.5);
+    ctx.fillStyle = head > 0.6 ? (night > 0.5 ? '#e6e0ff' : '#fff1c4') : col;
+    ctx.fillRect(x, y, i % 3 === 0 ? 2 : 1, 1);
+  }
+}
+
+/** Star specks drifting slowly inside the dark doorway (like her hood: a door to somewhere else). */
+function drawPortalSpecks(ctx: CanvasRenderingContext2D, cfg: AmbientConfig, t: number, night: number) {
+  const p = cfg.portal;
+  if (!p) return;
+  for (let i = 0; i < 14; i++) {
+    const dur = 7000 + rand(i, 21) * 7000;
+    const u = ((t / dur) + rand(i, 22)) % 1;
+    const x = Math.round(p.x + 3 + rand(i, 23) * (p.w - 6) + Math.sin(u * 6.28 + i) * 2);
+    const y = Math.round(p.y + p.h - 4 - u * (p.h - 10));
+    const a = Math.min(clamp01(u / 0.2), clamp01((1 - u) / 0.3));
+    const tw = 0.5 + 0.5 * Math.sin(t / (300 + rand(i, 24) * 500) + i);
+    ctx.globalAlpha = a * tw * (0.55 + 0.4 * night);
+    ctx.fillStyle = rand(i, 25) > 0.6 ? '#ffe9b8' : '#cfc6ff';
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+/** Soft light breathing out of the doorway, only after sunset. */
+function drawPortalGlow(ctx: CanvasRenderingContext2D, cfg: AmbientConfig, t: number, night: number) {
+  const p = cfg.portal;
+  if (!p || night <= 0.2) return;
+  const k = clamp01((night - 0.2) / 0.5) * (0.55 + 0.45 * Math.sin(t / 3200));
+  const [r, g, b] = p.color;
+  const cx = p.x + p.w / 2;
+  const cy = p.y + p.h * 0.7;
+  ctx.globalCompositeOperation = 'lighter';
+  const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 70);
+  grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.32 * k})`);
+  grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(cx - 70, cy - 70, 140, 140);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/** Motes rising slowly: warm sun dust by day, pale fireflies by night. */
+function drawMotes(ctx: CanvasRenderingContext2D, cfg: AmbientConfig, t: number, night: number) {
+  const m = cfg.motes;
+  if (!m) return;
+  for (let i = 0; i < m.count; i++) {
+    const dur = 11000 + rand(i, 31) * 9000;
+    const u = ((t / dur) + rand(i, 32)) % 1;
+    const x = Math.round(m.x + rand(i, 33) * m.w + Math.sin(u * Math.PI * 3 + i) * 8);
+    const y = Math.round(m.y + rand(i, 34) * m.h - u * m.rise);
+    const a = Math.min(clamp01(u / 0.2), clamp01((1 - u) / 0.3));
+    const tw = 0.6 + 0.4 * Math.sin(t / (500 + rand(i, 35) * 700) + i * 2);
+    ctx.globalAlpha = a * tw * (0.35 + 0.5 * night);
+    ctx.fillStyle = night > 0.5 ? (i % 4 === 0 ? '#d9d2ff' : '#fff2b0') : '#fffaf0';
+    ctx.fillRect(x, y, 1, 1);
+    if (night > 0.5 && tw > 0.9) { ctx.globalAlpha *= 0.4; ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
   }
 }

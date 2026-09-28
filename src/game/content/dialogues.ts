@@ -3,6 +3,7 @@ import { getTonightGenre } from '../rooms/club';
 import { npcName } from './npcNames';
 import { getAiTipForDate, getPromptTrickForDate, getThinkingHabitForDate } from './aiTips';
 import { getNewsLine } from './aiNews';
+import { getTodayOmen, OMEN_CLOSING } from './spiritOmens';
 
 /** Face expression shown on the portrait photo. */
 export type PortraitFace = 'neutral' | 'smile' | 'thinking' | 'idea' | 'wai' | 'finger_heart' | 'whistle' | 'explain' | 'confident' | 'shy' | 'grin';
@@ -39,6 +40,8 @@ export interface DialogScript {
   portraitDir?: string;
   /** Available portrait faces. */
   faces?: PortraitFace[];
+  /** Accent color for dialog theme. */
+  accent?: string;
   /** Starting node id. */
   start: string;
   /** All dialog nodes keyed by id. */
@@ -50,6 +53,7 @@ export const dialogues: Record<string, DialogScript> = {
     name: npcName('barista'),
     portraitDir: '/sprites/npc/barista/portrait',
     faces: ['neutral', 'smile', 'thinking', 'idea', 'wai'],
+    accent: '#A0673F',
     start: 'greet',
     nodes: {
       greet: {
@@ -58,9 +62,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'What can I do for you?', pose: 'talk', face: 'neutral' },
         ],
         choices: [
-          { label: "TODAY'S TIP", next: 'tip' },
-          { label: 'ABOUT THE CAFE', next: 'about' },
-          { label: 'BYE', next: 'bye' },
+          { label: "Today's tip", next: 'tip' },
+          { label: 'About the cafe', next: 'about' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       tip: {
@@ -70,9 +74,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Hope that helps! Anything else?', pose: 'talk', face: 'smile' },
         ],
         choices: [
-          { label: "TODAY'S TIP", next: 'tip' },
-          { label: 'ABOUT THE CAFE', next: 'about' },
-          { label: 'BYE', next: 'bye' },
+          { label: "Today's tip", next: 'tip' },
+          { label: 'About the cafe', next: 'about' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       about: {
@@ -81,9 +85,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'We serve the best drip coffee in town!', pose: 'happy', face: 'smile' },
         ],
         choices: [
-          { label: "TODAY'S TIP", next: 'tip' },
-          { label: 'ABOUT THE CAFE', next: 'about' },
-          { label: 'BYE', next: 'bye' },
+          { label: "Today's tip", next: 'tip' },
+          { label: 'About the cafe', next: 'about' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       bye: {
@@ -98,6 +102,7 @@ export const dialogues: Record<string, DialogScript> = {
     name: npcName('dj'),
     portraitDir: '/sprites/npc/dj/portrait',
     faces: ['neutral', 'smile', 'thinking', 'idea', 'finger_heart'],
+    accent: '#7C5CD6',
     start: 'greet',
     nodes: {
       greet: {
@@ -106,9 +111,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'What do you feel like hearing?', pose: 'talk', face: 'neutral' },
         ],
         choices: [
-          { label: 'TRACK OF THE DAY', next: 'track' },
-          { label: "TONIGHT'S GENRE", next: 'genre' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Track of the day', next: 'track' },
+          { label: "Tonight's genre", next: 'genre' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       track: {
@@ -118,9 +123,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Sing it loud tonight, okay?', pose: 'happy', face: 'smile' },
         ],
         choices: [
-          { label: 'TRACK OF THE DAY', next: 'track' },
-          { label: "TONIGHT'S GENRE", next: 'genre' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Track of the day', next: 'track' },
+          { label: "Tonight's genre", next: 'genre' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       genre: {
@@ -128,9 +133,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "Tonight's vibe is {genre}. Turn it up and enjoy!", pose: 'dance1', face: 'smile' },
         ],
         choices: [
-          { label: 'TRACK OF THE DAY', next: 'track' },
-          { label: "TONIGHT'S GENRE", next: 'genre' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Track of the day', next: 'track' },
+          { label: "Tonight's genre", next: 'genre' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       bye: {
@@ -144,6 +149,7 @@ export const dialogues: Record<string, DialogScript> = {
     name: npcName('server'),
     portraitDir: '/sprites/npc/server/portrait',
     faces: ['neutral', 'smile', 'shy', 'thinking', 'grin'],
+    accent: '#5E9A3A',
     start: 'greet',
     nodes: {
       greet: {
@@ -152,9 +158,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "The window table's free, if you want it.", pose: 'talk', face: 'smile' },
         ],
         choices: [
-          { label: 'COFFEE TIP', next: 'tip' },
-          { label: 'BOOK FOR TODAY', next: 'book' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Coffee tip', next: 'tip' },
+          { label: 'Book for today', next: 'book' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       tip: {
@@ -164,9 +170,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "...don't tell the barista I told you.", pose: 'shy', face: 'shy' },
         ],
         choices: [
-          { label: 'COFFEE TIP', next: 'tip' },
-          { label: 'BOOK FOR TODAY', next: 'book' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Coffee tip', next: 'tip' },
+          { label: 'Book for today', next: 'book' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       book: {
@@ -175,9 +181,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Just one chapter today. Small is enough.', pose: 'read', face: 'smile' },
         ],
         choices: [
-          { label: 'COFFEE TIP', next: 'tip' },
-          { label: 'BOOK FOR TODAY', next: 'book' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Coffee tip', next: 'tip' },
+          { label: 'Book for today', next: 'book' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       bye: {
@@ -191,6 +197,7 @@ export const dialogues: Record<string, DialogScript> = {
     name: npcName('lifeguard'),
     portraitDir: '/sprites/npc/lifeguard/portrait',
     faces: ['neutral', 'smile', 'whistle', 'explain', 'confident'],
+    accent: '#D8322B',
     start: 'greet',
     nodes: {
       greet: {
@@ -199,8 +206,8 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Want a tip from your coach?', pose: 'idle', face: 'neutral' },
         ],
         choices: [
-          { label: 'HEALTH TIP', next: 'tip' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Health tip', next: 'tip' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       tip: {
@@ -210,8 +217,8 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Small habits every day make a strong body.', pose: 'lookout', face: 'confident' },
         ],
         choices: [
-          { label: 'HEALTH TIP', next: 'tip' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Health tip', next: 'tip' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       bye: {
@@ -225,6 +232,7 @@ export const dialogues: Record<string, DialogScript> = {
     name: npcName('tycoon'),
     portraitDir: '/sprites/npc/tycoon/portrait',
     faces: ['neutral', 'smile', 'grin', 'thinking', 'explain'],
+    accent: '#34406B',
     start: 'greet',
     nodes: {
       greet: {
@@ -233,9 +241,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'I own half of it, you know. The other half owns my heart.', pose: 'talk', face: 'neutral' },
         ],
         choices: [
-          { label: 'AI TIP', next: 'tip' },
-          { label: 'YOUR SECRET?', next: 'secret' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'AI tip', next: 'tip' },
+          { label: 'Your secret?', next: 'secret' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       tip: {
@@ -245,9 +253,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'A good question is worth more than gold!', pose: 'happy', face: 'grin' },
         ],
         choices: [
-          { label: 'AI TIP', next: 'tip' },
-          { label: 'YOUR SECRET?', next: 'secret' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'AI tip', next: 'tip' },
+          { label: 'Your secret?', next: 'secret' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       secret: {
@@ -256,8 +264,8 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Knowledge grows like interest. Start small, start today.', pose: 'talk', face: 'explain' },
         ],
         choices: [
-          { label: 'AI TIP', next: 'tip' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'AI tip', next: 'tip' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       bye: {
@@ -271,6 +279,7 @@ export const dialogues: Record<string, DialogScript> = {
     name: npcName('nova'),
     portraitDir: '/sprites/npc/nova/portrait',
     faces: ['neutral', 'smile', 'grin', 'thinking', 'explain'],
+    accent: '#3FAE9C',
     start: 'greet',
     nodes: {
       greet: {
@@ -279,9 +288,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "I'm Nova. I know every trick for talking to AI.", pose: 'idle', face: 'neutral' },
         ],
         choices: [
-          { label: 'PROMPT TRICK', next: 'trick' },
-          { label: 'WHY THE SHADES?', next: 'shades' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Prompt trick', next: 'trick' },
+          { label: 'Why the shades?', next: 'shades' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       trick: {
@@ -291,9 +300,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Try it once today. You\'ll see.', pose: 'happy', face: 'grin' },
         ],
         choices: [
-          { label: 'PROMPT TRICK', next: 'trick' },
-          { label: 'WHY THE SHADES?', next: 'shades' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Prompt trick', next: 'trick' },
+          { label: 'Why the shades?', next: 'shades' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       shades: {
@@ -302,8 +311,8 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "Real secret: I don't. I just ask better questions.", pose: 'talk', face: 'explain' },
         ],
         choices: [
-          { label: 'PROMPT TRICK', next: 'trick' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Prompt trick', next: 'trick' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       bye: {
@@ -317,6 +326,7 @@ export const dialogues: Record<string, DialogScript> = {
     name: npcName('clara'),
     portraitDir: '/sprites/npc/clara/portrait',
     faces: ['neutral', 'smile', 'thinking', 'explain', 'idea'],
+    accent: '#D27A56',
     start: 'greet',
     nodes: {
       greet: {
@@ -325,9 +335,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "I'm Clara. I love helping people think things through.", pose: 'idle', face: 'neutral' },
         ],
         choices: [
-          { label: 'THINKING HABIT', next: 'habit' },
-          { label: "WHAT'S THE BOOK?", next: 'book' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Thinking habit', next: 'habit' },
+          { label: "What's the book?", next: 'book' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       habit: {
@@ -337,9 +347,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "AI is a great helper. But the thinking? That part is yours.", pose: 'happy', face: 'idea' },
         ],
         choices: [
-          { label: 'THINKING HABIT', next: 'habit' },
-          { label: "WHAT'S THE BOOK?", next: 'book' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Thinking habit', next: 'habit' },
+          { label: "What's the book?", next: 'book' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       book: {
@@ -348,8 +358,8 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Small notes, every day. They add up, you know?', pose: 'happy', face: 'smile' },
         ],
         choices: [
-          { label: 'THINKING HABIT', next: 'habit' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'Thinking habit', next: 'habit' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       bye: {
@@ -363,6 +373,7 @@ export const dialogues: Record<string, DialogScript> = {
     name: npcName('envoy'),
     portraitDir: '/sprites/npc/envoy/portrait',
     faces: ['neutral', 'smile', 'grin', 'thinking', 'explain'],
+    accent: '#9C86D6',
     start: 'greet',
     nodes: {
       greet: {
@@ -371,9 +382,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'I speak for all the other AIs in town. Want the latest?', pose: 'idle', face: 'neutral' },
         ],
         choices: [
-          { label: 'AI NEWS', next: 'news' },
-          { label: 'WHO ARE THE AIS?', next: 'who' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'AI news', next: 'news' },
+          { label: 'Who are the AIs?', next: 'who' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       news: {
@@ -383,9 +394,9 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "And that's the news! Back to you.", pose: 'happy', face: 'grin' },
         ],
         choices: [
-          { label: 'AI NEWS', next: 'news' },
-          { label: 'WHO ARE THE AIS?', next: 'who' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'AI news', next: 'news' },
+          { label: 'Who are the AIs?', next: 'who' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       who: {
@@ -394,13 +405,60 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Try a few, compare them, and keep what works for you!', pose: 'happy', face: 'grin' },
         ],
         choices: [
-          { label: 'AI NEWS', next: 'news' },
-          { label: 'BYE', next: 'bye' },
+          { label: 'AI news', next: 'news' },
+          { label: 'Bye', next: 'bye' },
         ],
       },
       bye: {
         lines: [
           { text: "This has been Envoy. Stay informed, stay kind!", pose: 'wave', face: 'smile' },
+        ],
+      },
+    },
+  },
+  spirit: {
+    name: npcName('spirit'),
+    portraitDir: '/sprites/npc/spirit/portrait',
+    faces: ['neutral'],
+    accent: '#6B5E7B',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'You come again.', pose: 'idle', face: 'neutral' },
+          { text: 'The old signs have something for you today.', pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: "Today's omen", next: 'omen' },
+          { label: 'Who are you?', next: 'who' },
+          { label: 'Farewell', next: 'bye' },
+        ],
+      },
+      omen: {
+        lines: [
+          { text: '{omenSign}', pose: 'reach', face: 'neutral' },
+          { text: '{omenAdvice}', pose: 'talk', face: 'neutral' },
+          { text: '{omenClosing}', pose: 'bow', face: 'neutral' },
+        ],
+        choices: [
+          { label: "Today's omen", next: 'omen' },
+          { label: 'Who are you?', next: 'who' },
+          { label: 'Farewell', next: 'bye' },
+        ],
+      },
+      who: {
+        lines: [
+          { text: 'I keep the temple. The signs whisper to me, and I pass them on.', pose: 'tilt', face: 'neutral' },
+          { text: 'It is an old art. Not fate — just a small lantern for the road.', pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: "Today's omen", next: 'omen' },
+          { label: 'Farewell', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'Walk gently. The day is yours.', pose: 'bow', face: 'neutral' },
         ],
       },
     },
@@ -455,6 +513,15 @@ export function resolveDialogText(text: string): string {
   if (resolved.includes('{genre}')) {
     const genre = getTonightGenre();
     resolved = resolved.replace('{genre}', GENRE_LABELS[genre] || genre);
+  }
+  if (resolved.includes('{omenSign}')) {
+    resolved = resolved.replace('{omenSign}', getTodayOmen().sign);
+  }
+  if (resolved.includes('{omenAdvice}')) {
+    resolved = resolved.replace('{omenAdvice}', getTodayOmen().advice);
+  }
+  if (resolved.includes('{omenClosing}')) {
+    resolved = resolved.replace('{omenClosing}', OMEN_CLOSING);
   }
   return resolved;
 }

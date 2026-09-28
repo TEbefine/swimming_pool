@@ -1,0 +1,16 @@
+/* Sabai Pixel (สบาย พิกเซล) — soft loopless Thai + Latin pixel font, SAP by Teera.
+   The em is a 16px grid: 16 / 24 / 32 / 48px stay crisp. Keep line-height >= 1.5 for tone marks. */
+@font-face {
+  font-family: "Sabai Pixel";
+  src: url("/fonts/SabaiPixel-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Sabai Pixel";
+  src: url("/fonts/SabaiPixel-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

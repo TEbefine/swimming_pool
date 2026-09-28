@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/idle.webp"
+  },
+  "side_idle": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/back_idle.webp"
+  },
+  "walk1": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/walk1.webp"
+  },
+  "walk2": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/walk2.webp"
+  },
+  "reach": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/reach.webp"
+  },
+  "talk": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/talk.webp"
+  },
+  "tilt": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/tilt.webp"
+  },
+  "front_walk1": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/front_walk1.webp"
+  },
+  "front_walk2": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/front_walk2.webp"
+  },
+  "back_walk1": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/back_walk1.webp"
+  },
+  "back_walk2": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/back_walk2.webp"
+  },
+  "look_back": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/look_back.webp"
+  },
+  "sit": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/sit.webp"
+  },
+  "bow": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/bow.webp"
+  },
+  "lean": {
+    "width": 88,
+    "height": 86,
+    "path": "/sprites/npc/spirit/lean.webp"
+  }
+}

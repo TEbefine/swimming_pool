@@ -341,7 +341,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 ref={canvasRef}
                 width={1024}
                 height={576}
-                className="w-full h-full object-cover pointer-events-none"
+                className={`w-full h-full object-cover pointer-events-none ${screenOverlay ? 'dialog-world-blur' : 'dialog-world-unblur'}`}
                 style={{
                   imageRendering: 'pixelated'
                 }}
@@ -354,17 +354,21 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 </div>
               )}
 
-              {/* CRT Scanline & Subtle LCD Grid Overlay */}
-              <div
-                className="pointer-events-none absolute inset-0 z-10 opacity-10"
-                style={{
-                  backgroundImage:
-                    'repeating-linear-gradient(0deg, #000, #000 1px, transparent 1px, transparent 2px)'
-                }}
-              />
+              {/* CRT Scanline & Subtle LCD Grid Overlay (hidden during dialog) */}
+              {!screenOverlay && (
+                <div
+                  className="pointer-events-none absolute inset-0 z-10 opacity-10"
+                  style={{
+                    backgroundImage:
+                      'repeating-linear-gradient(0deg, #000, #000 1px, transparent 1px, transparent 2px)'
+                  }}
+                />
+              )}
 
-              {/* Subtle Screen Glass Corner Glare */}
-              <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-tr from-transparent via-white/[0.03] to-white/[0.10]" />
+              {/* Subtle Screen Glass Corner Glare (hidden during dialog) */}
+              {!screenOverlay && (
+                <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-tr from-transparent via-white/[0.03] to-white/[0.10]" />
+              )}
 
               {/* Floating Room Info Badge on Screen (hidden during dialog) */}
               {!screenOverlay && (

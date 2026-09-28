@@ -15,15 +15,6 @@ const PORTRAIT = {
   rightWide:    24,
 };
 
-const BOX = {
-  narrowMin: 88,
-  narrowMax: 118,
-  narrowRatio: 0.17,
-  wideMin: 110,
-  wideMax: 150,
-  wideRatio: 0.22,
-};
-
 interface DialogBoxProps {
   npcId: string;
   script: DialogScript;
@@ -47,28 +38,76 @@ function markTipRead(): void {
   }
 }
 
-/** Split resolved text into pages of MAX_LINES_PER_PAGE lines each.
- *  Uses measured charsPerLine based on inner box width. */
-function paginateText(text: string, charsPerLine: number): string[] {
+let measureCtx: CanvasRenderingContext2D | null = null;
+function getMeasureCtx(): CanvasRenderingContext2D | null {
+  if (!measureCtx && typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    measureCtx = canvas.getContext('2d');
+  }
+  return measureCtx;
+}
+
+/** Wrap text using measured width from offscreen canvas context. */
+function wrapTextMeasured(text: string, maxWidth: number, font: string): string[] {
   if (!text) return [''];
-  const words = text.split(' ');
-  const allLines: string[] = [];
-  let currentLine = '';
-  for (const word of words) {
-    const test = currentLine ? currentLine + ' ' + word : word;
-    if (test.length > charsPerLine) {
-      if (currentLine) allLines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = test;
+  const ctx = getMeasureCtx();
+  if (ctx) {
+    ctx.font = font;
+  }
+
+  const lines: string[] = [];
+  const paragraphs = text.split('\n');
+
+  for (const para of paragraphs) {
+    const words = para.split(' ');
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (!word) {
+        if (!currentLine && i < words.length - 1) continue;
+      }
+
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const metrics = ctx ? ctx.measureText(testLine) : { width: testLine.length * 10 };
+
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        // Check if single word itself exceeds maxWidth
+        const wordMetrics = ctx ? ctx.measureText(word) : { width: word.length * 10 };
+        if (wordMetrics.width > maxWidth) {
+          let chunk = '';
+          for (const char of word) {
+            const testChunk = chunk + char;
+            const chunkWidth = ctx ? ctx.measureText(testChunk).width : testChunk.length * 10;
+            if (chunkWidth > maxWidth && chunk) {
+              lines.push(chunk);
+              chunk = char;
+            } else {
+              chunk = testChunk;
+            }
+          }
+          currentLine = chunk;
+        } else {
+          currentLine = word;
+        }
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) {
+      lines.push(currentLine);
     }
   }
-  if (currentLine) allLines.push(currentLine);
 
-  // Group into pages of max 3 lines each
+  return lines.length > 0 ? lines : [''];
+}
+
+/** Split measured lines into pages of MAX_LINES_PER_PAGE lines each. */
+function paginateText(lines: string[]): string[] {
   const pages: string[] = [];
-  for (let i = 0; i < allLines.length; i += MAX_LINES_PER_PAGE) {
-    pages.push(allLines.slice(i, i + MAX_LINES_PER_PAGE).join('\n'));
+  for (let i = 0; i < lines.length; i += MAX_LINES_PER_PAGE) {
+    pages.push(lines.slice(i, i + MAX_LINES_PER_PAGE).join('\n'));
   }
   return pages.length > 0 ? pages : [''];
 }
@@ -82,7 +121,7 @@ function preloadImages(paths: string[]): void {
 }
 
 export const DialogBox: React.FC<DialogBoxProps> = ({
-  npcId: _npcId,
+  npcId,
   script,
   onLineChange,
   onClose,
@@ -90,6 +129,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   confirmTrigger,
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
   // Measure overlay dimensions with ResizeObserver
@@ -146,33 +186,55 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const { w, h } = dims;
   const narrow = w > 0 ? w < 420 : true;
 
-  // Box height based on BOX constants
-  const boxRatio = narrow ? BOX.narrowRatio : BOX.wideRatio;
-  const boxMin = narrow ? BOX.narrowMin : BOX.wideMin;
-  const boxMax = narrow ? BOX.narrowMax : BOX.wideMax;
-  const boxH = Math.min(boxMax, Math.max(boxMin, Math.round(h * boxRatio) || boxMin));
+  // Box real measured height & inner width with ResizeObserver
+  const [boxH, setBoxH] = useState(narrow ? 128 : 140);
+  const [boxInnerW, setBoxInnerW] = useState(0);
 
-  // Portrait dimensions based on PORTRAIT constants
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const updateBox = () => {
+      setBoxH(el.offsetHeight || (narrow ? 128 : 140));
+      const inner = el.clientWidth - 32;
+      if (inner > 0) setBoxInnerW(inner);
+    };
+    updateBox();
+    const ro = new ResizeObserver(() => {
+      updateBox();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [narrow]);
+
+  // Portrait dimensions based on real measured box height
   const portraitHeight = Math.round(h * (narrow ? PORTRAIT.narrowHeight : PORTRAIT.wideHeight));
   const portraitMaxWidth = Math.round(w * PORTRAIT.maxWidth);
-  const portraitBottom = boxH - PORTRAIT.tuck;
+  // Portrait sits on the TALK box (its min height), not the measured height, so it never
+  // jumps when the choices open and the box grows (the box simply overlaps the chest).
+  const baseBoxH = narrow ? 128 : 140;
+  const portraitBottom = 10 + baseBoxH - PORTRAIT.tuck;
   const portraitRight = narrow ? PORTRAIT.rightNarrow : PORTRAIT.rightWide;
 
-  const fontSize = narrow ? 8 : 9;
-  const lineHeight = 1.9;
-  const paddingX = narrow ? 12 : 16;
-  const boxPadding = narrow ? '8px 12px' : '12px 16px';
+  const fontSize = narrow ? 26 : 28;
+  const accent = script.accent || '#5A3A22';
 
-  // Paginate by measurement (charsPerLine = inner box width / fontSize)
-  const boxInnerWidth = Math.max(80, (w || 320) - 12 - paddingX * 2);
-  const charsPerLine = Math.max(10, Math.floor(boxInnerWidth / fontSize));
-
+  // Measure box inner width for wrap calculation (with a slight right safety buffer)
+  const innerWidth = Math.max(120, (boxInnerW > 0 ? boxInnerW : (w > 0 ? w - 52 : 300)) - 14);
   const resolvedText = currentLine ? resolveDialogText(currentLine.text) : '';
-  const pages = useMemo(() => paginateText(resolvedText, charsPerLine), [resolvedText, charsPerLine]);
+  const fontSpec = `600 ${fontSize}px 'Pixelify Sans', 'Sabai Pixel', monospace`;
+
+  const pages = useMemo(() => {
+    const lines = wrapTextMeasured(resolvedText, innerWidth, fontSpec);
+    return paginateText(lines);
+  }, [resolvedText, innerWidth, fontSpec]);
+
   const safePageIndex = pageIndex >= pages.length ? 0 : pageIndex;
   const currentPageText = pages[safePageIndex] ?? '';
   const isLastPage = safePageIndex >= pages.length - 1;
   const isLastLine = node ? lineIndex >= node.lines.length - 1 : true;
+
+  const hasMoreToRead = !isLastPage || !isLastLine || Boolean(node?.next) || Boolean(node?.choices && node.choices.length > 0);
+  const showContinueArrow = isComplete && !showChoices && hasMoreToRead;
 
   const closingRef = useRef(false);
   const lastConfirmRef = useRef(confirmTrigger);
@@ -408,12 +470,16 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   return (
     <div
       ref={rootRef}
+      className="dialog-text-smooth"
       style={{
         position: 'absolute',
         inset: 0,
         zIndex: 30,
         pointerEvents: 'auto',
-        fontFamily: "'Press Start 2P', 'Itim', sans-serif",
+        fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+        WebkitFontSmoothing: 'antialiased',
+        MozOsxFontSmoothing: 'grayscale',
+        textRendering: 'geometricPrecision',
       }}
     >
       {/* ============================================= */}
@@ -506,7 +572,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                     objectFit: 'contain',
                     objectPosition: 'right bottom',
                     imageRendering: 'auto',
-                    filter: 'drop-shadow(-8px 8px 14px rgba(20,12,8,0.45))',
+                    filter: 'drop-shadow(0 8px 18px rgba(40,25,15,.28))',
                   }}
                 />
               )}
@@ -522,7 +588,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   objectFit: 'contain',
                   objectPosition: 'right bottom',
                   imageRendering: 'auto',
-                  filter: 'drop-shadow(-8px 8px 14px rgba(20,12,8,0.45))',
+                  filter: 'drop-shadow(0 8px 18px rgba(40,25,15,.28))',
                 }}
               />
             </div>
@@ -530,58 +596,95 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         </div>
       )}
 
-      {/* ============================================= */}
-      {/* CHOICE PANEL (above the box, LEFT side)      */}
-      {/* ============================================= */}
-      {showChoices && node && node.choices && (
+      {/* Choices: separate card above the message box, left side (like the old layout) */}
+      {showChoices && node?.choices && node.choices.length > 0 && (
         <div
+          onClick={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
-            left: '6px',
-            bottom: `${boxH + 6}px`,
-            zIndex: 35,
+            left: '10px',
+            bottom: `${10 + boxH + 6}px`,
+            zIndex: 36,
+            width: 'max-content',
+            minWidth: '168px',
+            maxWidth: 'calc(100% - 20px)',
+            background: 'rgba(58, 32, 16, 0.95)',
+            border: '2.5px solid #FFF8EC',
+            borderRadius: '12px',
+            padding: '5px',
+            boxShadow: '0 8px 22px rgba(20,10,5,.45)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '4px',
-            padding: '6px',
-            background: 'rgba(58, 32, 16, 0.94)',
-            backdropFilter: 'blur(4px)',
-            border: '3px solid #FFF6E5',
-            borderRadius: '4px',
-            boxShadow: '0 -4px 16px rgba(0,0,0,0.5)',
+            gap: '2px',
           }}
         >
-          {node.choices.map((choice: DialogChoice, idx: number) => (
-            <button
-              key={choice.label}
-              onClick={(e) => {
-                e.stopPropagation();
-                setChoiceIndex(idx);
-                goToNode(choice.next);
-              }}
-              style={{
-                padding: '5px 12px',
-                background: idx === choiceIndex ? '#FFF6E5' : 'transparent',
-                color: idx === choiceIndex ? '#4A2E1A' : '#FFF6E5',
-                border: idx === choiceIndex ? '2px solid #4A2E1A' : '2px solid transparent',
-                fontFamily: "'Press Start 2P', 'Itim', sans-serif",
-                fontSize: `${fontSize}px`,
-                lineHeight: '1.6',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.08s',
-              }}
-            >
-              {idx === choiceIndex ? '\u25B6 ' : '  '}{choice.label}
-            </button>
-          ))}
+          {node.choices.map((choice: DialogChoice, idx: number) => {
+            const isSelected = idx === choiceIndex;
+            return (
+              <button
+                key={choice.label}
+                type="button"
+                onMouseEnter={() => setChoiceIndex(idx)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setChoiceIndex(idx);
+                  goToNode(choice.next);
+                }}
+                style={{
+                  height: '42px',
+                  borderRadius: '8px',
+                  padding: '0 12px',
+                  fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+                  fontSize: narrow ? '20px' : '22px',
+                  fontWeight: 600,
+                  WebkitFontSmoothing: 'antialiased',
+                  MozOsxFontSmoothing: 'grayscale',
+                  textRendering: 'geometricPrecision',
+                  color: isSelected ? '#3A2010' : '#FFF8EC',
+                  backgroundColor: isSelected ? '#FFF8EC' : 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  width: '100%',
+                  textAlign: 'left',
+                  outline: 'none',
+                  transition: 'background-color 0.1s ease, color 0.1s ease',
+                }}
+              >
+                <span
+                  style={{
+                    width: '12px',
+                    display: 'inline-block',
+                    flexShrink: 0,
+                    fontSize: '18px',
+                    lineHeight: 1,
+                    color: accent,
+                  }}
+                >
+                  {isSelected ? '▸' : ''}
+                </span>
+                <span
+                  style={{
+                    flex: 1,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {choice.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 
       {/* ============================================= */}
-      {/* DIALOG BOX (bottom, full width - 12px)       */}
+      {/* MESSAGE BOX (bottom 10px, left/right 10px)    */}
       {/* ============================================= */}
       <div
+        ref={boxRef}
         onClick={(e) => {
           e.stopPropagation();
           if (showChoices) {
@@ -592,86 +695,136 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         }}
         style={{
           position: 'absolute',
-          bottom: 0,
-          left: '6px',
-          right: '6px',
-          height: `${boxH}px`,
+          bottom: '10px',
+          left: '10px',
+          right: '10px',
+          minHeight: narrow ? '128px' : '140px',
+          background: '#FFF8EC',
+          border: '2.5px solid #5A3A22',
+          borderRadius: '16px',
+          padding: '20px 16px 14px',
+          boxShadow: '0 6px 0 rgba(90,58,34,.18), 0 10px 24px rgba(40,25,15,.25)',
           zIndex: 33,
           cursor: 'pointer',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
         }}
       >
-        {/* Box body */}
+        {/* Name tag pill on top of the box */}
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: '#FFF6E5',
-            border: '4px solid #4A2E1A',
-            boxShadow: '0 -3px 16px rgba(0,0,0,0.35)',
+            top: '-17px',
+            right: '14px',
+            height: '30px',
+            padding: '0 12px 0 5px',
+            borderRadius: '999px',
+            background: '#5A3A22',
+            color: '#FFF8EC',
+            fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+            fontSize: '20px',
+            fontWeight: 700,
+            lineHeight: '30px',
+            letterSpacing: '0.02em',
+            WebkitFontSmoothing: 'antialiased',
+            MozOsxFontSmoothing: 'grayscale',
+            textRendering: 'geometricPrecision',
+            boxShadow: '0 2px 6px rgba(40,25,15,.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            zIndex: 10,
+            pointerEvents: 'none',
           }}
         >
-          {/* Name plate tab (right side, under portrait) */}
           <div
+            style={{
+              width: '22px',
+              height: '22px',
+              borderRadius: '50%',
+              border: '2px solid #FFF8EC',
+              backgroundColor: accent,
+              overflow: 'hidden',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+            }}
+          >
+            <img
+              src={`/sprites/npc/${npcId}/head.webp`}
+              alt=""
+              onError={(e) => {
+                // Fallback for NPCs without a head crop yet
+                const img = e.currentTarget;
+                if (!img.src.endsWith('/idle.webp')) img.src = `/sprites/npc/${npcId}/idle.webp`;
+              }}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'top',
+                imageRendering: 'pixelated',
+              }}
+            />
+          </div>
+          <span style={{ whiteSpace: 'nowrap' }}>{script.name}</span>
+        </div>
+
+        {/* Text content */}
+        <div
+          style={{
+            fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+            fontSize: `${fontSize}px`,
+            fontWeight: 600,
+            lineHeight: 1.45,
+            letterSpacing: '0.02em',
+            color: '#24160E',
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
+            flex: 1,
+            WebkitFontSmoothing: 'antialiased',
+            MozOsxFontSmoothing: 'grayscale',
+            textRendering: 'geometricPrecision',
+          }}
+        >
+          {displayedText}
+        </div>
+
+        {/* Continue arrow */}
+        {showContinueArrow && (
+          <div
+            className="dialog-bob-arrow"
             style={{
               position: 'absolute',
-              top: '-20px',
-              right: narrow ? '8px' : '14px',
-              background: '#4A2E1A',
-              color: '#FFF6E5',
-              padding: '3px 12px',
-              fontSize: '8px',
-              fontFamily: "'Press Start 2P', 'Itim', sans-serif",
-              lineHeight: '14px',
-              borderRadius: '3px 3px 0 0',
+              right: '14px',
+              bottom: '10px',
+              color: accent,
+              fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+              fontSize: '16px',
+              lineHeight: 1,
+              pointerEvents: 'none',
+              userSelect: 'none',
             }}
           >
-            {script.name}
+            ▼
           </div>
-
-          {/* Text content */}
-          <div
-            style={{
-              padding: boxPadding,
-              fontSize: `${fontSize}px`,
-              fontFamily: "'Press Start 2P', 'Itim', sans-serif",
-              color: '#3A2010',
-              lineHeight: String(lineHeight),
-              overflow: 'hidden',
-              wordBreak: 'break-word',
-              whiteSpace: 'pre-wrap',
-              maxHeight: '100%',
-            }}
-          >
-            {displayedText}
-          </div>
-
-          {/* Blinking advance indicator */}
-          {isComplete && !showChoices && (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '6px',
-                right: '10px',
-                fontSize: '10px',
-                color: '#4A2E1A',
-                fontFamily: 'monospace',
-              }}
-              className="dialog-blink"
-            >
-              {'\u25BC'}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Keyframe injection for blink */}
+      {/* Keyframe injection for bob */}
       <style>{`
-        @keyframes dialogBlink {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
+        @keyframes dialogBob {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-4px);
+          }
         }
-        .dialog-blink {
-          animation: dialogBlink 0.8s step-start infinite;
+        .dialog-bob-arrow {
+          animation: dialogBob 1s ease-in-out infinite;
         }
       `}</style>
     </div>
