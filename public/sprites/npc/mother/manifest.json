@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/idle.webp"
+  },
+  "side_idle": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/back_idle.webp"
+  },
+  "walk1": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/walk1.webp"
+  },
+  "walk2": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/walk2.webp"
+  },
+  "talk": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/talk.webp"
+  },
+  "happy": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/happy.webp"
+  },
+  "shake_head": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/shake_head.webp"
+  },
+  "walk_down1": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/walk_up2.webp"
+  },
+  "stir": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/stir.webp"
+  },
+  "hold_bowl": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/hold_bowl.webp"
+  },
+  "kneel": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/kneel.webp"
+  },
+  "bow": {
+    "width": 82,
+    "height": 82,
+    "path": "/sprites/npc/mother/bow.webp"
+  }
+}

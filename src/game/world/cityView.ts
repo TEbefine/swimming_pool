@@ -44,6 +44,10 @@ export const ROOM_LIGHTS: Record<string, { x: number; y: number; radius: number;
     { x: 972, y: 73, radius: 110, color: [255, 200, 130] },   // door sconce
     { x: 968, y: 400, radius: 90, color: [255, 170, 90] },    // jukebox glow
   ],
+  dalbit_yard: [
+    { x: 430, y: 206, radius: 70, color: [255, 205, 140] },   // paper doors, lamp inside
+    { x: 595, y: 200, radius: 45, color: [255, 205, 140] },   // small window
+  ],
   home: [
     { x: 576, y: 85, radius: 190, color: [255, 205, 140] },   // paper lamp
     { x: 46, y: 150, radius: 120, color: [255, 200, 130] },   // floor lamp shade

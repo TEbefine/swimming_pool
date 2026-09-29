@@ -12,6 +12,8 @@ import { NameModal } from './components/NameModal';
 import { HelpModal } from './components/HelpModal';
 import { DialogBox } from './components/DialogBox';
 import { SceneBox } from './components/SceneBox';
+import { StoryHud } from './components/StoryHud';
+import { isStoryRoom, storyDialog, onStoryNode, onStoryRoomEnter, takeStoryTravel } from './game/story/dalbitPrologue';
 import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { Waves } from 'lucide-react';
@@ -75,8 +77,8 @@ export const App: React.FC = () => {
   const [dialogSessionId, setDialogSessionId] = useState<number>(0);
 
   /** Open a dialog with the given NPC without moving the player. */
-  const openDialog = useCallback((npcId: string) => {
-    const script = dialogues[npcId];
+  const openDialog = useCallback((npcId: string, scriptOverride?: DialogScript) => {
+    const script = scriptOverride ?? dialogues[npcId];
     if (!script) return;
     const engine = engineRef.current;
     if (!engine) return;
@@ -99,6 +101,7 @@ export const App: React.FC = () => {
   const closeDialog = useCallback(() => {
     const engine = engineRef.current;
     const npcId = dialogNpcId;
+    const closePose = dialogScript?.closePose ?? 'wai';
 
     setDialogOpen(false);
     setDialogNpcId(null);
@@ -108,12 +111,15 @@ export const App: React.FC = () => {
 
     if (engine) {
       engine.setDialogFrozen(false);
-      if (npcId) {
-        // Play 'wai' for 1.5s then return to idle
-        engine.setNpcPose(npcId, 'wai', 1500);
+      if (npcId && closePose !== 'none') {
+        // Play the close pose ('wai' by default) for 1.5s then return to idle
+        engine.setNpcPose(npcId, closePose, 1500);
       }
+      // A story choice asked to travel (e.g. the yard gate → river mouth)
+      const travelTo = takeStoryTravel();
+      if (travelTo) void engine.changeRoom(travelTo);
     }
-  }, [dialogNpcId]);
+  }, [dialogNpcId, dialogScript]);
 
   /** Handle line changes during dialog to update NPC pose. */
   const handleDialogLineChange = useCallback((_lineIndex: number, pose?: string) => {
@@ -294,6 +300,14 @@ export const App: React.FC = () => {
 
     // onInteract: open dialog when NPC talk is triggered
     engine.onInteract = (targetId: string, actionId?: ContextActionId) => {
+      // Story rooms (Dalbit): the story picks the dialogue for the current beat
+      if (isStoryRoom(engine.getRoom().roomId)) {
+        const script = storyDialog(targetId, actionId);
+        if (script) {
+          openDialog(targetId, script);
+          return;
+        }
+      }
       if (actionId === 'talk' && dialogues[targetId]) {
         openDialog(targetId);
       }
@@ -357,6 +371,36 @@ export const App: React.FC = () => {
   }, [chatLog, currentRoom.roomId]);
 
   // =========================================================================
+  // STORY MODE (Dalbit rooms): objective banner, coins / energy, bag
+  // =========================================================================
+  const storyActive = isStoryRoom(currentRoom.roomId);
+
+  // Story beats that start when you arrive somewhere (e.g. reaching the river mouth)
+  useEffect(() => {
+    if (isStoryRoom(currentRoom.roomId)) onStoryRoomEnter(currentRoom.roomId);
+  }, [currentRoom.roomId]);
+  const [bagOpen, setBagOpen] = useState(false);
+  const toggleBag = useCallback(() => setBagOpen((o) => !o), []);
+
+  useEffect(() => {
+    if (!storyActive) return;
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || dialogOpen) return;
+      if (e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleBag();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [storyActive, dialogOpen, toggleBag]);
+
+  const storyHudElement = (storyActive && !dialogOpen) ? (
+    <StoryHud bagOpen={bagOpen} onToggleBag={toggleBag} compact={effectiveIsMobile} />
+  ) : null;
+
+  // =========================================================================
   // OVERLAY ELEMENTS (DialogBox & SceneBox)
   // =========================================================================
   const dialogBoxElement = (dialogOpen && dialogScript && dialogNpcId) ? (
@@ -365,6 +409,7 @@ export const App: React.FC = () => {
       npcId={dialogNpcId}
       script={dialogScript}
       onLineChange={handleDialogLineChange}
+      onNodeEnter={storyActive ? (nodeId) => onStoryNode(dialogNpcId, nodeId) : undefined}
       onClose={closeDialog}
       directionNudge={dialogDpadNudge}
       confirmTrigger={dialogConfirmTrigger}
@@ -463,6 +508,7 @@ export const App: React.FC = () => {
           onToggleSceneBox={handleToggleSceneBox}
           screenOverlay={
             <>
+              {storyHudElement}
               {dialogBoxElement}
               {sceneBoxElement}
             </>
@@ -497,6 +543,9 @@ export const App: React.FC = () => {
                 imageRendering: 'pixelated'
               }}
             />
+
+            {/* Story mode HUD (Dalbit rooms only) */}
+            {storyHudElement}
 
             {/* Desktop dialog overlay (above canvas, below scanlines) */}
             {dialogBoxElement && (

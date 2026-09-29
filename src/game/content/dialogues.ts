@@ -6,7 +6,10 @@ import { getNewsLine } from './aiNews';
 import { getTodayOmen, OMEN_CLOSING } from './spiritOmens';
 
 /** Face expression shown on the portrait photo. */
-export type PortraitFace = 'neutral' | 'smile' | 'thinking' | 'idea' | 'wai' | 'finger_heart' | 'whistle' | 'explain' | 'confident' | 'shy' | 'grin';
+export type PortraitFace = 'neutral' | 'smile' | 'thinking' | 'idea' | 'wai' | 'finger_heart' | 'whistle' | 'explain' | 'confident' | 'shy' | 'grin'
+  // Dalbit story faces
+  | 'careful' | 'sorrow' | 'wistful' | 'determined' | 'worried' | 'surprised'
+  | 'watchful' | 'restrain' | 'fierce';
 
 /** A single line of dialog text. */
 export interface DialogLine {
@@ -42,6 +45,8 @@ export interface DialogScript {
   faces?: PortraitFace[];
   /** Accent color for dialog theme. */
   accent?: string;
+  /** NPC pose played for 1.5 s after the dialogue closes (default 'wai'; 'none' = keep the current pose). */
+  closePose?: string;
   /** Starting node id. */
   start: string;
   /** All dialog nodes keyed by id. */
@@ -412,6 +417,99 @@ export const dialogues: Record<string, DialogScript> = {
       bye: {
         lines: [
           { text: "This has been Envoy. Stay informed, stay kind!", pose: 'wave', face: 'smile' },
+        ],
+      },
+    },
+  },
+  // Dalbit · Prologue Day 1 preview — Father Kang mending nets by the drying rack.
+  father: {
+    name: npcName('father'),
+    portraitDir: '/sprites/npc/father/portrait',
+    faces: ['neutral', 'smile', 'watchful', 'restrain', 'fierce'],
+    accent: '#6E533C',
+    closePose: 'mend_net',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Take the small net. Big fish are for big hands.', pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'Teach me to fish', next: 'lesson' },
+          { label: 'What happened to your hands?', next: 'hands' },
+          { label: "I'm off", next: 'bye' },
+        ],
+      },
+      lesson: {
+        lines: [
+          { text: "Don't pull when it bites. Pull when it turns.", pose: 'talk', face: 'smile' },
+          { text: 'Patience catches more than strength.', pose: 'idle', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'What happened to your hands?', next: 'hands' },
+          { label: "I'm off", next: 'bye' },
+        ],
+      },
+      hands: {
+        lines: [
+          { text: 'Old work. I carried heavy doors for a big house, once.', pose: 'idle', face: 'watchful' },
+          { text: "That's enough questions. The tide won't wait.", pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'Teach me to fish', next: 'lesson' },
+          { label: "I'm off", next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'Mind the rocks.', pose: 'happy', face: 'smile' },
+        ],
+      },
+    },
+  },
+  // Dalbit · Prologue Day 1 preview (full story system comes later — see story/dalbit-heir.md).
+  mother: {
+    name: npcName('mother'),
+    portraitDir: '/sprites/npc/mother/portrait',
+    faces: ['neutral', 'smile', 'careful', 'sorrow', 'wistful'],
+    accent: '#3E4A6E',
+    closePose: 'idle',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Yunseul-ah, the tide won\'t wait for you.', pose: 'happy', face: 'smile' },
+          { text: 'Your father\'s been at the nets since dawn.', pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: "What's for breakfast?", next: 'breakfast' },
+          { label: 'Is the rice jar full?', next: 'jar' },
+          { label: "I'm going!", next: 'bye' },
+        ],
+      },
+      breakfast: {
+        lines: [
+          { text: 'Barley, with a little rice on top for you.', pose: 'hold_bowl', face: 'smile' },
+          { text: 'Eat it all. The sea takes more strength than you think.', pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'Is the rice jar full?', next: 'jar' },
+          { label: "I'm going!", next: 'bye' },
+        ],
+      },
+      jar: {
+        lines: [
+          { text: 'Half full. It\'s always half full.', pose: 'talk', face: 'careful' },
+          { text: "Don't you worry about the rice jar. That's my job.", pose: 'shake_head', face: 'careful' },
+        ],
+        choices: [
+          { label: "What's for breakfast?", next: 'breakfast' },
+          { label: "I'm going!", next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'Come home before the tide turns.', pose: 'happy', face: 'smile' },
         ],
       },
     },

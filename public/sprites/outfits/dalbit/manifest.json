@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/idle.webp"
+  },
+  "side_idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/back_idle.webp"
+  },
+  "walk1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/walk1.webp"
+  },
+  "walk2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/walk2.webp"
+  },
+  "wave": {
+    "width": 51,
+    "height": 73,
+    "path": "/sprites/outfits/dalbit/wave.webp"
+  },
+  "talk": {
+    "width": 51,
+    "height": 73,
+    "path": "/sprites/outfits/dalbit/talk.webp"
+  },
+  "happy": {
+    "width": 58,
+    "height": 73,
+    "path": "/sprites/outfits/dalbit/happy.webp"
+  },
+  "walk_down1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/dalbit/thinking.webp"
+  },
+  "sit": {
+    "width": 52,
+    "height": 57,
+    "path": "/sprites/outfits/dalbit/sit.webp"
+  },
+  "lie": {
+    "width": 74,
+    "height": 48,
+    "path": "/sprites/outfits/dalbit/lie.webp"
+  },
+  "jump": {
+    "width": 57,
+    "height": 70,
+    "path": "/sprites/outfits/dalbit/jump.webp"
+  }
+}

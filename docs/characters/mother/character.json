@@ -1,0 +1,73 @@
+{
+  "id": "mother",
+  "displayName": "Mother",
+  "role": "Yunseul's mother, a village housekeeper; secretly the hidden Queen of the House of Wol (The Heir of Dalbit)",
+  "room": "dalbit_yard",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "black, middle part, low chignon (jjok-meori) with a plain wooden binyeo",
+    "jeogori": "#EFE3CC undyed cream cotton, white collar strip, indigo goreum",
+    "chima": "#3E4A6E faded indigo, one mended patch"
+  },
+  "voice": {
+    "tone": [
+      "warm",
+      "gentle",
+      "careful",
+      "quietly dignified"
+    ],
+    "languages": [
+      "en"
+    ],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "a small nod"
+  },
+  "sheetPoses": [
+    "idle",
+    "side_idle",
+    "back_idle",
+    "walk1",
+    "walk2",
+    "talk",
+    "happy",
+    "shake_head",
+    "walk_down1",
+    "walk_down2",
+    "walk_up1",
+    "walk_up2",
+    "stir",
+    "hold_bowl",
+    "kneel",
+    "bow"
+  ],
+  "standPoses": [
+    "idle",
+    "side_idle",
+    "back_idle",
+    "walk1",
+    "walk2",
+    "talk",
+    "happy",
+    "shake_head",
+    "walk_down1",
+    "walk_down2",
+    "walk_up1",
+    "walk_up2",
+    "hold_bowl"
+  ],
+  "portraits": {
+    "dir": "/sprites/npc/mother/portrait/",
+    "faces": {
+      "neutral": "identity",
+      "smile": "playful wink smile",
+      "careful": "polite smile that doesn't reach her eyes",
+      "sorrow": "eyes lowered",
+      "wistful": "hand on cheek, looking away"
+    }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/mother/",
+    "spriteManifest": "/sprites/npc/mother/manifest.json",
+    "sheetSource": "src/assets/npc_mother_sheet.webp"
+  }
+}

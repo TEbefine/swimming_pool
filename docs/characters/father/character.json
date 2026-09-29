@@ -1,0 +1,34 @@
+{
+  "id": "father",
+  "displayName": "Father",
+  "role": "Yunseul's father, a quiet fisherman; secretly a former royal guard of the House of Wol (The Heir of Dalbit)",
+  "room": "dalbit_yard",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "black topknot (sangtu) with an off-white cloth headband",
+    "jeogori": "#8B6B4E faded earth-brown cotton, white collar strip, sleeves rolled",
+    "baji": "#5E574F dark grey-brown, tied at the ankles"
+  },
+  "voice": {
+    "tone": ["quiet", "gruff", "gentle underneath", "few words"],
+    "languages": ["en"],
+    "maxSentencesPerLine": 2,
+    "closingRitual": "a short nod"
+  },
+  "sheetPoses": [
+    "idle", "side_idle", "back_idle", "walk1",
+    "walk2", "talk", "happy", "mend_net",
+    "walk_down1", "walk_down2", "walk_up1", "walk_up2",
+    "fists", "palace_form", "kneel", "bow"
+  ],
+  "standPoses": ["idle", "side_idle", "back_idle", "walk1", "walk2", "talk", "happy", "walk_down1", "walk_down2", "walk_up1", "walk_up2", "fists"],
+  "portraits": {
+    "dir": "/sprites/npc/father/portrait/",
+    "faces": { "neutral": "identity, arms crossed", "smile": "rare small smile", "watchful": "eyes to the side, listening", "restrain": "jaw set, fist closed", "fierce": "trained fighter's focus" }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/father/",
+    "spriteManifest": "/sprites/npc/father/manifest.json",
+    "sheetSource": "src/assets/npc_father_sheet.webp"
+  }
+}

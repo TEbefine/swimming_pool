@@ -8,6 +8,9 @@ export const NPC_NAMES: Record<string, string> = {
   clara: 'Clara',
   envoy: 'Envoy',
   spirit: 'Spirit',
+  mother: 'Mother',
+  father: 'Father',
+  yunseul: 'Yunseul',
 };
 
 export function npcName(id: string): string {

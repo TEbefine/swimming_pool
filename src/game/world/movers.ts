@@ -203,7 +203,9 @@ export class MoversManager {
     ctx: CanvasRenderingContext2D,
     layer: 'far' | 'near',
     moverSprites: Map<string, HTMLImageElement>,
-    night: number
+    night: number,
+    /** Mover ids not to draw in this room (e.g. no plane over a story world set long ago) */
+    skip?: ReadonlySet<string>
   ) {
     if (layer === 'far') {
       // 1. Clouds: alpha fades to 0.25 at night
@@ -222,7 +224,7 @@ export class MoversManager {
 
       // 2. Far movers (birds, flock, plane)
       for (const m of this.movers) {
-        if (m.config.layer !== 'far' || !m.active) continue;
+        if (m.config.layer !== 'far' || !m.active || skip?.has(m.config.id)) continue;
         this.renderMoverSprite(ctx, m, moverSprites, night);
       }
     } else if (layer === 'near') {

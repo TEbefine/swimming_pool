@@ -58,6 +58,9 @@ const NPC_WALK_CYCLE = ['walk1', 'walk2'] as const;
 const NPC_STRIDE_PX = 7;
 /** Body lift in the middle of each step at 1× (px) — the little up-down that makes it read as walking. */
 const NPC_STEP_BOB_PX = 1.5;
+/** Story worlds set long ago (view.past): nothing modern in the sky. */
+const PAST_SKIP_MOVERS: ReadonlySet<string> = new Set(['plane']);
+
 /** After arriving, stand still this long before starting the pause pose (looks less robotic). */
 const NPC_SETTLE_MS = 450;
 
@@ -577,13 +580,14 @@ export class GameEngine {
           this.clickTarget = null;
           this.isMoving = false;
 
-          // Switch room & scale
+          // Switch room & scale (arrive at the matching door if the room has one for where we came from)
+          const arrival = targetRoom.arrivals?.[this.room.roomId];
           this.room = targetRoom;
           this.actorScale = targetRoom.actorScale ?? 1;
           this.localPlayer.roomId = targetRoom.roomId;
-          this.localPlayer.x = targetRoom.spawnPoint.x;
-          this.localPlayer.y = targetRoom.spawnPoint.y;
-          this.localPlayer.facing = 1;
+          this.localPlayer.x = arrival?.x ?? targetRoom.spawnPoint.x;
+          this.localPlayer.y = arrival?.y ?? targetRoom.spawnPoint.y;
+          this.localPlayer.facing = arrival?.facing ?? 1;
           this.moveDir = 'down';
           this.idleTime = 0;
 
@@ -1221,6 +1225,8 @@ export class GameEngine {
   }
 
   public toggleWaterLand() {
+    // Only the pool has swimmable water. Elsewhere (café, town, Dalbit river…) ◯ with nothing nearby does nothing.
+    if (!this.room.waterZones?.length && this.localPlayer.state === 'land') return;
     if (this.localPlayer.state === 'land') {
       this.localPlayer.state = 'water';
       this.localPlayer.y = 340;
@@ -1910,7 +1916,7 @@ export class GameEngine {
       renderAmbient(this.ctx, this.room.roomId, 'sky', performance.now(), sky.night);
 
       // L0.5. Far movers (clouds, birds, plane)
-      this.movers.render(this.ctx, 'far', this.moverSprites, sky.night);
+      this.movers.render(this.ctx, 'far', this.moverSprites, sky.night, this.room.view!.past ? PAST_SKIP_MOVERS : undefined);
 
       // L0.7. City panorama at (cityOffsetX, CITY.y), multiplied by skyAt().cityTint
       // (rooms with view.city === false — painted postcard scenes — have no city and no train)

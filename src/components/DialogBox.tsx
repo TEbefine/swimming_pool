@@ -20,6 +20,8 @@ interface DialogBoxProps {
   script: DialogScript;
   onLineChange?: (lineIndex: number, pose?: string) => void;
   onClose: () => void;
+  /** Called every time the dialogue enters a node (including the start node). Used by story mode. */
+  onNodeEnter?: (nodeId: string) => void;
   directionNudge?: { dx: number; dy: number; timestamp: number } | null;
   confirmTrigger?: number;
 }
@@ -125,6 +127,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   script,
   onLineChange,
   onClose,
+  onNodeEnter,
   directionNudge,
   confirmTrigger,
 }) => {
@@ -177,6 +180,13 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 
   // Lean animation trigger
   const [leanKey, setLeanKey] = useState(0);
+
+  // Story hook: report every node we enter (keep the latest callback in a ref so it fires once per node)
+  const onNodeEnterRef = useRef(onNodeEnter);
+  onNodeEnterRef.current = onNodeEnter;
+  useEffect(() => {
+    onNodeEnterRef.current?.(nodeId);
+  }, [nodeId]);
 
   // Safe node & line extraction
   const node: DialogNode | undefined = script.nodes[nodeId];

@@ -104,6 +104,8 @@ export interface RoomDefinition {
   height: number;
   bounds: { minX: number; maxX: number; minY: number; maxY: number };
   spawnPoint: { x: number; y: number };
+  /** Where you appear when you come FROM a given room (e.g. back at the gate). Default: spawnPoint */
+  arrivals?: Record<string, { x: number; y: number; facing?: 1 | -1 }>;
   waterZones?: Rect[];
   walkableZones: Rect[];
   ladderTriggers?: LadderTrigger[];
@@ -114,7 +116,7 @@ export interface RoomDefinition {
   elements?: ElementDef[];
   actorScale?: number;
   /** What the player wears here: sprites in public/sprites/outfits/<outfit>/ ('swim' = the base swimsuit art). */
-  outfit: 'swim' | 'cafe' | 'pajamas' | 'town';
+  outfit: 'swim' | 'cafe' | 'pajamas' | 'town' | 'dalbit';
   exits?: {
     triggerBox: [number, number, number, number];
     targetRoom: string;
@@ -136,6 +138,8 @@ export interface RoomDefinition {
     skyBottomY?: number;
     /** How dark the night overlay gets (0–1). Default 0.45; outdoor scenes go darker */
     nightDarkness?: number;
+    /** true = a story world set long ago (e.g. Dalbit): no plane in the sky */
+    past?: boolean;
   };
 }
 
