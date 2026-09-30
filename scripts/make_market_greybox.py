@@ -78,7 +78,7 @@ person(316, 482, (180, 120, 70, 255), 'YEOT SELLER')
 # road sign, left edge
 d.rectangle([8, 376, 14, 420], fill=INK)
 d.rectangle([2, 360, 84, 380], fill=(255, 246, 229, 255), outline=INK, width=2)
-d.text((8, 362), '< HOME', font=small, fill=INK)
+d.text((8, 362), '< RIVER', font=small, fill=INK)
 
 # grey-box stamp
 d.text((W - 150, H - 22), 'GREY-BOX v1', font=small, fill=(120, 100, 80, 255))

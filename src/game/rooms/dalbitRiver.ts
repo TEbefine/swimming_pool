@@ -32,10 +32,10 @@ export const dalbitRiverRoom: RoomDefinition = {
   interactables: [
     { id: 'pier_end', label: 'Fish', rect: { x: 362, y: 212, width: 100, height: 20 } },
     { id: 'basket', label: 'Look', rect: { x: 205, y: 376, width: 70, height: 18 } },
-    { id: 'market_path', label: 'Go', rect: { x: 840, y: 380, width: 60, height: 100 } },   // shore path → dock market
   ],
   exits: [
     { triggerBox: DALBIT_RIVER_EXIT, targetRoom: 'dalbit_yard' },   // path home
+    { triggerBox: [884, 372, 16, 120], targetRoom: 'dalbit_market' },   // shore path (right end of the beach) → dock market
   ],
   npcs: [],
 

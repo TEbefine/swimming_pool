@@ -342,6 +342,8 @@ export class GameEngine {
   // NPC wander precalculated cycles & local runtime state
   private npcWanderCycles: Map<string, NpcWanderCycle> = new Map();
   private npcRuntime: Map<string, NpcRuntimeState> = new Map();
+  /** Optional: asked before walking through a room exit. Return false to stay (the story shows why). */
+  public exitGuard: ((targetRoom: string) => boolean) | null = null;
 
   // NPC blink timers: next blink time per NPC
   private npcBlinkTimers: Map<string, { nextBlink: number; blinkEnd: number }> = new Map();
@@ -1800,6 +1802,13 @@ export class GameEngine {
         const [ex, ey, ew, eh] = exit.triggerBox;
         if (nx >= ex && nx <= ex + ew && ny >= ey && ny <= ey + eh) {
           if (rooms[exit.targetRoom]) {
+            // A story can say "not yet" (e.g. no leaving before breakfast): step back out of the exit.
+            if (this.exitGuard && !this.exitGuard(exit.targetRoom)) {
+              const towardCentre = Math.sign(this.room.width / 2 - (ex + ew / 2)) || -1;
+              this.localPlayer.x = Math.max(this.room.bounds.minX, Math.min(this.room.bounds.maxX, ex + ew / 2 + towardCentre * (ew / 2 + 14)));
+              this.localPlayer.y = oy;
+              return true;
+            }
             this.changeRoom(exit.targetRoom);
             break;
           }
@@ -1808,6 +1817,42 @@ export class GameEngine {
     }
 
     return nx !== ox || ny !== oy;
+  }
+
+  /** Near a room exit: a small bobbing arrow + the place's name, so paths between maps are easy to find. */
+  private drawExitHints(time: number) {
+    if (!this.room.exits || this.fadeDirection !== 'none') return;
+    const ctx = this.ctx;
+    const px = this.localPlayer.x;
+    const py = this.localPlayer.y;
+    for (const exit of this.room.exits) {
+      const target = rooms[exit.targetRoom];
+      if (!target) continue;
+      const [ex, ey, ew, eh] = exit.triggerBox;
+      const cx = ex + ew / 2;
+      const cy = ey + eh / 2;
+      const d = Math.hypot(px - cx, py - cy);
+      if (d > 140) continue;
+      const alpha = Math.min(1, (140 - d) / 60);
+      const left = cx < this.room.width / 2;
+      const label = left ? `< ${target.name}` : `${target.name} >`;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = '12px "Sabai Pixel", monospace';
+      const w = Math.ceil(ctx.measureText(label).width) + 12;
+      const bob = Math.round(Math.sin(time / 260) * 2) * (left ? -1 : 1);
+      // pinned to the exit's own edge, above the player's name tag (the bottom of the screen is under the emote bar)
+      const x = Math.round(Math.max(4, Math.min(this.room.width - w - 4, left ? ex + ew + 4 + bob : ex - w - 4 + bob)));
+      const y = Math.round(Math.max(60, Math.min(cy, py) - 134));
+      ctx.fillStyle = '#4A2E1A';
+      ctx.fillRect(x - 2, y - 2, w + 4, 22);
+      ctx.fillStyle = '#FFF6E5';
+      ctx.fillRect(x, y, w, 18);
+      ctx.fillStyle = '#4A2E1A';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x + 6, y + 10);
+      ctx.restore();
+    }
   }
 
   private isPointInWater(x: number, y: number): boolean {
@@ -2124,6 +2169,7 @@ export class GameEngine {
     for (const fn of overlayFns) {
       fn();
     }
+    this.drawExitHints(time);
     this.onDrawLayer?.(this.ctx, 'top', time);
 
     // 8. Debug overlay (F3)

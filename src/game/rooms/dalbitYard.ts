@@ -21,7 +21,6 @@ export const dalbitYardRoom: RoomDefinition = {
   spawnPoint: { x: 512, y: 410 },
   arrivals: {
     dalbit_river: { x: 985, y: 478, facing: -1 },   // back through the gate (gap between fence and bush)
-    dalbit_market: { x: 985, y: 478, facing: -1 },  // same gate, from the shore road
   },
   walkableZones: [
     { x: 0, y: 296, width: 1024, height: 226 },   // packed-earth yard
@@ -33,9 +32,11 @@ export const dalbitYardRoom: RoomDefinition = {
   interactables: [
     { id: 'rice_jar', label: 'Look', rect: { x: 0, y: 306, width: 150, height: 34 } },
     { id: 'drying_rack', label: 'Look', rect: { x: 885, y: 300, width: 50, height: 24 } },
-    { id: 'gate', label: 'Look', rect: { x: 960, y: 468, width: 64, height: 54 } },
   ],
-  exits: [],
+  // Walk out through the gate (gap between the fence and the bush) → the river mouth.
+  exits: [
+    { triggerBox: [1000, 464, 24, 30], targetRoom: 'dalbit_river' },
+  ],
   npcs: [
     {
       // Mother (the hidden Queen). Busy in front of the jar terrace and the porch: stops often,

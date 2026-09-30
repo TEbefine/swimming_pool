@@ -16,7 +16,7 @@ import { StoryHud } from './components/StoryHud';
 import { FishingHud } from './components/FishingHud';
 import { FishBook } from './components/FishBook';
 import { drawFishing, fishingHold, fishingPress, startFishing, stopFishing, useFishingView } from './game/story/fishingSession';
-import { isStoryRoom, storyDialog, onStoryNode, onStoryRoomEnter, takeStoryTravel, takeStoryFishing, takeStoryPanel, canFishDirect, giveTo, type StoryPanel, type GiftTarget } from './game/story/dalbitPrologue';
+import { isStoryRoom, storyDialog, storyExitBlock, onStoryNode, onStoryRoomEnter, takeStoryTravel, takeStoryFishing, takeStoryPanel, canFishDirect, giveTo, type StoryPanel, type GiftTarget } from './game/story/dalbitPrologue';
 import { TradePanel } from './components/TradePanel';
 import type { ItemId } from './game/story/items';
 import { dialogues } from './game/content/dialogues';
@@ -372,6 +372,16 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     engine.onRoomChanged = (newRoom) => {
       setCurrentRoom(newRoom);
       setPlayerCountByRoom(engine.getPlayerCountByRoom());
+    };
+
+    // Walking into a map exit: the story may say "not yet" (e.g. before breakfast)
+    engine.exitGuard = (targetRoom: string) => {
+      const from = engine.getRoom().roomId;
+      if (!isStoryRoom(from)) return true;
+      const block = storyExitBlock(from, targetRoom);
+      if (!block) return true;
+      openDialog('exit', block);
+      return false;
     };
 
     // onInteract: open dialog when NPC talk is triggered

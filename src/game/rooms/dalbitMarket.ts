@@ -1,5 +1,5 @@
 import type { RoomDefinition } from '../types';
-import { dalbitMarketGround, dalbitMarketObstacles, DALBIT_MARKET_ACTOR_SCALE } from './dalbitMarketLayout';
+import { dalbitMarketGround, dalbitMarketObstacles, DALBIT_MARKET_ACTOR_SCALE, DALBIT_MARKET_EXIT } from './dalbitMarketLayout';
 
 // Dalbit · Dock & market — Master Gu's fish stall (the only legal buyer: the Governor's dock seal),
 // the inn's back door, the rice shop with its price board, and the yeot cart.
@@ -21,7 +21,6 @@ export const dalbitMarketRoom: RoomDefinition = {
   spawnPoint: { x: 60, y: 420 },
   arrivals: {
     dalbit_river: { x: 70, y: 420, facing: 1 },
-    dalbit_yard: { x: 70, y: 420, facing: 1 },
   },
   walkableZones: dalbitMarketGround,
   strictWalkable: true,
@@ -34,9 +33,11 @@ export const dalbitMarketRoom: RoomDefinition = {
     { id: 'rice_board', label: 'Read', rect: { x: 460, y: 316, width: 110, height: 44 } },
     { id: 'gu', label: 'Talk', rect: { x: 660, y: 338, width: 150, height: 44 } },
     { id: 'yeot_cart', label: 'Talk', rect: { x: 160, y: 476, width: 190, height: 50 } },
-    { id: 'market_road', label: 'Go', rect: { x: 0, y: 380, width: 60, height: 80 } },
   ],
-  exits: [],
+  // Walk off the left edge → the shore path back to the river mouth (and home past it).
+  exits: [
+    { triggerBox: DALBIT_MARKET_EXIT, targetRoom: 'dalbit_river' },
+  ],
   npcs: [],
 
   view: { cityOffsetX: 0, city: false, skyBottomY: 140, nightDarkness: 0.62, past: true },

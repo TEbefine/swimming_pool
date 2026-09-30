@@ -24,11 +24,11 @@ export function isStoryRoom(roomId: string): boolean {
 export const BEATS: Record<string, { objective: string }> = {
   d1_wake: { objective: 'Say good morning to Mother' },
   d1_father: { objective: 'Find Father by the drying rack' },
-  d1_go_fish: { objective: 'Go to the river mouth (the path by the gate)' },
+  d1_go_fish: { objective: 'Go to the river mouth (out through the gate, bottom right)' },
   d1_river: { objective: 'Walk to the end of the pier' },
   d1_fish: { objective: 'Catch some fish from the end of the pier' },
-  d1_market: { objective: 'Sell your catch at the dock market (shore path, right of the beach)' },
-  d1_sold: { objective: 'Go home before dark (the road on the left)' },
+  d1_market: { objective: 'Sell your catch at the dock market (walk right along the beach)' },
+  d1_sold: { objective: 'Go home before dark (back past the river mouth)' },
   d1_dusk: { objective: 'Show Mother what you brought home' },
   d1_frog: { objective: 'Sit with Father by the drying rack' },
   d1_night: { objective: 'Say goodnight to Mother' },
@@ -89,7 +89,8 @@ export type StoryPanel = { kind: 'sell'; buyer: Buyer } | { kind: 'give'; to: Gi
 export type GiftTarget = 'mother' | 'father';
 let pendingPanel: StoryPanel | null = null;
 
-/** The room a finished dialogue asked to go to (read once). */
+/** The room a finished dialogue asked to go to (read once). Unused since the maps are walked (2026-09-30);
+ *  kept for scripted moves later (e.g. a cutscene that carries you home). */
 export function takeStoryTravel(): string | null {
   const t = pendingTravel;
   pendingTravel = null;
@@ -113,6 +114,28 @@ export function takeStoryPanel(): StoryPanel | null {
   const p = pendingPanel;
   pendingPanel = null;
   return p;
+}
+
+// ---- walking between maps -------------------------------------------------------
+// The Dalbit maps are joined by paths you walk (yard gate ⟷ river mouth ⟷ dock market).
+// The story can say "not yet" at an exit; App shows this line and the player steps back.
+
+/** A line from Yunseul if the story doesn't allow this path yet, otherwise null (go ahead). */
+export function storyExitBlock(from: string, to: string, s: StoryState = getStory()): DialogScript | null {
+  const tooDark = say(YUNSEUL, [{ text: "It's getting dark. Mother would worry.", face: 'neutral' }]);
+  if (from === 'dalbit_yard' && to === 'dalbit_river') {
+    if (!reached(s, 'd1_go_fish')) {
+      return say(YUNSEUL, [{ text: 'Not yet. If I skip breakfast, Mother will chase me with a ladle.', face: 'smile' }]);
+    }
+    if (reached(s, 'd1_dusk')) return tooDark;
+  }
+  if (from === 'dalbit_river' && to === 'dalbit_market') {
+    if (!reached(s, 'd1_market')) {
+      return say(YUNSEUL, [{ text: 'The shore path to the dock market. An empty basket sells for nothing. Fish first.', face: 'smile' }]);
+    }
+    if (reached(s, 'd1_dusk')) return tooDark;
+  }
+  return null;
 }
 
 /** Called by App whenever a story room loads. */
@@ -512,27 +535,6 @@ function lookDialog(id: string, s: StoryState): DialogScript | null {
       { text: 'Dried fish sells for more. Or so the innkeeper says.', face: 'smile' },
     ]);
   }
-  if (id === 'gate') {
-    if (!reached(s, 'd1_go_fish')) {
-      return say(YUNSEUL, [{ text: 'Not yet. If I skip breakfast, Mother will chase me with a ladle.', face: 'smile' }]);
-    }
-    if (reached(s, 'd1_dusk')) {
-      return say(YUNSEUL, [{ text: "It's getting dark. Mother would worry.", face: 'neutral' }]);
-    }
-    return script(YUNSEUL, 'a', {
-      a: {
-        lines: [{ text: 'The path out of the village.', face: 'determined' }],
-        choices: [
-          { label: 'Go to the river mouth', next: 'go' },
-          ...(reached(s, 'd1_market') ? [{ label: 'Go to the dock market', next: 'market' }] : []),
-          { label: 'Not yet', next: 'stay' },
-        ],
-      },
-      go: { lines: [{ text: "The tide is turning. Let's go.", face: 'smile' }] },
-      market: { lines: [{ text: 'To the dock. Master Gu will be waiting with his scale.', face: 'determined' }] },
-      stay: { lines: [{ text: "A little longer. The river isn't going anywhere.", face: 'neutral' }] },
-    });
-  }
   // ---- river mouth ----
   if (id === 'pier_end') {
     if (!reached(s, 'd1_river')) {
@@ -576,22 +578,6 @@ function lookDialog(id: string, s: StoryState): DialogScript | null {
         : { text: "Father's old fish basket. Empty, for now.", face: 'neutral' },
     ]);
   }
-  if (id === 'market_path') {
-    if (!reached(s, 'd1_market')) {
-      return say(YUNSEUL, [{ text: 'The shore path to the dock market. An empty basket sells for nothing. Fish first.', face: 'smile' }]);
-    }
-    return script(YUNSEUL, 'a', {
-      a: {
-        lines: [{ text: 'The shore path to the dock market.', face: 'determined' }],
-        choices: [
-          { label: 'Go to the market', next: 'go' },
-          { label: 'Not yet', next: 'stay' },
-        ],
-      },
-      go: { lines: [{ text: 'Master Gu first. Then home before dark.', face: 'smile' }] },
-      stay: { lines: [{ text: 'A few more casts.', face: 'neutral' }] },
-    });
-  }
   // ---- market ----
   if (id === 'gu') return guDialog(s);
   if (id === 'innkeeper') return innkeeperDialog(s);
@@ -608,21 +594,6 @@ function lookDialog(id: string, s: StoryState): DialogScript | null {
       { text: "Thirty... That's fifteen mackerel at Master Gu's price.", face: 'worried' },
       { text: 'Mother buys rice every week.', face: 'worried' },
     ]);
-  }
-  if (id === 'market_road') {
-    return script(YUNSEUL, 'a', {
-      a: {
-        lines: [{ text: 'The shore road.', face: 'neutral' }],
-        choices: [
-          { label: 'Go home', next: 'home' },
-          { label: 'Back to the river mouth', next: 'river' },
-          { label: 'Stay a little', next: 'stay' },
-        ],
-      },
-      home: { lines: [{ text: 'Home, before the sun goes down.', face: 'smile' }] },
-      river: { lines: [{ text: 'Back to the pier.', face: 'determined' }] },
-      stay: { lines: [{ text: 'The market smells of salt and smoke.', face: 'neutral' }] },
-    });
   }
   return null;
 }
@@ -657,12 +628,6 @@ export function onStoryNode(targetId: string, nodeId: string) {
     setFlag('looked_rice_jar');
     addLedger('You looked into the rice jar. Lower than last week.');
   }
-  // ---- travel ----
-  if (targetId === 'gate' && nodeId === 'go' && reached(s, 'd1_go_fish')) pendingTravel = 'dalbit_river';
-  if (targetId === 'gate' && nodeId === 'market' && reached(s, 'd1_market')) pendingTravel = 'dalbit_market';
-  if (targetId === 'market_path' && nodeId === 'go') pendingTravel = 'dalbit_market';
-  if (targetId === 'market_road' && nodeId === 'home') pendingTravel = 'dalbit_yard';
-  if (targetId === 'market_road' && nodeId === 'river') pendingTravel = 'dalbit_river';
   // ---- fishing ----
   if (targetId === 'pier_end' && nodeId === 'a' && s.step === 'd1_river') {
     setFlag('reached_pier_end');
