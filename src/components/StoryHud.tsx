@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStory, type ItemId } from '../game/story/storyStore';
-import { objectiveFor } from '../game/story/dalbitPrologue';
-import { ITEMS } from '../game/story/items';
+import { eatItem, objectiveFor } from '../game/story/dalbitPrologue';
+import { ITEMS, itemIcon } from '../game/story/items';
 
 // Story mode overlay for Dalbit rooms: the current objective, coins + energy, and the bag.
 // Colours follow the dialogue box (cream #FFF6E5, brown border #4A2E1A) so it feels like one UI.
@@ -25,7 +25,7 @@ export const StoryHud: React.FC<StoryHudProps> = ({ bagOpen, onToggleBag, compac
     <div className="pointer-events-none absolute inset-0 z-[4]" style={{ fontFamily: 'var(--font-pixel)' }}>
       {/* Objective */}
       {objective && (
-        <div className={`absolute left-1/2 -translate-x-1/2 ${compact ? 'top-1' : 'top-14'} ${PANEL} rounded-md px-4 py-2 ${text} max-w-[80%] text-center leading-relaxed`}>
+        <div className={`absolute ${compact ? 'left-1 top-1 max-w-[calc(100%-120px)] px-2 py-1 text-left leading-snug' : 'left-1/2 -translate-x-1/2 top-14 max-w-[80%] px-4 py-2 text-center leading-relaxed'} ${PANEL} rounded-md ${text}`}>
           <span className="text-[#9C4A3E]">&gt; </span>
           {objective}
         </div>
@@ -55,7 +55,7 @@ export const StoryHud: React.FC<StoryHudProps> = ({ bagOpen, onToggleBag, compac
 
       {/* Bag panel */}
       {bagOpen && (
-        <div className={`pointer-events-auto absolute ${compact ? 'right-1 top-[70px] w-[70%]' : 'right-3 top-[200px] w-[380px]'} ${PANEL} rounded-md p-3 ${text}`}>
+        <div className={`pointer-events-auto absolute ${compact ? 'right-1 top-[70px] w-[70%] max-h-[calc(100%-76px)]' : 'right-3 top-[200px] w-[380px] max-h-[calc(100%-212px)]'} overflow-y-auto overscroll-contain ${PANEL} rounded-md p-3 ${text}`}>
           <div className="flex items-center justify-between mb-2">
             <span>Bag</span>
             <button type="button" onClick={onToggleBag} className="px-1 hover:text-[#9C4A3E]" aria-label="Close bag">✕</button>
@@ -66,9 +66,32 @@ export const StoryHud: React.FC<StoryHudProps> = ({ bagOpen, onToggleBag, compac
             <ul className="flex flex-col gap-2">
               {items.map((id) => (
                 <li key={id} className="flex gap-2 items-start">
-                  <span className="mt-[2px] inline-block w-3 h-3 border border-[#4A2E1A] shrink-0" style={{ background: ITEMS[id].color }} />
-                  <span className="flex flex-col gap-0.5 min-w-0">
-                    <span>{ITEMS[id].name} ×{story.bag[id]}</span>
+                  <span
+                    className={`relative shrink-0 ${compact ? 'w-6 h-6' : 'w-8 h-8'} rounded-sm`}
+                    style={{ background: `${ITEMS[id].color}33` }}
+                  >
+                    <img
+                      src={itemIcon(id)}
+                      alt=""
+                      className="absolute inset-0 w-full h-full"
+                      draggable={false}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.style.background = ITEMS[id].color; }}
+                    />
+                  </span>
+                  <span className="flex flex-col gap-0.5 min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <span>{ITEMS[id].name} ×{story.bag[id]}</span>
+                      {ITEMS[id].energy ? (
+                        <button
+                          type="button"
+                          onClick={() => eatItem(id)}
+                          className="rounded-sm border-2 border-[#4A2E1A] bg-[#F4D98B] px-1.5 leading-tight shadow-[0_2px_0_#4A2E1A] active:translate-y-[1px]"
+                          title={`Eat: +${ITEMS[id].energy} energy`}
+                        >
+                          Eat
+                        </button>
+                      ) : null}
+                    </span>
                     <span className="opacity-70 leading-relaxed" style={{ fontFamily: 'Itim, system-ui, sans-serif', fontSize: compact ? 13 : 17 }}>{ITEMS[id].note}</span>
                   </span>
                 </li>

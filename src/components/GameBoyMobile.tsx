@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import type { PlayerState, FloatColor, ChatMessage } from '../game/types';
 import { Volume2, VolumeX, User, HelpCircle, X, Send } from 'lucide-react';
 import { sound } from '../game/audio';
@@ -13,6 +13,8 @@ interface GameBoyMobileProps {
   chatLog: ChatMessage[];
   onDirectionChange: (dx: number, dy: number) => void;
   onToggleState: () => void;
+  /** ◯ held down / released (e.g. holding lifts the fishing net). */
+  onCircleHold?: (down: boolean) => void;
   onActionA: () => void;
   onTriggerEmote: (action: string) => void;
   onSendMessage: (text: string) => void;
@@ -35,6 +37,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   chatLog,
   onDirectionChange,
   onToggleState,
+  onCircleHold,
   onActionA,
   onTriggerEmote,
   onSendMessage,
@@ -60,6 +63,39 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
   const dpadRef = useRef<HTMLDivElement>(null);
   const isDraggingDpad = useRef(false);
+  const controllerRef = useRef<HTMLDivElement>(null);
+
+  // iPhone: a long press on the controller must never open the text magnifier (loupe), the
+  // copy/select callout or zoom. CSS user-select isn't enough on iOS Safari, so the touch itself is
+  // cancelled here (a native, non-passive listener). Pointer events still fire, and every control
+  // below reacts on pointerdown, so taps and holds keep working.
+  useEffect(() => {
+    const el = controllerRef.current;
+    if (!el) return;
+    const block = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+    };
+    el.addEventListener('touchstart', block, { passive: false });
+    el.addEventListener('touchmove', block, { passive: false });
+    el.addEventListener('touchend', block, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', block);
+      el.removeEventListener('touchmove', block);
+      el.removeEventListener('touchend', block);
+    };
+  }, []);
+
+  /** Button props: act on finger-down (instant, works with the touch cancelled above).
+   *  onClick only handles keyboard activation (detail === 0), so a mouse click doesn't fire twice. */
+  const press = (fn: () => void) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault();
+      fn();
+    },
+    onClick: (e: React.MouseEvent) => {
+      if (e.detail === 0) fn();
+    },
+  });
 
   const handleToggleMute = () => {
     const isNowMuted = sound.toggleMute();
@@ -402,6 +438,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       {/* LOWER SECTION: COMPACT & STREAMLINED CONTROLLER (กระชับ / ERGONOMIC UX) */}
       {/* ========================================================================= */}
       <div
+        ref={controllerRef}
         onContextMenu={(e) => e.preventDefault()}
         className="h-[156px] flex flex-col justify-between px-3 pt-1 pb-1 relative shrink-0"
         style={{
@@ -512,7 +549,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 <div className="absolute top-1 left-1/2 -translate-x-1/2">
                   <button
                     type="button"
-                    onClick={handlePressTriangle}
+                    {...press(handlePressTriangle)}
                     onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
                     title="Triangle: Emotes"
@@ -533,7 +570,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 <div className="absolute left-1 top-1/2 -translate-y-1/2">
                   <button
                     type="button"
-                    onClick={handlePressSquare}
+                    {...press(handlePressSquare)}
                     onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
                     title="Square: Wave"
@@ -554,7 +591,16 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 <div className="absolute right-1 top-1/2 -translate-y-1/2">
                   <button
                     type="button"
-                    onClick={handlePressCircle}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                      handlePressCircle();
+                      onCircleHold?.(true);
+                    }}
+                    onPointerUp={() => onCircleHold?.(false)}
+                    onPointerCancel={() => onCircleHold?.(false)}
+                    onLostPointerCapture={() => onCircleHold?.(false)}
+                    onClick={(e) => { if (e.detail === 0) handlePressCircle(); }}
                     onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
                     title="Circle: Pool / Land"
@@ -575,7 +621,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
                   <button
                     type="button"
-                    onClick={handlePressCross}
+                    {...press(handlePressCross)}
                     onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
                     title="Cross: Jump / Splash"
@@ -608,7 +654,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             <div className="flex flex-col items-center">
               <button
                 type="button"
-                onClick={handlePressSelect}
+                {...press(handlePressSelect)}
                 onContextMenu={(e) => e.preventDefault()}
                 className="w-8 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
                 title="Select (Open Chat)"
@@ -628,7 +674,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             <div className="flex flex-col items-center">
               <button
                 type="button"
-                onClick={handlePressStart}
+                {...press(handlePressStart)}
                 onContextMenu={(e) => e.preventDefault()}
                 className="w-8 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
                 title="Start (Pause / Emotes Menu)"

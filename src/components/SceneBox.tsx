@@ -20,7 +20,7 @@ const COLS = 3;
 const ROWS = 2;
 
 // Ordered slot layout: slot 0 = poolside, slot 1 = cafe, slot 2 = home, slot 3 = club, rest are locked
-const SLOT_ROOM_IDS: (string | null)[] = ['poolside', 'cafe', 'home', 'club', null, null];
+const SLOT_ROOM_IDS: (string | null)[] = ['poolside', 'cafe', 'home', 'club', 'lake_pier', null];
 
 export const SceneBox: React.FC<SceneBoxProps> = ({
   isOpen,

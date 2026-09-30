@@ -13,7 +13,12 @@ import { HelpModal } from './components/HelpModal';
 import { DialogBox } from './components/DialogBox';
 import { SceneBox } from './components/SceneBox';
 import { StoryHud } from './components/StoryHud';
-import { isStoryRoom, storyDialog, onStoryNode, onStoryRoomEnter, takeStoryTravel } from './game/story/dalbitPrologue';
+import { FishingHud } from './components/FishingHud';
+import { FishBook } from './components/FishBook';
+import { drawFishing, fishingHold, fishingPress, startFishing, stopFishing, useFishingView } from './game/story/fishingSession';
+import { isStoryRoom, storyDialog, onStoryNode, onStoryRoomEnter, takeStoryTravel, takeStoryFishing, takeStoryPanel, canFishDirect, giveTo, type StoryPanel, type GiftTarget } from './game/story/dalbitPrologue';
+import { TradePanel } from './components/TradePanel';
+import type { ItemId } from './game/story/items';
 import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { Waves } from 'lucide-react';
@@ -21,7 +26,14 @@ import { Waves } from 'lucide-react';
 /** Context-action IDs that should route through engine.interact(). */
 const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(['talk', 'sit', 'stand', 'read']);
 
-export const App: React.FC = () => {
+interface AppProps {
+  /** Dev/test only: extra UI drawn on the game screen (e.g. the ?test=fishing chip). */
+  devOverlay?: React.ReactNode;
+  /** Dev/test only: runs once the engine has started. */
+  onEngineReady?: (engine: GameEngine) => void;
+}
+
+export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -75,6 +87,10 @@ export const App: React.FC = () => {
   const [dialogConfirmTrigger, setDialogConfirmTrigger] = useState<number>(0);
   const [dialogDpadNudge, setDialogDpadNudge] = useState<{ dx: number; dy: number; timestamp: number } | null>(null);
   const [dialogSessionId, setDialogSessionId] = useState<number>(0);
+  // Fishing at the Dalbit river mouth — plays in the world (game/story/fishingSession.ts)
+  const fishingOpen = useFishingView().active;
+  // Story windows opened by a dialogue: a buyer's counter or "give something" (game/story/dalbitPrologue.ts)
+  const [storyPanel, setStoryPanel] = useState<StoryPanel | null>(null);
 
   /** Open a dialog with the given NPC without moving the player. */
   const openDialog = useCallback((npcId: string, scriptOverride?: DialogScript) => {
@@ -118,8 +134,27 @@ export const App: React.FC = () => {
       // A story choice asked to travel (e.g. the yard gate → river mouth)
       const travelTo = takeStoryTravel();
       if (travelTo) void engine.changeRoom(travelTo);
+      // A story choice asked to start fishing (pier end → "Cast the line")
+      if (takeStoryFishing()) void startFishing(engine);
+      // A story choice asked to open a window (sell at Gu's scale, give Mother something)
+      const panel = takeStoryPanel();
+      if (panel) {
+        engine.setDialogFrozen(true);
+        setStoryPanel(panel);
+      }
     }
   }, [dialogNpcId, dialogScript]);
+
+  const closeStoryPanel = useCallback(() => {
+    setStoryPanel(null);
+    engineRef.current?.setDialogFrozen(false);
+  }, []);
+
+  /** Give window → the person's reaction as a dialogue. */
+  const handleGive = useCallback((to: GiftTarget, what: ItemId | 'coins') => {
+    setStoryPanel(null);
+    openDialog(to, giveTo(to, what));
+  }, [openDialog]);
 
   /** Handle line changes during dialog to update NPC pose. */
   const handleDialogLineChange = useCallback((_lineIndex: number, pose?: string) => {
@@ -153,7 +188,16 @@ export const App: React.FC = () => {
   // =========================================================================
   // ◯ BUTTON / E KEY / O KEY — unified interact handler
   // =========================================================================
+  const closeFishing = useCallback(() => stopFishing(), []);
+
   const handleCircleAction = useCallback(() => {
+    // A story window is open → use its buttons (tap / click)
+    if (storyPanel) return;
+    // Fishing → ◯ casts / strikes / lifts the net
+    if (fishingOpen) {
+      fishingPress();
+      return;
+    }
     // If SceneBox is open → confirm travel on currently selected slot
     if (sceneBoxOpen) {
       setSceneBoxConfirmTrigger(Date.now());
@@ -177,12 +221,22 @@ export const App: React.FC = () => {
       // Fallback: toggleWaterLand
       engine.toggleWaterLand();
     }
-  }, [sceneBoxOpen, dialogOpen]);
+  }, [sceneBoxOpen, dialogOpen, fishingOpen, storyPanel]);
 
   // =========================================================================
   // ✕ BUTTON — jump / splash, cancel SceneBox, or advances dialog
   // =========================================================================
   const handleCrossAction = useCallback(() => {
+    // A story window is open → ✕ closes it
+    if (storyPanel) {
+      closeStoryPanel();
+      return;
+    }
+    // Fishing → ✕ stops
+    if (fishingOpen) {
+      closeFishing();
+      return;
+    }
     // If SceneBox is open → close it
     if (sceneBoxOpen) {
       setSceneBoxOpen(false);
@@ -205,7 +259,7 @@ export const App: React.FC = () => {
     } else {
       engine.triggerEmote('jump');
     }
-  }, [sceneBoxOpen, dialogOpen, closeDialog]);
+  }, [sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel]);
 
   // =========================================================================
   // KEYBOARD: Tab for SceneBox, E and O for ◯, Escape for ✕
@@ -213,6 +267,19 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      // Fishing: E / O / Space = ◯ (holding lifts the net), Esc / X = stop
+      if (fishingOpen) {
+        const k = e.key.toLowerCase();
+        if (k === 'e' || k === 'o' || k === ' ') {
+          e.preventDefault();
+          fishingHold(true);
+          if (!e.repeat) fishingPress();
+        } else if (k === 'escape' || k === 'x') {
+          e.preventDefault();
+          stopFishing();
+        }
+        return;
+      }
 
       if (e.key === 'Escape') {
         if (dialogOpen) {
@@ -241,9 +308,17 @@ export const App: React.FC = () => {
         handleCircleAction();
       }
     };
+    const up = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === 'e' || k === 'o' || k === ' ') fishingHold(false);
+    };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleCircleAction, handleToggleSceneBox, dialogOpen, sceneBoxOpen, closeDialog]);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('keyup', up);
+    };
+  }, [handleCircleAction, handleToggleSceneBox, dialogOpen, sceneBoxOpen, closeDialog, fishingOpen]);
 
   // =========================================================================
   // ENGINE SETUP
@@ -283,6 +358,7 @@ export const App: React.FC = () => {
     setLocalPlayerId(engine.localPlayer.id);
     engine.setTouchMoveEnabled(!effectiveIsMobile);
     engine.setCameraFollow(effectiveIsMobile);
+    engine.onDrawLayer = drawFishing; // fishing rod / line / float / reel bar
 
     engine.onChatMessageReceived = (msg) => {
       setChatLog((prev) => [...prev.slice(-100), msg]);
@@ -302,11 +378,21 @@ export const App: React.FC = () => {
     engine.onInteract = (targetId: string, actionId?: ContextActionId) => {
       // Story rooms (Dalbit): the story picks the dialogue for the current beat
       if (isStoryRoom(engine.getRoom().roomId)) {
+        // The pier end: once fishing is unlocked, ◯ starts fishing straight away
+        if (targetId === 'pier_end' && canFishDirect()) {
+          void startFishing(engine);
+          return;
+        }
         const script = storyDialog(targetId, actionId);
         if (script) {
           openDialog(targetId, script);
           return;
         }
+      }
+      // Free Fishing rooms (fun with friends): the pier end starts fishing
+      if (engine.getRoom().freeFishing && targetId === 'pier_end') {
+        void startFishing(engine, 'free');
+        return;
       }
       if (actionId === 'talk' && dialogues[targetId]) {
         openDialog(targetId);
@@ -323,6 +409,7 @@ export const App: React.FC = () => {
         setLoading(false);
         engine.start();
         setPlayerCountByRoom(engine.getPlayerCountByRoom());
+        onEngineReady?.(engine);
       }, 300);
     };
 
@@ -380,13 +467,34 @@ export const App: React.FC = () => {
     if (isStoryRoom(currentRoom.roomId)) onStoryRoomEnter(currentRoom.roomId);
   }, [currentRoom.roomId]);
   const [bagOpen, setBagOpen] = useState(false);
+  // Free Fishing room: the Fish Book (key B or the chip)
+  const freeFishingRoom = !!currentRoom.freeFishing;
+  const [fishBookOpen, setFishBookOpen] = useState(false);
+  useEffect(() => {
+    if (!freeFishingRoom) return;
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || dialogOpen || fishingOpen) return;
+      if (e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setFishBookOpen((o) => !o);
+      } else if (e.key === 'Escape') {
+        setFishBookOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [freeFishingRoom, dialogOpen, fishingOpen]);
+  useEffect(() => {
+    if (fishingOpen || !freeFishingRoom) setFishBookOpen(false);
+  }, [fishingOpen, freeFishingRoom]);
   const toggleBag = useCallback(() => setBagOpen((o) => !o), []);
 
   useEffect(() => {
     if (!storyActive) return;
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || dialogOpen) return;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || dialogOpen || fishingOpen) return;
       if (e.key.toLowerCase() === 'b') {
         e.preventDefault();
         toggleBag();
@@ -394,10 +502,33 @@ export const App: React.FC = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [storyActive, dialogOpen, toggleBag]);
+  }, [storyActive, dialogOpen, fishingOpen, toggleBag]);
+
+  // Close the bag when fishing starts; stop fishing if we leave the story room
+  useEffect(() => {
+    if (fishingOpen) setBagOpen(false);
+  }, [fishingOpen]);
+  useEffect(() => {
+    if (!storyActive && !freeFishingRoom && fishingOpen) closeFishing();
+  }, [storyActive, freeFishingRoom, fishingOpen, closeFishing]);
+
+  const fishingElement = (storyActive || freeFishingRoom) ? (
+    <>
+      <FishingHud compact={effectiveIsMobile} />
+      {freeFishingRoom && !fishingOpen && (
+        <FishBook open={fishBookOpen} onToggle={() => setFishBookOpen((o) => !o)} compact={effectiveIsMobile} />
+      )}
+      {devOverlay}
+    </>
+  ) : devOverlay ?? null;
 
   const storyHudElement = (storyActive && !dialogOpen) ? (
-    <StoryHud bagOpen={bagOpen} onToggleBag={toggleBag} compact={effectiveIsMobile} />
+    <>
+      <StoryHud bagOpen={bagOpen} onToggleBag={toggleBag} compact={effectiveIsMobile} />
+      {storyPanel && (
+        <TradePanel panel={storyPanel} compact={effectiveIsMobile} onClose={closeStoryPanel} onGive={handleGive} />
+      )}
+    </>
   ) : null;
 
   // =========================================================================
@@ -486,7 +617,9 @@ export const App: React.FC = () => {
           statusLabel={currentRoom.name}
           hideStatusBadge={dialogOpen}
           onDirectionChange={(dx, dy) => {
-            if (sceneBoxOpen) {
+            if (fishingOpen) {
+              // no walking while the line is out
+            } else if (sceneBoxOpen) {
               if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
                 setSceneBoxDpadNudge({ dx, dy, timestamp: Date.now() });
               }
@@ -499,6 +632,7 @@ export const App: React.FC = () => {
             }
           }}
           onToggleState={handleCircleAction}
+          onCircleHold={fishingHold}
           onActionA={handleCrossAction}
           onTriggerEmote={handleTriggerEmote}
           onSendMessage={handleSendMessage}
@@ -509,6 +643,7 @@ export const App: React.FC = () => {
           screenOverlay={
             <>
               {storyHudElement}
+              {fishingElement}
               {dialogBoxElement}
               {sceneBoxElement}
             </>
@@ -547,6 +682,9 @@ export const App: React.FC = () => {
             {/* Story mode HUD (Dalbit rooms only) */}
             {storyHudElement}
 
+            {/* Fishing panel (Dalbit river mouth) */}
+            {fishingElement}
+
             {/* Desktop dialog overlay (above canvas, below scanlines) */}
             {dialogBoxElement && (
               <div className="absolute inset-0 z-[5]">
@@ -561,16 +699,18 @@ export const App: React.FC = () => {
               </div>
             )}
 
-            {/* Action & Emotes Bar */}
-            <ActionBar
-              playerState={playerState}
-              currentAction={currentAction}
-              onTriggerEmote={handleTriggerEmote}
-              onToggleState={() => engineRef.current?.toggleWaterLand()}
-            />
-
-            {/* Bottom Chat Bar */}
-            <ChatBar onSendMessage={handleSendMessage} />
+            {/* Action & Emotes Bar + Chat Bar — hidden while a dialogue or story window is open (they covered its text) */}
+            {!dialogOpen && !storyPanel && (
+              <>
+                <ActionBar
+                  playerState={playerState}
+                  currentAction={currentAction}
+                  onTriggerEmote={handleTriggerEmote}
+                  onToggleState={() => engineRef.current?.toggleWaterLand()}
+                />
+                <ChatBar onSendMessage={handleSendMessage} />
+              </>
+            )}
 
             {/* Chat Log Drawer */}
             <ChatLogDrawer

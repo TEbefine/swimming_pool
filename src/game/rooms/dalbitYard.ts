@@ -21,6 +21,7 @@ export const dalbitYardRoom: RoomDefinition = {
   spawnPoint: { x: 512, y: 410 },
   arrivals: {
     dalbit_river: { x: 985, y: 478, facing: -1 },   // back through the gate (gap between fence and bush)
+    dalbit_market: { x: 985, y: 478, facing: -1 },  // same gate, from the shore road
   },
   walkableZones: [
     { x: 0, y: 296, width: 1024, height: 226 },   // packed-earth yard

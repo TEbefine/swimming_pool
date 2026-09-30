@@ -108,6 +108,10 @@ export interface RoomDefinition {
   arrivals?: Record<string, { x: number; y: number; facing?: 1 | -1 }>;
   waterZones?: Rect[];
   walkableZones: Rect[];
+  /** true = the feet must stay inside walkableZones (e.g. a pier over open water). Default: only obstacles block. */
+  strictWalkable?: boolean;
+  /** Free Fishing room (fun with friends, not the story): ◯ at the 'pier_end' spot starts fishing. */
+  freeFishing?: boolean;
   ladderTriggers?: LadderTrigger[];
   obstacles: Rect[];
   seats?: { x: number; y: number; facing: 1 | -1 }[];

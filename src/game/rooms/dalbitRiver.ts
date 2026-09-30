@@ -21,13 +21,18 @@ export const dalbitRiverRoom: RoomDefinition = {
 
   bounds: { minX: 4, maxX: 1016, minY: 212, maxY: 558 },
   spawnPoint: { x: 40, y: 410 },   // coming down the path from the yard (left edge)
+  arrivals: {
+    dalbit_market: { x: 815, y: 420, facing: -1 },   // back along the shore path (right side of the beach)
+  },
   walkableZones: [...dalbitRiverBeach, ...dalbitRiverPier],
+  strictWalkable: true, // the sea is not walkable — only the beach and the pier
   obstacles: dalbitRiverObstacles,
   elements: [],
   // Story "Look" spots. Text lives in game/story/dalbitPrologue.ts.
   interactables: [
-    { id: 'pier_end', label: 'Look', rect: { x: 362, y: 212, width: 100, height: 20 } },
+    { id: 'pier_end', label: 'Fish', rect: { x: 362, y: 212, width: 100, height: 20 } },
     { id: 'basket', label: 'Look', rect: { x: 205, y: 376, width: 70, height: 18 } },
+    { id: 'market_path', label: 'Go', rect: { x: 840, y: 380, width: 60, height: 100 } },   // shore path → dock market
   ],
   exits: [
     { triggerBox: DALBIT_RIVER_EXIT, targetRoom: 'dalbit_yard' },   // path home

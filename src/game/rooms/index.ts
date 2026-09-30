@@ -7,6 +7,8 @@ import { townRoom } from './town';
 import { templeRoom } from './temple';
 import { dalbitYardRoom } from './dalbitYard';
 import { dalbitRiverRoom } from './dalbitRiver';
+import { dalbitMarketRoom } from './dalbitMarket';
+import { lakePierRoom } from './lakePier';
 
 export const rooms: Record<string, RoomDefinition> = {
   town: townRoom,
@@ -17,6 +19,8 @@ export const rooms: Record<string, RoomDefinition> = {
   temple: templeRoom,
   dalbit_yard: dalbitYardRoom,
   dalbit_river: dalbitRiverRoom,
+  dalbit_market: dalbitMarketRoom,
+  lake_pier: lakePierRoom,
 };
 
 /** All room IDs in display order for the scene selector. */

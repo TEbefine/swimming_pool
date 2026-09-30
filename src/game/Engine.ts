@@ -372,6 +372,13 @@ export class GameEngine {
   public onPlayerCountChange?: (count: number) => void;
   public onContextChange?: (action: ContextAction) => void;
   public onInteract?: (id: string, actionId?: ContextActionId) => void;
+  /** Extra drawing in world coordinates (fishing line, float, reel bar…).
+   *  'world' = right after the characters (the night overlay darkens it), 'top' = after name tags. */
+  public onDrawLayer?: (ctx: CanvasRenderingContext2D, layer: 'world' | 'top', time: number) => void;
+  /** Extra sideways shake of the local player's sprite in px (e.g. straining on a fishing rod). Feet stay put. */
+  public localShakeX = 0;
+  /** Phone camera: look at this x instead of the player (e.g. halfway to a fishing float). null = follow the player. */
+  public cameraFocusX: number | null = null;
 
   constructor(canvas: HTMLCanvasElement, room: RoomDefinition, playerName: string = 'Swimmer', initialFloat: FloatColor = 'red') {
     this.canvas = canvas;
@@ -1165,6 +1172,17 @@ export class GameEngine {
     }
   }
 
+  /** Set the local player's pose (and facing) directly — used by minigames like fishing. */
+  public setPlayerPose(action: string, facing?: 1 | -1) {
+    if (this.emoteTimeout) {
+      clearTimeout(this.emoteTimeout);
+      this.emoteTimeout = null;
+    }
+    if (facing) this.localPlayer.facing = facing;
+    this.localPlayer.currentAction = action;
+    this.broadcastState();
+  }
+
   public triggerEmote(action: string) {
     const p = this.localPlayer;
     const now = performance.now();
@@ -1322,8 +1340,9 @@ export class GameEngine {
     this.render();
 
     if (this.cameraFollow && this.canvas) {
-      const targetPctX = Math.max(0, Math.min(100, (this.localPlayer.x / this.canvas.width) * 100));
-      this.currentCamPctX += (targetPctX - this.currentCamPctX) * 0.15;
+      const focusX = this.cameraFocusX ?? this.localPlayer.x;
+      const targetPctX = Math.max(0, Math.min(100, (focusX / this.canvas.width) * 100));
+      this.currentCamPctX += (targetPctX - this.currentCamPctX) * (this.cameraFocusX !== null ? 0.06 : 0.15);
       this.canvas.style.objectFit = 'cover';
       this.canvas.style.objectPosition = `${this.currentCamPctX.toFixed(2)}% center`;
     }
@@ -1715,6 +1734,12 @@ export class GameEngine {
 
   /** Point-vs-obstacle test (the player's feet are the collision point). */
   private isBlocked(x: number, y: number): boolean {
+    // Rooms like the river mouth: you can only stand on the walkable areas (pier, beach), never on water
+    if (this.room.strictWalkable && !this.room.walkableZones.some(
+      (z) => x >= z.x && x <= z.x + z.width && y >= z.y && y <= z.y + z.height,
+    )) {
+      return true;
+    }
     for (const obs of this.mergedObstacles) {
       if (x >= obs.x && x <= obs.x + obs.width && y >= obs.y && y <= obs.y + obs.height) {
         return true;
@@ -2039,7 +2064,7 @@ export class GameEngine {
         drawY -= Math.round(air * JUMP_HEIGHT * this.actorScale);
       }
       // Feet stay planted on the ground: the legs in the walk frames do the stepping
-      const capturedX = player.x;
+      const capturedX = player.x + (player === this.localPlayer ? this.localShakeX : 0);
       const capturedPlayer = player;
       const capturedSprite = sprite;
       const capturedDrawY = drawY;
@@ -2060,6 +2085,7 @@ export class GameEngine {
     for (const d of drawFns) {
       d.draw();
     }
+    this.onDrawLayer?.(this.ctx, 'world', time);
 
     // 6d. Ambient sparkles / petals (darkened by the night overlay below)
     renderAmbient(this.ctx, this.room.roomId, 'front', time, sky.night);
@@ -2098,6 +2124,7 @@ export class GameEngine {
     for (const fn of overlayFns) {
       fn();
     }
+    this.onDrawLayer?.(this.ctx, 'top', time);
 
     // 8. Debug overlay (F3)
     if (this.showDebug) {
@@ -2428,8 +2455,10 @@ export class GameEngine {
       this.ctx.fillStyle = `rgba(20, 25, 40, ${(0.28 * (1 - 0.45 * air)).toFixed(3)})`;
       this.ctx.beginPath();
       const shrink = 1 - 0.3 * air;
-      const shadowRadiusX = Math.round(Math.max(16, spriteImg.width * 0.38) * shrink);
-      const shadowRadiusY = Math.round(Math.max(5, spriteImg.width * 0.13) * shrink);
+      // wide props (a fishing rod) must not make the shadow wider than the body
+      const bodyW = player.currentAction.startsWith('fish_') ? 48 : spriteImg.width;
+      const shadowRadiusX = Math.round(Math.max(16, bodyW * 0.38) * shrink);
+      const shadowRadiusY = Math.round(Math.max(5, bodyW * 0.13) * shrink);
       this.ctx.ellipse(groundX, groundY - 2, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.restore();
