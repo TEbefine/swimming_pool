@@ -22,6 +22,7 @@ interface GameBoyMobileProps {
   onOpenNameModal: () => void;
   onOpenHelpModal: () => void;
   screenOverlay?: React.ReactNode;
+  dialogOpen?: boolean;
   onToggleSceneBox?: () => void;
   statusLabel?: string;
   hideStatusBadge?: boolean;
@@ -45,6 +46,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   onOpenNameModal,
   onOpenHelpModal,
   screenOverlay,
+  dialogOpen = false,
   onToggleSceneBox,
   statusLabel = 'Sunny Poolside',
   hideStatusBadge = false,
@@ -62,6 +64,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   const [showChatHistory, setShowChatHistory] = useState(false);
 
   const dpadRef = useRef<HTMLDivElement>(null);
+  const dpadBoundsRef = useRef<DOMRect | null>(null);
   const isDraggingDpad = useRef(false);
   const controllerRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +119,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   // Minimal D-Pad Touch & Drag calculations
   const updateDirectionFromTouch = useCallback((clientX: number, clientY: number) => {
     if (!dpadRef.current) return;
-    const rect = dpadRef.current.getBoundingClientRect();
+    // The controller stays in place during a gesture; avoid a layout read for every move.
+    const rect = dpadBoundsRef.current ?? dpadRef.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
 
@@ -127,7 +131,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     // Dead zone
     const deadZone = rect.width * 0.12;
     if (dist < deadZone) {
-      setActiveDir({ up: false, down: false, left: false, right: false });
+      setActiveDir((prev) => prev.up || prev.down || prev.left || prev.right
+        ? { up: false, down: false, left: false, right: false } : prev);
       onDirectionChange(0, 0);
       return;
     }
@@ -145,7 +150,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     if (angle >= 112.5 || angle <= -112.5) left = true;
     if (angle >= -157.5 && angle <= -22.5) up = true;
 
-    setActiveDir({ up, down, left, right });
+    setActiveDir((prev) => prev.up === up && prev.down === down && prev.left === left && prev.right === right
+      ? prev : { up, down, left, right });
 
     let dx = 0;
     let dy = 0;
@@ -160,7 +166,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   const handleDpadPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     isDraggingDpad.current = true;
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dpadBoundsRef.current = dpadRef.current?.getBoundingClientRect() ?? null;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     triggerHaptic(12);
     updateDirectionFromTouch(e.clientX, e.clientY);
   };
@@ -175,6 +182,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     if (!isDraggingDpad.current) return;
     e.preventDefault();
     isDraggingDpad.current = false;
+    dpadBoundsRef.current = null;
     setActiveDir({ up: false, down: false, left: false, right: false });
     onDirectionChange(0, 0);
   };
@@ -182,6 +190,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   const handleDpadPointerCancel = (e: React.PointerEvent) => {
     e.preventDefault();
     isDraggingDpad.current = false;
+    dpadBoundsRef.current = null;
     setActiveDir({ up: false, down: false, left: false, right: false });
     onDirectionChange(0, 0);
   };
@@ -377,7 +386,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 ref={canvasRef}
                 width={1024}
                 height={576}
-                className={`w-full h-full object-cover pointer-events-none ${screenOverlay ? 'dialog-world-blur' : 'dialog-world-unblur'}`}
+                className={`w-full h-full object-cover pointer-events-none ${dialogOpen ? 'dialog-world-blur' : 'dialog-world-unblur'}`}
                 style={{
                   imageRendering: 'pixelated'
                 }}
@@ -409,7 +418,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               {/* Floating Room Info Badge on Screen (hidden during dialog) */}
               {!screenOverlay && (
                 <div className="absolute top-1.5 right-2 z-20 pointer-events-none flex items-center gap-1.5 bg-black/65 px-2 py-0.5 rounded border border-white/10 text-[8px] font-mono text-white/90 shadow-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span>{playerCount} online</span>
                 </div>
               )}
@@ -714,7 +723,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
       {/* EMOTE MENU (Triggered by START button or △ button) */}
       {showEmoteMenu && (
-        <div className="absolute inset-0 z-50 bg-black/75 flex flex-col justify-end p-4 animate-fade-in backdrop-blur-xs">
+        <div className="game-overlay-backdrop absolute inset-0 z-50 bg-black/75 flex flex-col justify-end p-4 animate-fade-in backdrop-blur-xs">
           <div className="bg-[#1e293b] border-2 border-amber-400 rounded-lg p-3 text-white shadow-2xl">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700">
               <span className="text-[16px] font-bold text-amber-300 font-pixel uppercase">
@@ -763,7 +772,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
       {/* CHAT POPUP (Triggered by SELECT button) */}
       {showChatModal && (
-        <div className="absolute inset-0 z-50 bg-black/75 flex flex-col justify-end p-4 animate-fade-in backdrop-blur-xs">
+        <div className="game-overlay-backdrop absolute inset-0 z-50 bg-black/75 flex flex-col justify-end p-4 animate-fade-in backdrop-blur-xs">
           <div className="bg-[#1e293b] border-2 border-sky-400 rounded-lg p-3 text-white shadow-2xl">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700">
               <span className="text-[16px] font-bold text-sky-300 font-pixel uppercase">

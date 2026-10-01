@@ -176,7 +176,7 @@ export const SceneBox: React.FC<SceneBoxProps> = ({
 
   return (
     <div
-      className="absolute inset-0 z-20 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-fade-in select-none"
+      className="game-overlay-backdrop absolute inset-0 z-20 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-[2px] animate-fade-in select-none"
       onClick={(e) => {
         // Clicking backdrop closes
         if (e.target === e.currentTarget) {
@@ -243,7 +243,7 @@ export const SceneBox: React.FC<SceneBoxProps> = ({
                     />
 
                     {/* Room Icon (Emoji badge, top-left) */}
-                    <div className="absolute top-1 left-1 px-1 py-0.5 bg-black/70 backdrop-blur-xs rounded text-[12px] sm:text-[14px] leading-none border border-slate-600">
+                    <div className="game-overlay-backdrop absolute top-1 left-1 px-1 py-0.5 bg-black/70 backdrop-blur-xs rounded text-[12px] sm:text-[14px] leading-none border border-slate-600">
                       {room.icon}
                     </div>
 

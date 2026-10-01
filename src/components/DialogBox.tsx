@@ -317,19 +317,37 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     setDisplayedText('');
     setIsComplete(false);
 
-    const interval = 1000 / CHARS_PER_SEC;
-    timerRef.current = window.setInterval(() => {
-      charIndexRef.current += 1;
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    // Preserve reading speed while batching characters into fewer React updates.
+    const charsPerTick = 2;
+    const interval = charsPerTick * 1000 / CHARS_PER_SEC;
+    const tick = () => {
+      charIndexRef.current = Math.min(currentPageText.length, charIndexRef.current + charsPerTick);
       const next = currentPageText.slice(0, charIndexRef.current);
       setDisplayedText(next);
       if (charIndexRef.current >= currentPageText.length) {
         setIsComplete(true);
         window.clearInterval(timerRef.current);
       }
-    }, interval);
+    };
+    const syncPlayback = () => {
+      window.clearInterval(timerRef.current);
+      if (motion.matches || !currentPageText) {
+        charIndexRef.current = currentPageText.length;
+        setDisplayedText(currentPageText);
+        setIsComplete(true);
+      } else if (!document.hidden && charIndexRef.current < currentPageText.length) {
+        timerRef.current = window.setInterval(tick, interval);
+      }
+    };
+    syncPlayback();
+    document.addEventListener('visibilitychange', syncPlayback);
+    motion.addEventListener('change', syncPlayback);
 
     return () => {
       window.clearInterval(timerRef.current);
+      document.removeEventListener('visibilitychange', syncPlayback);
+      motion.removeEventListener('change', syncPlayback);
     };
   }, [currentPageText]);
 

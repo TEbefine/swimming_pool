@@ -15,7 +15,7 @@ import { SceneBox } from './components/SceneBox';
 import { StoryHud } from './components/StoryHud';
 import { FishingHud } from './components/FishingHud';
 import { FishBook } from './components/FishBook';
-import { drawFishing, fishingHold, fishingPress, startFishing, stopFishing, useFishingView } from './game/story/fishingSession';
+import { drawFishing, isFishing, fishingHold, fishingPress, startFishing, stopFishing, useFishingView } from './game/story/fishingSession';
 import { isStoryRoom, storyDialog, storyExitBlock, onStoryNode, onStoryRoomEnter, takeStoryTravel, takeStoryFishing, takeStoryPanel, canFishDirect, giveTo, type StoryPanel, type GiftTarget } from './game/story/dalbitPrologue';
 import { TradePanel } from './components/TradePanel';
 import type { ItemId } from './game/story/items';
@@ -352,12 +352,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     if (!canvasRef.current) return;
 
     let cancelled = false;
+    let startTimer: number | undefined;
 
     const engine = new GameEngine(canvasRef.current, currentRoom, playerName, floatColor);
     engineRef.current = engine;
     setLocalPlayerId(engine.localPlayer.id);
     engine.setTouchMoveEnabled(!effectiveIsMobile);
     engine.setCameraFollow(effectiveIsMobile);
+    engine.isAnimationActive = isFishing;
     engine.onDrawLayer = drawFishing; // fishing rod / line / float / reel bar
 
     engine.onChatMessageReceived = (msg) => {
@@ -414,7 +416,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       await engine.loadAssets();
       if (cancelled) return; // Don't start a destroyed engine
       setLoadProgress(100);
-      setTimeout(() => {
+      startTimer = window.setTimeout(() => {
         if (cancelled) return;
         setLoading(false);
         engine.start();
@@ -425,18 +427,37 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
     init();
 
-    // Sync UI with engine state at 15 FPS
-    const syncInterval = setInterval(() => {
-      if (engineRef.current) {
-        setPlayerState(engineRef.current.localPlayer.state);
-        setCurrentAction(engineRef.current.localPlayer.currentAction);
-        setPlayerCountByRoom(engineRef.current.getPlayerCountByRoom());
+    // Update HUD values only when they change. Room presence is not animation data.
+    let syncTimer: number | undefined;
+    let lastPresenceSync = 0;
+    const syncUi = () => {
+      if (cancelled || document.hidden) return;
+      setPlayerState(engine.localPlayer.state);
+      setCurrentAction(engine.localPlayer.currentAction);
+      if (performance.now() - lastPresenceSync >= 1500) {
+        lastPresenceSync = performance.now();
+        const next = engine.getPlayerCountByRoom();
+        setPlayerCountByRoom((prev) => {
+          const keys = Object.keys(next);
+          return keys.length === Object.keys(prev).length && keys.every((key) => next[key] === prev[key]) ? prev : next;
+        });
       }
-    }, 66);
+      syncTimer = window.setTimeout(syncUi, 100);
+    };
+    const visibilityChanged = () => {
+      window.clearTimeout(syncTimer);
+      if (document.hidden) fishingHold(false);
+      else syncUi();
+    };
+    document.addEventListener('visibilitychange', visibilityChanged);
+    syncUi();
 
     return () => {
       cancelled = true;
-      clearInterval(syncInterval);
+      window.clearTimeout(syncTimer);
+      window.clearTimeout(startTimer);
+      document.removeEventListener('visibilitychange', visibilityChanged);
+      stopFishing();
       engine.destroy();
       engineRef.current = null;
     };
@@ -576,18 +597,6 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   // Canvas blur class for world focus effect
   const canvasBlurClass = dialogOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
 
-  // Apply blur to the canvas element directly (works for both desktop and mobile GameBoy)
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    if (dialogOpen) {
-      canvas.classList.add('dialog-world-blur');
-      canvas.classList.remove('dialog-world-unblur');
-    } else {
-      canvas.classList.remove('dialog-world-blur');
-      canvas.classList.add('dialog-world-unblur');
-    }
-  }, [dialogOpen]);
   return (
     <div className="relative w-screen h-screen bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
       {/* Loading Overlay */}
@@ -626,6 +635,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           chatLog={visibleChatLog}
           statusLabel={currentRoom.name}
           hideStatusBadge={dialogOpen}
+          dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
             if (fishingOpen) {
               // no walking while the line is out

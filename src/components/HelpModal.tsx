@@ -10,7 +10,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm pointer-events-auto">
+    <div className="game-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm pointer-events-auto">
       <div className="w-full max-w-md pixel-panel p-4 shadow-2xl animate-fade-in border-2 border-sky-500 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-700">
           <div className="flex items-center gap-2">

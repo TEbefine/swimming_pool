@@ -1,22 +1,101 @@
-class SoundManager {
+export class SoundManager {
   private ctx: AudioContext | null = null;
   private muted: boolean = false;
+  private splashBuffer: AudioBuffer | null = null;
+  private sources = new Map<AudioScheduledSourceNode, AudioNode[]>();
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private resumePending: Promise<void> | null = null;
+  private listening = false;
 
   constructor() {
-    const saved = localStorage.getItem('pixel_pool_muted');
-    if (saved !== null) {
-      this.muted = saved === 'true';
+    try {
+      this.muted = localStorage.getItem('pixel_pool_muted') === 'true';
+    } catch {
+      // Storage can be unavailable in private browsing.
     }
   }
 
   private initCtx() {
+    if (this.idleTimer !== null) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
     if (!this.ctx) {
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioContextClass();
+      if (!AudioContextClass) return;
+      this.ctx = new AudioContextClass({ latencyHint: 'interactive' });
     }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+    if (!this.listening) {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+      window.addEventListener('pagehide', this.handlePageHide);
+      this.listening = true;
     }
+    if (this.ctx.state === 'suspended' && !this.resumePending) {
+      const ctx = this.ctx;
+      const resume = ctx.resume();
+      this.resumePending = resume;
+      void resume.then(() => {
+        if (ctx === this.ctx && (this.muted || document.hidden || this.sources.size === 0)) {
+          return ctx.suspend();
+        }
+      }).catch(() => {
+        // Browsers can require another user gesture before resuming audio.
+      }).finally(() => {
+        if (this.resumePending === resume) this.resumePending = null;
+      });
+    }
+  }
+
+  private canPlay(): boolean {
+    return !this.muted && typeof document !== 'undefined' && !document.hidden
+      && this.sources.size < 24;
+  }
+
+  private handleVisibilityChange = () => {
+    if (document.hidden) this.suspend();
+  };
+
+  private handlePageHide = () => this.suspend();
+
+  private trackSource(source: AudioScheduledSourceNode, ...nodes: AudioNode[]) {
+    this.sources.set(source, nodes);
+    source.onended = () => {
+      source.onended = null;
+      source.disconnect();
+      nodes.forEach((node) => node.disconnect());
+      this.sources.delete(source);
+      if (this.sources.size === 0) {
+        if (this.idleTimer !== null) clearTimeout(this.idleTimer);
+        // A short grace period keeps footsteps responsive while allowing the
+        // audio device to sleep when the player is idle.
+        this.idleTimer = setTimeout(() => this.suspend(), 1000);
+      }
+    };
+  }
+
+  public suspend() {
+    if (this.idleTimer !== null) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+    this.sources.forEach((nodes, source) => {
+      source.onended = null;
+      try { source.stop(); } catch { /* Already stopped. */ }
+      source.disconnect();
+      nodes.forEach((node) => node.disconnect());
+    });
+    this.sources.clear();
+    if (this.ctx && this.ctx.state !== 'closed') void this.ctx.suspend().catch(() => {});
+  }
+
+  public destroy() {
+    this.suspend();
+    if (this.listening) {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+      window.removeEventListener('pagehide', this.handlePageHide);
+      this.listening = false;
+    }
+    const ctx = this.ctx;
+    this.ctx = null;
+    this.splashBuffer = null;
+    this.resumePending = null;
+    if (ctx && ctx.state !== 'closed') void ctx.close().catch(() => {});
   }
 
   public isMuted(): boolean {
@@ -25,7 +104,8 @@ class SoundManager {
 
   public setMuted(muted: boolean) {
     this.muted = muted;
-    localStorage.setItem('pixel_pool_muted', String(muted));
+    try { localStorage.setItem('pixel_pool_muted', String(muted)); } catch { /* Optional persistence. */ }
+    if (muted) this.suspend();
   }
 
   public toggleMute(): boolean {
@@ -35,21 +115,21 @@ class SoundManager {
 
   // Water splash sound (noise filtered + bubble drop)
   public playSplash() {
-    if (this.muted) return;
+    if (!this.canPlay()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
       const t = this.ctx.currentTime;
 
       // 1. White noise burst
-      const bufferSize = this.ctx.sampleRate * 0.25;
-      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
+      if (!this.splashBuffer) {
+        const bufferSize = Math.ceil(this.ctx.sampleRate * 0.25);
+        this.splashBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = this.splashBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
       }
       const noise = this.ctx.createBufferSource();
-      noise.buffer = buffer;
+      noise.buffer = this.splashBuffer;
 
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'lowpass';
@@ -63,7 +143,9 @@ class SoundManager {
       noise.connect(filter);
       filter.connect(gain);
       gain.connect(this.ctx.destination);
+      this.trackSource(noise, filter, gain);
       noise.start(t);
+      noise.stop(t + 0.25);
 
       // 2. Bubbly tone
       const osc = this.ctx.createOscillator();
@@ -75,6 +157,7 @@ class SoundManager {
       oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
       osc.connect(oscGain);
       oscGain.connect(this.ctx.destination);
+      this.trackSource(osc, oscGain);
       osc.start(t);
       osc.stop(t + 0.2);
     } catch {
@@ -84,7 +167,7 @@ class SoundManager {
 
   // Soft footstep tap on poolside tiles
   public playFootstep() {
-    if (this.muted) return;
+    if (!this.canPlay()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -100,6 +183,7 @@ class SoundManager {
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
+      this.trackSource(osc, gain);
       osc.start(t);
       osc.stop(t + 0.05);
     } catch {
@@ -109,7 +193,7 @@ class SoundManager {
 
   // Retro message chime
   public playChatChime() {
-    if (this.muted) return;
+    if (!this.canPlay()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -127,6 +211,7 @@ class SoundManager {
 
         osc.connect(gain);
         gain.connect(this.ctx!.destination);
+        this.trackSource(osc, gain);
         osc.start(t + idx * 0.08);
         osc.stop(t + idx * 0.08 + 0.14);
       });
@@ -137,7 +222,7 @@ class SoundManager {
 
   // Emote jingle based on action
   public playEmoteSound(action: string) {
-    if (this.muted) return;
+    if (!this.canPlay()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -165,6 +250,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
+        this.trackSource(osc, gain);
         osc.start(t);
         osc.stop(t + 0.16);
         return;
@@ -181,6 +267,7 @@ class SoundManager {
 
         osc.connect(gain);
         gain.connect(this.ctx!.destination);
+        this.trackSource(osc, gain);
         osc.start(t + idx * 0.07);
         osc.stop(t + idx * 0.07 + 0.16);
       });
@@ -191,7 +278,7 @@ class SoundManager {
 
   // Short blip when navigating menus/boxes
   public playCursor() {
-    if (this.muted) return;
+    if (!this.canPlay()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -204,6 +291,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
+      this.trackSource(osc, gain);
       osc.start(t);
       osc.stop(t + 0.04);
     } catch {}
@@ -211,7 +299,7 @@ class SoundManager {
 
   // Low buzz when action is rejected / invalid
   public playBuzzer() {
-    if (this.muted) return;
+    if (!this.canPlay()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -224,6 +312,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
+      this.trackSource(osc, gain);
       osc.start(t);
       osc.stop(t + 0.15);
     } catch {}
@@ -231,7 +320,7 @@ class SoundManager {
 
   // Affirmative chime for travel / scene select
   public playSelect() {
-    if (this.muted) return;
+    if (!this.canPlay()) return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -245,6 +334,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
+      this.trackSource(osc, gain);
       osc.start(t);
       osc.stop(t + 0.22);
     } catch {}

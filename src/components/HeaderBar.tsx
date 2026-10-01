@@ -60,7 +60,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 {roomName}
               </span>
               <div className="flex items-center gap-2 text-[16px] text-slate-400">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
                 <span>{playerCount} {playerCount === 1 ? 'player' : 'players'} online</span>
               </div>
             </div>

@@ -17,6 +17,8 @@ import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
 import { MoversManager } from './world/movers';
 import { renderAmbient } from './world/ambient';
 import { getTonightGenre } from './rooms/club';
+import { FrameBudget, LOW_POWER_QUERY, prefersLowPower } from './frameBudget';
+import { ImageLoader } from './imageLoader';
 
 /** Hash string into 32-bit unsigned integer (FNV-1a). */
 function hashString(str: string): number {
@@ -267,6 +269,13 @@ export class GameEngine {
   private moverSprites: Map<string, HTMLImageElement> = new Map();
   private cityImage: HTMLImageElement | null = null;
   public isAssetsLoaded: boolean = false;
+  private assetAbort = new AbortController();
+  private imageLoader = new ImageLoader(6);
+  private manifests = new Map<string, Promise<Record<string, { path: string }>>>();
+  private waterManifest: Record<string, Record<string, { path: string }>> = {};
+  private waterLoads = new Map<string, Promise<void>>();
+  private destroyed = false;
+  private roomLoading = false;
 
   // Outside world & movers
   private movers: MoversManager = new MoversManager();
@@ -355,10 +364,18 @@ export class GameEngine {
 
   // Debug overlay (F3)
   private showDebug: boolean = false;
+  private debugFrames = 0;
+  private debugSince = 0;
+  private debugFps = 0;
 
   // Loop control
   private animId: number = 0;
-  private lastTime: number = 0;
+  private frameBudget = new FrameBudget();
+  private lowPower = prefersLowPower();
+  private powerQuery = window.matchMedia(LOW_POWER_QUERY);
+  private lastActiveTime = 0;
+  private lastCameraPosition = '';
+  private chatTimeout: number | null = null;
   private running: boolean = false;
 
   // Fade transition state
@@ -376,6 +393,7 @@ export class GameEngine {
   public onInteract?: (id: string, actionId?: ContextActionId) => void;
   /** Extra drawing in world coordinates (fishing line, float, reel bar…).
    *  'world' = right after the characters (the night overlay darkens it), 'top' = after name tags. */
+  public isAnimationActive?: () => boolean;
   public onDrawLayer?: (ctx: CanvasRenderingContext2D, layer: 'world' | 'top', time: number) => void;
   /** Extra sideways shake of the local player's sprite in px (e.g. straining on a fishing rod). Feet stay put. */
   public localShakeX = 0;
@@ -484,6 +502,7 @@ export class GameEngine {
       if (!data.roomId) data.roomId = 'poolside';
 
       const existing = this.remotePlayers.get(data.id);
+      const previousRoom = existing?.data.roomId;
       if (existing) {
         existing.targetX = data.x;
         existing.targetY = data.y;
@@ -504,8 +523,8 @@ export class GameEngine {
           lastUpdate: Date.now()
         });
       }
-      // Always re-emit count (per current room)
-      if (this.onPlayerCountChange) {
+      // Movement packets do not change presence; avoid repainting the entire HUD.
+      if (this.onPlayerCountChange && (!existing || previousRoom !== data.roomId)) {
         this.onPlayerCountChange(this.getLocalRoomPlayerCount());
       }
     });
@@ -525,6 +544,7 @@ export class GameEngine {
     this.network.on('player_leave', (_, raw) => {
       const { id } = raw as { id: string };
       this.remotePlayers.delete(id);
+      this.poseStart.delete(id);
       if (this.onPlayerCountChange) {
         this.onPlayerCountChange(this.getLocalRoomPlayerCount());
       }
@@ -566,12 +586,13 @@ export class GameEngine {
    * place player at spawnPoint, fade in, broadcast state.
    */
   public async changeRoom(roomId: string): Promise<boolean> {
-    if (this.fadeDirection !== 'none') return false;
+    if (this.destroyed || this.roomLoading || this.fadeDirection !== 'none') return false;
     if (this.room.roomId === roomId) return false;
     const targetRoom = rooms[roomId];
     if (!targetRoom) return false;
 
     return new Promise<boolean>((resolve) => {
+      this.roomLoading = true;
       this.fadeDirection = 'out';
       this.fadeCallback = async () => {
         try {
@@ -614,6 +635,7 @@ export class GameEngine {
 
           // Reload assets for new room
           await this.loadAssets();
+          if (this.destroyed) { resolve(false); return; }
 
           // Notify UI
           if (this.onRoomChanged) {
@@ -627,10 +649,12 @@ export class GameEngine {
           this.broadcastState();
 
           // Fade back in
+          this.roomLoading = false;
           this.fadeDirection = 'in';
           resolve(true);
         } catch (e) {
           console.error('Failed to change room:', e);
+          this.roomLoading = false;
           this.fadeDirection = 'in';
           resolve(false);
         }
@@ -642,139 +666,141 @@ export class GameEngine {
   // ASSET LOADING
   // =========================================================================
 
+  private readManifest(path: string): Promise<Record<string, { path: string }>> {
+    let pending = this.manifests.get(path);
+    if (!pending) {
+      pending = fetch(path, { signal: this.assetAbort.signal }).then((res) => {
+        if (!res.ok) throw new Error(`Unable to load ${path}`);
+        return res.json();
+      }).catch((error) => {
+        this.manifests.delete(path);
+        throw error;
+      });
+      this.manifests.set(path, pending);
+    }
+    return pending;
+  }
+
+  /** Water art belongs only to the current pool and the colours actually in use. */
+  private ensureWaterColor(color: string): Promise<void> {
+    if (!this.room.waterZones?.length || this.destroyed) return Promise.resolve();
+    const existing = this.waterLoads.get(color);
+    if (existing) return existing;
+    const entries = this.waterManifest[color];
+    if (!entries) return Promise.resolve();
+    const signal = this.assetAbort.signal;
+    const pending = Promise.all(Object.entries(entries).map(async ([action, info]) => {
+      const key = `water_${color}_${action}`;
+      if (this.sprites.has(key)) return;
+      const image = await this.imageLoader.load(info.path, signal);
+      if (image && !signal.aborted) this.sprites.set(key, image);
+    })).then(() => {});
+    this.waterLoads.set(color, pending);
+    return pending;
+  }
+
   public async loadAssets(): Promise<void> {
-    const imgPromises: Promise<void>[] = [];
-
-    // Helper: load a single image into a Map
-    const loadImg = (key: string, src: string, target: Map<string, HTMLImageElement>): void => {
-      imgPromises.push(new Promise((resolve) => {
-        const img = new Image();
-        img.src = src;
-        img.onload = () => { target.set(key, img); resolve(); };
-        img.onerror = () => resolve();
-      }));
+    if (this.destroyed) return;
+    this.isAssetsLoaded = false;
+    this.assetAbort.abort();
+    this.assetAbort = new AbortController();
+    const signal = this.assetAbort.signal;
+    const room = this.room;
+    // Room-specific images must not grow with the number of places visited.
+    // Keep the tiny shared land set; browser HTTP caching handles revisits.
+    for (const key of this.sprites.keys()) {
+      if (!key.startsWith('land_') || /^land_\d/.test(key)) this.sprites.delete(key);
+    }
+    this.waterLoads.clear();
+    this.elementImages.clear();
+    this.npcSprites.clear();
+    this.bgImage = null;
+    const loadInto = async (key: string, src: string, target: Map<string, HTMLImageElement>) => {
+      if (target.has(key)) return;
+      const img = await this.imageLoader.load(src, signal);
+      if (img && !signal.aborted) target.set(key, img);
     };
+    const loadSet = (prefix: string, entries: Record<string, { path: string }>, target = this.sprites) =>
+      Promise.all(Object.entries(entries).map(([action, info]) => loadInto(prefix + action, info.path, target)));
 
-    // 1. Background
-    imgPromises.push(new Promise((resolve) => {
-      const img = new Image();
-      img.src = this.room.backgroundImage;
-      img.onload = () => { this.bgImage = img; resolve(); };
-      img.onerror = () => resolve();
+    const jobs: Promise<unknown>[] = [];
+    jobs.push(this.imageLoader.load(room.backgroundImage, signal).then((img) => {
+      if (!signal.aborted) this.bgImage = img;
     }));
-
-    // 2. Character manifest (1× land + water floats)
-    const manifestRes = await fetch('/sprites/character_manifest.json');
-    const manifest = await manifestRes.json();
-
-    for (const [action, info] of Object.entries(manifest.land as Record<string, { path: string }>)) {
-      loadImg(`land_${action}`, info.path, this.sprites);
-    }
-
-    for (const [color, actions] of Object.entries(manifest.water as Record<string, Record<string, { path: string }>>)) {
-      for (const [action, info] of Object.entries(actions)) {
-        loadImg(`water_${color}_${action}`, info.path, this.sprites);
-      }
-    }
-
-    // 3. Bigger land sprites for close-up rooms (actorScale 2 → /sprites/land_2_0x/)
+    jobs.push((async () => {
+      // The shared manifest contains both land and water dictionaries.
+      const manifest = await this.readManifest('/sprites/character_manifest.json') as unknown as {
+        land: Record<string, { path: string }>;
+        water: Record<string, Record<string, { path: string }>>;
+      };
+      if (signal.aborted) return;
+      this.waterManifest = manifest.water;
+      await Promise.all([
+        loadSet('land_', manifest.land),
+        this.ensureWaterColor(this.localPlayer.floatColor),
+        ...[...this.remotePlayers.values()]
+          .filter((p) => p.data.roomId === room.roomId)
+          .map((p) => this.ensureWaterColor(p.data.floatColor)),
+      ]);
+    })());
     if (this.actorScale > 1) {
       const folder = landFolder(this.actorScale);
-      if (!this.sprites.has(`${folder}_idle`)) {
-        const resScaled = await fetch(`/sprites/${folder}/manifest.json`);
-        const manifestScaled = await resScaled.json() as Record<string, { path: string }>;
-        for (const [action, info] of Object.entries(manifestScaled)) {
-          loadImg(`${folder}_${action}`, info.path, this.sprites);
-        }
-      }
+      jobs.push(this.readManifest(`/sprites/${folder}/manifest.json`).then((m) =>
+        signal.aborted ? undefined : loadSet(`${folder}_`, m)));
     }
-
-    // 3b. Room outfit (café clothes, pajamas…). Missing folder → keeps the swimsuit.
-    const outfit = this.room.outfit;
-    if (outfit && outfit !== 'swim' && !this.sprites.has(`outfit_${outfit}_idle`)) {
-      try {
-        const res = await fetch(`/sprites/outfits/${outfit}/manifest.json`);
-        if (res.ok) {
-          const m = await res.json() as Record<string, { path: string }>;
-          for (const [action, info] of Object.entries(m)) {
-            loadImg(`outfit_${outfit}_${action}`, info.path, this.sprites);
-          }
-        }
-      } catch {
-        // No outfit art yet (dev server answers with index.html) — swimsuit it is
-      }
+    const outfit = room.outfit;
+    if (outfit && outfit !== 'swim') {
+      jobs.push(this.readManifest(`/sprites/outfits/${outfit}/manifest.json`).then((m) =>
+        signal.aborted ? undefined : loadSet(`outfit_${outfit}_`, m)).catch(() => {}));
     }
-
-    // 4. Element images (deduplicated by asset path)
-    if (this.room.elements) {
-      const loaded = new Set<string>();
-      for (const el of this.room.elements) {
-        if (!loaded.has(el.asset)) {
-          loaded.add(el.asset);
-          loadImg(el.asset, el.asset, this.elementImages);
-        }
-      }
+    for (const asset of new Set(room.elements?.map((el) => el.asset))) {
+      jobs.push(loadInto(asset, asset, this.elementImages));
     }
-
-    // 4b. Club stage banner (tonight's genre)
-    if (this.room.roomId === 'club') {
-      const genre = getTonightGenre();
-      loadImg('club_stage_banner', `/sprites/banners/banner_${genre}.webp`, this.elementImages);
+    if (room.roomId === 'club') {
+      jobs.push(loadInto('club_stage_banner', `/sprites/banners/banner_${getTonightGenre()}.webp`, this.elementImages));
     }
-
-    // 5. NPC sprites (manifest-based or single image)
-    if (this.room.npcs) {
-      for (const npc of this.room.npcs) {
-        const isFile = npc.sprite.endsWith('.webp');
-        if (isFile) {
-          loadImg(`npc_${npc.id}_idle`, npc.sprite, this.npcSprites);
+    for (const npc of room.npcs ?? []) {
+      jobs.push((async () => {
+        if (npc.sprite.endsWith('.webp')) {
+          await loadInto(`npc_${npc.id}_idle`, npc.sprite, this.npcSprites);
         } else {
-          // Load from manifest directory
           try {
-            const npcRes = await fetch(`${npc.sprite}/manifest.json`);
-            const npcManifest = await npcRes.json() as Record<string, { path: string }>;
-            for (const [action, info] of Object.entries(npcManifest)) {
-              loadImg(`npc_${npc.id}_${action}`, info.path, this.npcSprites);
-            }
+            const manifest = await this.readManifest(`${npc.sprite}/manifest.json`);
+            if (!signal.aborted) await loadSet(`npc_${npc.id}_`, manifest, this.npcSprites);
           } catch {
-            // Fallback: try as single image with .webp extension
-            loadImg(`npc_${npc.id}_idle`, `${npc.sprite}.webp`, this.npcSprites);
+            if (!signal.aborted) await loadInto(`npc_${npc.id}_idle`, `${npc.sprite}.webp`, this.npcSprites);
           }
         }
-      }
+      })());
     }
-
-    // 6. Outside city view & movers (if room has view)
-    if (this.room.view) {
-      if (!this.cityImage) {
-        imgPromises.push(new Promise((resolve) => {
-          const img = new Image();
-          img.src = CITY.image;
-          img.onload = () => { this.cityImage = img; resolve(); };
-          img.onerror = () => resolve();
+    if (room.view) {
+      if (room.view.city !== false && !this.cityImage) {
+        jobs.push(this.imageLoader.load(CITY.image, signal).then((img) => {
+          if (!signal.aborted) this.cityImage = img;
         }));
       }
-
-      const moverFiles = [
-        '/sprites/world/train_day.webp',
-        '/sprites/world/train_night.webp',
-        '/sprites/world/bird_up.webp',
-        '/sprites/world/bird_down.webp',
-        '/sprites/world/birds_flock.webp',
-        '/sprites/world/plane.webp',
-        '/sprites/world/cloud_1.webp',
-        '/sprites/world/cloud_2.webp',
-        '/sprites/world/cloud_3.webp',
-      ];
-      for (const path of moverFiles) {
-        if (!this.moverSprites.has(path)) {
-          loadImg(path, path, this.moverSprites);
-        }
+      const movers = ['bird_up', 'bird_down', 'birds_flock', 'cloud_1', 'cloud_2', 'cloud_3'];
+      if (!room.view.past) movers.push('plane');
+      if (room.view.city !== false) movers.push('train_day', 'train_night');
+      const paths = new Set(movers.map((name) => `/sprites/world/${name}.webp`));
+      for (const path of this.moverSprites.keys()) if (!paths.has(path)) this.moverSprites.delete(path);
+      for (const path of paths) jobs.push(loadInto(path, path, this.moverSprites));
+    } else {
+      this.moverSprites.clear();
+    }
+    if (!room.view || room.view.city === false) {
+      this.cityImage = null;
+      this.cityCanvas.width = this.cityCanvas.height = 0;
+    }
+    const results = await Promise.allSettled(jobs);
+    if (!signal.aborted && !this.destroyed) {
+      // A missing optional sprite set must not freeze the room behind a black fade.
+      // Loaded outfits/base land sprites continue to provide the normal fallbacks.
+      this.isAssetsLoaded = true;
+      for (const result of results) {
+        if (result.status === 'rejected') console.warn('Some room art could not load:', result.reason);
       }
     }
-
-    await Promise.all(imgPromises);
-    this.isAssetsLoaded = true;
   }
 
   // =========================================================================
@@ -785,27 +811,68 @@ export class GameEngine {
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
     window.addEventListener('blur', this.clearKeys);
-    document.addEventListener('visibilitychange', this.clearKeys);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    this.powerQuery.addEventListener('change', this.updatePowerPreference);
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
   }
 
   /** Release every held key — stops "walking forever" after alt-tab / tab switch. */
   private clearKeys = () => {
     this.keys = {};
+    this.virtualDpad = { dx: 0, dy: 0 };
+    this.clickTarget = null;
+  };
+
+  private updatePowerPreference = () => {
+    this.lowPower = prefersLowPower();
+  };
+
+  private handleVisibilityChange = () => {
+    this.clearKeys();
+    cancelAnimationFrame(this.animId);
+    if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
+    this.heartbeatId = null;
+    if (document.hidden || !this.running) return;
+    this.startHeartbeat();
+    // Never replay time spent in the background or create multiple frame loops.
+    this.frameBudget.reset(performance.now());
+    this.lastActiveTime = performance.now();
+    this.broadcastState();
+    this.animId = requestAnimationFrame(this.gameLoop);
   };
 
   public destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
     this.running = false;
+    this.assetAbort.abort();
+    this.sprites.clear();
+    this.elementImages.clear();
+    this.npcSprites.clear();
+    this.moverSprites.clear();
+    this.manifests.clear();
+    this.waterLoads.clear();
+    this.bgImage = this.cityImage = null;
+    this.skyCanvas.width = this.skyCanvas.height = 0;
+    this.cityCanvas.width = this.cityCanvas.height = 0;
+    this.poseStart.clear();
+    this.remotePlayers.clear();
+    this.npcWanderCycles.clear();
+    this.npcRuntime.clear();
+    if (this.emoteTimeout !== null) clearTimeout(this.emoteTimeout);
+    if (this.chatTimeout !== null) clearTimeout(this.chatTimeout);
     cancelAnimationFrame(this.animId);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('blur', this.clearKeys);
-    document.removeEventListener('visibilitychange', this.clearKeys);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    this.powerQuery.removeEventListener('change', this.updatePowerPreference);
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
     if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
     if (this.fidgetTimeout !== null) clearTimeout(this.fidgetTimeout);
     this.network.sendPlayerLeave(this.localPlayer.id);
     this.network.destroy();
+    sound.destroy();
   }
 
   private handleKeyDown = (e: KeyboardEvent) => {
@@ -880,6 +947,7 @@ export class GameEngine {
     if (this.canvas === newCanvas) return;
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
     this.canvas = newCanvas;
+    this.lastCameraPosition = '';
     this.ctx = newCanvas.getContext('2d')!;
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
     if (this.cameraFollow && this.canvas) {
@@ -890,6 +958,7 @@ export class GameEngine {
 
   public setCameraFollow(enabled: boolean) {
     this.cameraFollow = enabled;
+    this.lastCameraPosition = '';
     if (this.canvas) {
       if (enabled) {
         this.canvas.style.objectFit = 'cover';
@@ -1235,6 +1304,7 @@ export class GameEngine {
   }
 
   public setFloatColor(color: FloatColor) {
+    void this.ensureWaterColor(color);
     this.localPlayer.floatColor = color;
     this.broadcastState();
   }
@@ -1283,7 +1353,9 @@ export class GameEngine {
     // Set talk action temporarily if not moving
     if (!this.isMoving) {
       this.localPlayer.currentAction = 'talk';
-      setTimeout(() => {
+      if (this.chatTimeout !== null) clearTimeout(this.chatTimeout);
+      this.chatTimeout = window.setTimeout(() => {
+        this.chatTimeout = null;
         if (this.localPlayer.currentAction === 'talk' && !this.isMoving) {
           this.localPlayer.currentAction = this.localPlayer.state === 'water' ? 'tread' : 'idle';
           this.broadcastState();
@@ -1303,6 +1375,7 @@ export class GameEngine {
   /** Send local state. While walking we call with force=false: position is capped
    *  at ~15 msgs/s, but a pose or facing change always goes out immediately. */
   private broadcastState(force: boolean = true) {
+    if (this.destroyed || document.hidden) return;
     const now = performance.now();
     if (
       !force &&
@@ -1320,45 +1393,77 @@ export class GameEngine {
   }
 
   public start() {
+    if (this.running || this.destroyed) return;
     this.running = true;
-    this.lastTime = performance.now();
-    this.animId = requestAnimationFrame(this.gameLoop);
+    this.frameBudget.reset(performance.now());
+    this.lastActiveTime = performance.now();
+    if (!document.hidden) this.animId = requestAnimationFrame(this.gameLoop);
+    if (!document.hidden) this.startHeartbeat();
+  }
 
-    // Heartbeat broadcast every 1.5 seconds (kept so destroy() can clear it)
+  private startHeartbeat() {
     if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
     this.heartbeatId = window.setInterval(() => {
-      if (this.running) {
-        this.broadcastState();
-      }
+      if (this.running && !document.hidden) this.broadcastState();
     }, 1500);
   }
 
-  private gameLoop = (time: number) => {
-    if (!this.running) return;
-    const dt = Math.min((time - this.lastTime) / 1000, 0.1); // cap dt at 100ms
-    this.lastTime = time;
+  private targetFps(time: number): number {
+    const movingRemote = [...this.remotePlayers.values()].some((p) =>
+      p.data.roomId === this.room.roomId &&
+      (Math.abs(p.data.x - p.targetX) + Math.abs(p.data.y - p.targetY) > 0.5));
+    const active = this.isMoving || this.clickTarget !== null ||
+      this.virtualDpad.dx !== 0 || this.virtualDpad.dy !== 0 ||
+      Object.keys(this.keys).some((code) => this.keys[code] && MOVE_CODES.has(code)) ||
+      this.fadeDirection !== 'none' || this.particles.length > 0 || movingRemote ||
+      this.emoteTimeout !== null || this.isAnimationActive?.();
+    if (active) this.lastActiveTime = time;
+    const idle = time - this.lastActiveTime > 4000;
+    return this.lowPower ? (idle ? 15 : 30) : (idle ? 30 : 60);
+  }
 
-    this.update(dt);
+  private gameLoop = (time: number) => {
+    if (!this.running || document.hidden) return;
+    this.animId = requestAnimationFrame(this.gameLoop);
+    const dt = this.frameBudget.advance(time, this.targetFps(time));
+    if (dt === null || !this.isAssetsLoaded) return;
+    // Smaller physics steps preserve collisions at lower render rates.
+    let remaining = dt;
+    while (remaining > 0) {
+      const step = Math.min(remaining, 1 / 60);
+      this.update(step);
+      remaining -= step;
+      if (!this.isAssetsLoaded) return;
+    }
+    this.updateContextAction();
+    if (this.showDebug) {
+      this.debugFrames++;
+      if (time - this.debugSince >= 1000) {
+        this.debugFps = Math.round(this.debugFrames * 1000 / (time - this.debugSince));
+        this.debugFrames = 0;
+        this.debugSince = time;
+      }
+    }
     this.render();
 
-    if (this.cameraFollow && this.canvas) {
+    if (this.cameraFollow) {
       const focusX = this.cameraFocusX ?? this.localPlayer.x;
       const targetPctX = Math.max(0, Math.min(100, (focusX / this.canvas.width) * 100));
-      this.currentCamPctX += (targetPctX - this.currentCamPctX) * (this.cameraFocusX !== null ? 0.06 : 0.15);
-      this.canvas.style.objectFit = 'cover';
-      this.canvas.style.objectPosition = `${this.currentCamPctX.toFixed(2)}% center`;
+      const smooth = 1 - Math.pow(1 - (this.cameraFocusX !== null ? 0.06 : 0.15), dt * 60);
+      this.currentCamPctX += (targetPctX - this.currentCamPctX) * smooth;
+      const position = `${this.currentCamPctX.toFixed(2)}% center`;
+      if (position !== this.lastCameraPosition) {
+        this.canvas.style.objectPosition = position;
+        this.lastCameraPosition = position;
+      }
     }
-
-    this.animId = requestAnimationFrame(this.gameLoop);
   };
 
   private update(dt: number) {
     this.updateFade(dt);
     this.updateLocalPlayer(dt);
     this.updateRemotePlayers(dt);
-    this.updateParticles();
-    this.updateContextAction();
-
+    this.updateParticles(dt);
     if (this.room.view) {
       const hour = bangkokHour(undefined, this.room.view.fixedHour);
       const sky = skyAt(hour);
@@ -1390,6 +1495,8 @@ export class GameEngine {
     grad.addColorStop(1, `rgb(${Math.round(sky.bottom[0])}, ${Math.round(sky.bottom[1])}, ${Math.round(sky.bottom[2])})`);
     skyCtx.fillStyle = grad;
     skyCtx.fillRect(0, 0, this.skyCanvas.width, this.skyCanvas.height);
+
+    if (this.room.view?.city === false) return;
 
     // 2. City Canvas (1086x362)
     if (this.cityCanvas.width !== CITY.width || this.cityCanvas.height !== CITY.height) {
@@ -1518,7 +1625,9 @@ export class GameEngine {
 
       const oldX = this.localPlayer.x;
       const oldY = this.localPlayer.y;
-      const moved = this.attemptMove(oldX + moveX * speed * dt, oldY + moveY * speed * dt);
+      const distance = this.clickTarget ? Math.min(speed * dt,
+        Math.hypot(this.clickTarget.x - oldX, this.clickTarget.y - oldY)) : speed * dt;
+      const moved = this.attemptMove(oldX + moveX * distance, oldY + moveY * distance);
 
       // Click-to-move that runs into furniture gives up instead of walking in place forever
       if (this.clickTarget) {
@@ -1871,6 +1980,7 @@ export class GameEngine {
       // Disconnect timeout: 20 seconds
       if (now - remote.lastUpdate > 20000) {
         this.remotePlayers.delete(id);
+        this.poseStart.delete(id);
         if (this.onPlayerCountChange) {
           this.onPlayerCountChange(this.getLocalRoomPlayerCount());
         }
@@ -1878,7 +1988,7 @@ export class GameEngine {
       }
 
       // Smooth lerp movement toward network target
-      const lerpFactor = Math.min(1, dt * 10);
+      const lerpFactor = 1 - Math.exp(-dt * 10);
       remote.data.x += (remote.targetX - remote.data.x) * lerpFactor;
       remote.data.y += (remote.targetY - remote.data.y) * lerpFactor;
     }
@@ -1952,12 +2062,13 @@ export class GameEngine {
     }
   }
 
-  private updateParticles() {
+  private updateParticles(dt: number) {
+    const frames = dt * 60;
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life++;
+      p.x += p.vx * frames;
+      p.y += p.vy * frames;
+      p.life += frames;
       p.alpha = 1 - p.life / p.maxLife;
 
       if (p.life >= p.maxLife) {
@@ -2196,6 +2307,7 @@ export class GameEngine {
 
     if (isWater) {
       const color = player.floatColor || 'red';
+      void this.ensureWaterColor(color);
       const action = player.currentAction || 'idle';
       let spriteKey = `water_${color}_${action}`;
       if (!this.sprites.has(spriteKey)) {
@@ -2859,6 +2971,7 @@ export class GameEngine {
       this.clickTarget = { x: tx, y: ty };
 
       const check = () => {
+        if (this.destroyed) { resolve(); return; }
         const elapsed = performance.now() - startTime;
         const dx = this.localPlayer.x - tx;
         const dy = this.localPlayer.y - ty;
@@ -2974,6 +3087,10 @@ export class GameEngine {
       4, 12
     );
 
+    this.ctx.fillText(
+      `Render: ${this.debugFps} fps · ${this.lowPower ? 'low power' : 'desktop'} · sprites: ${this.sprites.size + this.npcSprites.size + this.elementImages.size + this.moverSprites.size}`,
+      4, 26
+    );
     this.ctx.restore();
   }
 }

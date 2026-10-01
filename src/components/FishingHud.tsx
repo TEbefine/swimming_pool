@@ -1,23 +1,34 @@
 import React, { useEffect, useRef } from 'react';
 import { drawReelBar, REEL_BAR_H, REEL_BAR_W, useFishingView } from '../game/story/fishingSession';
+import type { FishingView } from '../game/story/fishingSession';
+import { startVisibleAnimation } from '../ui/visibleAnimation';
 
 // Fishing HUD: ONE short line at the bottom of the screen + a small catch card.
 // Everything else (rod, float, splash, reel bar, the fish held up) is drawn in the world
 // by game/story/fishingSession.ts. Buttons are the real controller: ◯ / E and ✕ / Esc.
 
 /** The big reel bar on the right side of the screen (Stardew-style). */
-const ReelBar: React.FC<{ compact: boolean }> = ({ compact }) => {
+const ReelBar: React.FC<{ compact: boolean; phase: FishingView['phase']; aiming: boolean }> = ({ compact, phase, aiming }) => {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    let raf = 0;
-    const loop = (now: number) => {
-      const ctx = ref.current?.getContext('2d');
-      if (ctx) drawReelBar(ctx, now);
-      raf = requestAnimationFrame(loop);
+    const ctx = ref.current?.getContext('2d');
+    if (!ctx) return;
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let stop = () => {};
+    const start = () => {
+      stop();
+      stop = startVisibleAnimation(
+        (now) => drawReelBar(ctx, now, motion.matches),
+        compact || motion.matches ? 30 : 60,
+      );
     };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+    start();
+    motion.addEventListener('change', start);
+    return () => {
+      stop();
+      motion.removeEventListener('change', start);
+    };
+  }, [compact, phase, aiming]);
   const scale = compact ? 1.5 : 2;
   return (
     <canvas
@@ -60,7 +71,7 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[5]" style={{ fontFamily: 'var(--font-pixel)' }}>
-      {(v.aiming || v.phase === 'reel' || v.phase === 'caught' || v.phase === 'escaped') && <ReelBar compact={compact} />}
+      {(v.aiming || v.phase === 'reel' || v.phase === 'caught' || v.phase === 'escaped') && <ReelBar compact={compact} phase={v.phase} aiming={v.aiming} />}
 
       {/* catch card */}
       {info && v.caught && over && (
