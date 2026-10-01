@@ -155,14 +155,53 @@ test('slow sockets drop replaceable movement without queuing it or dropping chat
   const manager = network();
   const socket = FakeSocket.instances[0];
   socket.open();
+  socket.sent.length = 0; // the relay greeting
   socket.bufferedAmount = 100_000;
-  manager.broadcastPlayerState({ id: 'local' });
+  manager.broadcastPlayerState({ id: 'local', x: 1, y: 2, roomId: 'cafe' });
   manager.sendChatMessage({ text: 'hello' });
-  assert.equal(socket.sent.length, 1);
-  assert.equal(JSON.parse(socket.sent[0]).type, 'chat_message');
+  const types = socket.sent.map((m) => JSON.parse(m).type);
+  assert.equal(types.includes('s'), false, 'movement is dropped while the socket is backed up');
+  assert.equal(types.includes('chat_message'), true, 'chat still goes out');
   navigator.onLine = false;
   manager.broadcastPlayerState({ id: 'local' });
   assert.equal(FakeChannel.instances[0].sent.length, 3);
+});
+
+test('relay v2: batched snapshots become engine events, keyframes drop players who left', () => {
+  const manager = network();
+  const socket = FakeSocket.instances[0];
+  const events = [];
+  for (const type of ['player_state', 'player_leave', 'room_counts']) manager.on(type, (t, d) => events.push([t, d]));
+  socket.open();
+  assert.equal(JSON.parse(socket.sent[0]).type, 'hello');
+  const deliver = (msg) => socket.onmessage({ data: JSON.stringify(msg) });
+  deliver({ type: 'prof', p: [['a', 'Ann', 'blue', '', 0], ['b', 'Bo', 'red', 'hi', 5]] });
+  deliver({ type: 'snap', r: 'cafe', k: 0, p: [['a', 10, 20, 1, 'walk1', 'land'], ['b', 30, 40, -1, 'idle', 'land']] });
+  const states = events.filter(([t]) => t === 'player_state').map(([, d]) => d);
+  assert.equal(states.length, 2);
+  assert.deepEqual([states[0].name, states[0].x, states[0].roomId, states[0].floatColor], ['Ann', 10, 'cafe', 'blue']);
+  assert.equal(states[1].lastMessage, 'hi');
+  deliver({ type: 'snap', r: 'cafe', k: 1, p: [['a', 11, 20, 1, 'idle', 'land']] });
+  assert.deepEqual(events.filter(([t]) => t === 'player_leave').map(([, d]) => d.id), ['b']);
+  deliver({ type: 'rooms', c: { cafe: 2 } });
+  assert.deepEqual(events.at(-1), ['room_counts', { cafe: 2 }]);
+});
+
+test('relay v2: position updates are rate-limited but the final position always arrives', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const manager = network();
+  const socket = FakeSocket.instances[0];
+  socket.open();
+  socket.sent.length = 0;
+  for (let i = 0; i < 20; i++) {
+    manager.broadcastPlayerState({ id: 'local', name: 'Me', floatColor: 'red', x: i * 3, y: 5, facing: 1, currentAction: 'walk1', state: 'land', roomId: 'cafe' });
+    t.mock.timers.tick(16);
+  }
+  t.mock.timers.tick(200);
+  const moves = socket.sent.map((m) => JSON.parse(m)).filter((m) => m.type === 's');
+  assert.ok(moves.length <= 5, `sent ${moves.length} position updates for 20 frames`);
+  assert.equal(moves.at(-1).d[0], 57);
+  assert.equal(socket.sent.map((m) => JSON.parse(m)).filter((m) => m.type === 'p').length, 1, 'profile sent once');
 });
 
 test('audio stays lazy in a hidden tab and reuses noise samples', () => {

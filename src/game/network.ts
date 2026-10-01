@@ -2,6 +2,15 @@ import type { PlayerData, ChatMessage } from './types';
 
 export type NetworkEventCallback = (type: string, data: unknown) => void;
 
+/** Relay protocol v2 (server/wsServer.js): compact, batched, per room.
+ *  Position rows are [id, x, y, facing, action, state]; profile rows [id, name, floatColor, message, messageTime]. */
+type PosRow = [string, number, number, 1 | -1, string, 'land' | 'water'];
+type ProfRow = [string, string, string, string, number];
+interface Profile { name: string; floatColor: string; lastMessage?: string; messageTime?: number }
+
+/** At most this many movement updates per second go to the relay (the relay batches at 10 Hz anyway). */
+const SEND_GAP_MS = 100;
+
 export class NetworkManager {
   private ws: WebSocket | null = null;
   private channel: BroadcastChannel | null = null;
@@ -12,6 +21,14 @@ export class NetworkManager {
   private destroyed = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
+  // v2 relay state
+  private profiles = new Map<string, Profile>();
+  private lastPlayer: PlayerData | null = null;
+  private lastPos = '';
+  private lastProfile = '';
+  private lastPosSentAt = 0;
+  private trailingTimer: ReturnType<typeof setTimeout> | null = null;
+  private room = '';
 
   public getIsConnected(): boolean {
     return this.isConnected;
@@ -90,17 +107,24 @@ export class NetworkManager {
         if (this.destroyed || this.ws !== ws) return;
         this.reconnectAttempt = 0;
         this.setConnected(true);
+        this.lastPos = this.lastProfile = '';
+        const p = this.lastPlayer;
+        ws.send(JSON.stringify({
+          type: 'hello', v: 2, id: this.localPlayerId,
+          room: p?.roomId ?? '', name: p?.name ?? '', fc: p?.floatColor ?? '',
+        }));
+        if (p) this.sendCompact(p, true);
       };
 
       ws.onmessage = (event) => {
         if (!this.isAvailable() || this.ws !== ws) return;
+        let msg: { type?: string; data?: unknown; senderId?: string; [k: string]: unknown };
         try {
-          const { type, data, senderId } = JSON.parse(event.data);
-          if (senderId === this.localPlayerId) return;
-          this.emit(type, data);
+          msg = JSON.parse(event.data);
         } catch {
-          // Ignore malformed messages.
+          return; // Ignore malformed messages.
         }
+        this.handleRelayMessage(msg);
       };
 
       ws.onerror = () => {
@@ -118,6 +142,98 @@ export class NetworkManager {
       // through retries. BroadcastChannel remains available.
       this.setConnected(false);
     }
+  }
+
+  /** Turn the relay's batched messages back into the engine's simple events. */
+  private handleRelayMessage(msg: { type?: string; data?: unknown; senderId?: string; [k: string]: unknown }) {
+    switch (msg.type) {
+      case 'prof':
+        for (const [id, name, floatColor, lastMessage, messageTime] of (msg.p as ProfRow[]) ?? []) {
+          this.profiles.set(id, { name, floatColor, lastMessage: lastMessage || undefined, messageTime: messageTime || undefined });
+        }
+        return;
+      case 'snap': {
+        const room = String(msg.r ?? '');
+        const rows = (msg.p as PosRow[]) ?? [];
+        const seen = msg.k ? new Set<string>() : null;
+        for (const [id, x, y, facing, currentAction, state] of rows) {
+          if (id === this.localPlayerId) continue;
+          seen?.add(id);
+          const prof = this.profiles.get(id);
+          this.emit('player_state', {
+            id, x, y, facing, currentAction, state, roomId: room,
+            name: prof?.name ?? 'Guest',
+            floatColor: prof?.floatColor ?? 'red',
+            lastMessage: prof?.lastMessage,
+            messageTime: prof?.messageTime,
+            timestamp: Date.now(),
+          } as PlayerData);
+        }
+        // A keyframe lists everyone in the room: anyone we still hold who isn't in it has left.
+        if (seen) {
+          for (const id of this.profiles.keys()) {
+            if (!seen.has(id)) {
+              this.profiles.delete(id);
+              this.emit('player_leave', { id });
+            }
+          }
+        }
+        return;
+      }
+      case 'leave':
+        this.profiles.delete(String(msg.id));
+        this.emit('player_leave', { id: msg.id });
+        return;
+      case 'rooms':
+        this.emit('room_counts', msg.c);
+        return;
+      case 'chat_message':
+      case 'player_state':
+      case 'player_leave':
+        if (msg.senderId === this.localPlayerId) return;
+        this.emit(msg.type, msg.data);
+        return;
+      default:
+    }
+  }
+
+  /** Send our state in the relay's compact form: position only when it changed (≤10/s, the last
+   *  one always arrives), name/colour/speech only when those changed. */
+  private sendCompact(player: PlayerData, force = false) {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const room = player.roomId ?? 'poolside';
+    if (room !== this.room) {
+      // New room: the relay will send us that room's people; forget the old room's.
+      for (const id of this.profiles.keys()) this.emit('player_leave', { id });
+      this.profiles.clear();
+      this.room = room;
+    }
+    const profile = JSON.stringify([player.name, player.floatColor, player.lastMessage ?? '', player.messageTime ?? 0]);
+    if (profile !== this.lastProfile) {
+      this.lastProfile = profile;
+      ws.send(JSON.stringify({ type: 'p', d: { name: player.name, fc: player.floatColor, msg: player.lastMessage ?? '', mt: player.messageTime ?? 0 } }));
+    }
+    const d = [Math.round(player.x), Math.round(player.y), player.facing, player.currentAction, player.state, room];
+    const pos = JSON.stringify(d);
+    if (pos === this.lastPos && !force) return;
+    const now = Date.now();
+    const wait = SEND_GAP_MS - (now - this.lastPosSentAt);
+    if (wait > 0 && !force) {
+      // Too soon: make sure the latest position still goes out at the next slot.
+      if (this.trailingTimer === null) {
+        this.trailingTimer = setTimeout(() => {
+          this.trailingTimer = null;
+          if (this.lastPlayer) this.sendCompact(this.lastPlayer);
+        }, wait);
+      }
+      return;
+    }
+    // Movement is replaceable: avoid an ever-growing queue on slow mobile networks.
+    if (ws.bufferedAmount > 64 * 1024) return;
+    this.lastPos = pos;
+    this.lastPosSentAt = now;
+    ws.send(JSON.stringify({ type: 's', d }));
   }
 
   private setConnected(connected: boolean) {
@@ -171,17 +287,21 @@ export class NetworkManager {
   private send(type: string, data: unknown) {
     if (this.destroyed) return;
     const payload = { type, senderId: this.localPlayerId, data };
+    // Other tabs on this device get the simple full message.
     this.channel?.postMessage(payload);
     if (this.ws?.readyState === WebSocket.OPEN) {
-      // Movement is replaceable: avoid an ever-growing queue on slow mobile
-      // networks. Chat and leave messages retain their normal delivery path.
-      if (type === 'player_state' && this.ws.bufferedAmount > 64 * 1024) return;
+      if (type === 'player_state') {
+        this.sendCompact(data as PlayerData);
+        return;
+      }
       this.ws.send(JSON.stringify(payload));
     }
   }
 
   public broadcastPlayerState(player: PlayerData) {
-    if (this.isActive()) this.send('player_state', player);
+    if (!this.isActive()) return;
+    this.lastPlayer = player;
+    this.send('player_state', player);
   }
 
   public sendChatMessage(message: ChatMessage) {
@@ -196,6 +316,8 @@ export class NetworkManager {
     if (this.destroyed) return;
     this.destroyed = true;
     this.clearReconnectTimer();
+    if (this.trailingTimer !== null) clearTimeout(this.trailingTimer);
+    this.trailingTimer = null;
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.handleAvailabilityChange);
     }

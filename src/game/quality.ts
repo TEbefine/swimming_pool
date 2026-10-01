@@ -18,12 +18,14 @@ export interface TierBudget {
   deep: number;
   /** 0..1 share of ambient specks drawn */
   ambient: number;
+  /** Most other players drawn at once (closest first) */
+  maxPlayers: number;
 }
 
 export const TIERS: Record<QualityTier, TierBudget> = {
-  beautiful: { active: 60, idle: 30, deep: 20, ambient: 1 },
-  balanced: { active: 30, idle: 15, deep: 10, ambient: 1 },
-  battery: { active: 24, idle: 10, deep: 6, ambient: 0.5 },
+  beautiful: { active: 60, idle: 30, deep: 20, ambient: 1, maxPlayers: 120 },
+  balanced: { active: 30, idle: 15, deep: 10, ambient: 1, maxPlayers: 45 },
+  battery: { active: 24, idle: 10, deep: 6, ambient: 0.5, maxPlayers: 25 },
 };
 
 export const TIER_LABEL: Record<QualityMode, string> = {

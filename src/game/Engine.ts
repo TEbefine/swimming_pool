@@ -395,6 +395,8 @@ export class GameEngine {
   private perfFrames = 0;
   private perfSince = 0;
   private unsubscribeQuality: (() => void) | null = null;
+  private serverRoomCounts: Record<string, number> | null = null;
+  private serverRoomCountsAt = 0;
 
   // What the player can actually see (phones crop the canvas with object-fit: cover)
   private view: ViewRect = { x: 0, y: 0, w: 1024, h: 576 };
@@ -408,6 +410,7 @@ export class GameEngine {
   /** Night lights pre-drawn once per minute instead of 4 gradients every frame */
   private lightsCanvas: HTMLCanvasElement | null = null;
   private lightsKey = '';
+  private shadowCache = new Map<string, HTMLCanvasElement>();
   private chatTimeout: number | null = null;
   private running: boolean = false;
 
@@ -637,6 +640,12 @@ export class GameEngine {
       }
     });
 
+    // Crowd relay: head-counts for every room (we only receive the people in our own room)
+    this.network.on('room_counts', (_, raw) => {
+      this.serverRoomCounts = raw as Record<string, number>;
+      this.serverRoomCountsAt = Date.now();
+    });
+
     this.network.on('player_leave', (_, raw) => {
       const { id } = raw as { id: string };
       this.remotePlayers.delete(id);
@@ -658,6 +667,7 @@ export class GameEngine {
 
   /** Get player counts per room (active in last 10s). */
   public getPlayerCountByRoom(): Record<string, number> {
+    if (this.serverRoomCounts && Date.now() - this.serverRoomCountsAt < 10000) return { ...this.serverRoomCounts };
     const counts: Record<string, number> = {};
     // Count self
     const myRoom = this.room.roomId;
@@ -2481,11 +2491,17 @@ export class GameEngine {
     }
 
     // 6c. All players (local + remote in same room)
-    const allPlayers: PlayerData[] = [this.localPlayer];
+    let allPlayers: PlayerData[] = [this.localPlayer];
     for (const r of this.remotePlayers.values()) {
       if ((r.data.roomId || 'poolside') === this.room.roomId && spanVisible(v, r.data.x, 110)) {
         allPlayers.push(r.data);
       }
+    }
+    // Packed room: draw the closest people (like MMOs do); everyone still counts as online.
+    const maxShown = quality.budget.maxPlayers + 1;
+    if (allPlayers.length > maxShown) {
+      const keep = this.nearestPlayerIds(allPlayers, maxShown);
+      allPlayers = allPlayers.filter((p) => keep.has(p.id));
     }
     // A packed room: everyone is still drawn, but only the nearest name tags (they're the clutter)
     const tagBudget = allPlayers.length > MAX_NAME_TAGS ? this.nearestPlayerIds(allPlayers, MAX_NAME_TAGS) : null;
@@ -2839,14 +2855,9 @@ export class GameEngine {
     if (!sprite) return;
 
     // Shadow
-    this.ctx.save();
-    this.ctx.fillStyle = 'rgba(20, 25, 40, 0.22)';
-    this.ctx.beginPath();
     const shadowRx = Math.round(17 * (this.actorScale || 1));
     const shadowRy = Math.round(5 * (this.actorScale || 1));
-    this.ctx.ellipse(state.x, state.y - 2, shadowRx, shadowRy, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.restore();
+    this.drawShadow(Math.round(state.x), Math.round(state.y - 2), shadowRx, shadowRy, 0.22);
 
     // Sprite (bottom-centre anchor, native size; side frames face RIGHT so flip for leftward)
     this.ctx.save();
@@ -2856,6 +2867,26 @@ export class GameEngine {
     }
     this.ctx.drawImage(sprite, -Math.floor(sprite.width / 2), -sprite.height);
     this.ctx.restore();
+  }
+
+  /** Soft ground shadow, stamped from a cached bitmap (an ellipse path per actor per frame adds
+   *  up fast in a crowd). */
+  private drawShadow(cx: number, cy: number, rx: number, ry: number, alpha: number) {
+    const key = `${rx}:${ry}:${Math.round(alpha * 50)}`;
+    let c = this.shadowCache.get(key);
+    if (!c) {
+      c = document.createElement('canvas');
+      c.width = rx * 2 + 2;
+      c.height = ry * 2 + 2;
+      const g = c.getContext('2d')!;
+      g.fillStyle = `rgba(20, 25, 40, ${(Math.round(alpha * 50) / 50).toFixed(3)})`;
+      g.beginPath();
+      g.ellipse(rx + 1, ry + 1, rx, ry, 0, 0, Math.PI * 2);
+      g.fill();
+      if (this.shadowCache.size > 64) this.shadowCache.clear();
+      this.shadowCache.set(key, c);
+    }
+    this.ctx.drawImage(c, cx - rx - 1, cy - ry - 1);
   }
 
   /** Deferred: NPC name tag + prompt bubble (drawn above all depth-sorted items). */
@@ -2902,18 +2933,13 @@ export class GameEngine {
 
     // Shadow on land
     if (!isWater) {
-      this.ctx.save();
       // Shadow shrinks and fades while in the air
-      this.ctx.fillStyle = `rgba(20, 25, 40, ${(0.28 * (1 - 0.45 * air)).toFixed(3)})`;
-      this.ctx.beginPath();
       const shrink = 1 - 0.3 * air;
       // wide props (a fishing rod) must not make the shadow wider than the body
       const bodyW = player.currentAction.startsWith('fish_') ? 48 : spriteImg.width;
       const shadowRadiusX = Math.round(Math.max(16, bodyW * 0.38) * shrink);
       const shadowRadiusY = Math.round(Math.max(5, bodyW * 0.13) * shrink);
-      this.ctx.ellipse(groundX, groundY - 2, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.restore();
+      this.drawShadow(groundX, groundY - 2, shadowRadiusX, shadowRadiusY, 0.28 * (1 - 0.45 * air));
     }
 
     // Character sprite with horizontal flipping
