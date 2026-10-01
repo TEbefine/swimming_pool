@@ -4,7 +4,7 @@
  *  'auto' starts at the device's default and steps DOWN by itself when the phone starts to
  *  throttle (the same frame suddenly takes much longer to compute = the chip is hot and slowed).
  *  It never steps back up on its own, so it can't oscillate; the player can always choose. */
-import { prefersLowPower } from './frameBudget';
+import { prefersLowPower } from './frameBudget.ts';
 
 export type QualityTier = 'beautiful' | 'balanced' | 'battery';
 export type QualityMode = 'auto' | QualityTier;
@@ -39,10 +39,8 @@ const STORAGE_KEY = 'pixel_pool_quality';
 export function deviceDefaultTier(): QualityTier {
   if (typeof window === 'undefined') return 'beautiful';
   const nav = navigator as Navigator & { deviceMemory?: number };
-  if ((nav.deviceMemory !== undefined && nav.deviceMemory <= 2) ||
-    (nav.hardwareConcurrency !== undefined && nav.hardwareConcurrency > 0 && nav.hardwareConcurrency <= 2)) {
-    return 'battery';
-  }
+  // Only Chromium reports memory; Safari hides it (and caps core counts), so iPhones start Balanced.
+  if (nav.deviceMemory !== undefined && nav.deviceMemory <= 2) return 'battery';
   return prefersLowPower() ? 'balanced' : 'beautiful';
 }
 
@@ -106,16 +104,21 @@ class QualityStore {
 export const quality = new QualityStore();
 
 /** Detects sustained slow-down (thermal throttling, or a device that can't keep up).
- *  Feed it the CPU time of each rendered frame and the time between rendered frames. */
-export class ThrottleWatch {
-  private windowStart = 0;
-  private workSum = 0;
-  private frames = 0;
-  private late = 0;
-  private baseline = Infinity;
-  private badWindows = 0;
-  private windows = 0;
+ *  Feed it the CPU time of each rendered frame and the time between rendered frames.
+ *  Idle frames and moving frames cost different amounts, so each frame-rate keeps its own
+ *  idea of "normal": walking after standing still is not mistaken for overheating. */
+interface Bucket {
+  windowStart: number;
+  workSum: number;
+  frames: number;
+  late: number;
+  baseline: number;
+  windows: number;
+}
 
+export class ThrottleWatch {
+  private buckets = new Map<number, Bucket>();
+  private badWindows = 0;
   private readonly windowMs: number;
   private readonly needBad: number;
 
@@ -124,44 +127,43 @@ export class ThrottleWatch {
     this.needBad = needBad;
   }
 
-  /** Forget the baseline (room changed, tier changed: frames now cost something different). */
-  reset(now: number) {
-    this.windowStart = now;
-    this.workSum = 0;
-    this.frames = 0;
-    this.late = 0;
-    this.baseline = Infinity;
+  /** Forget everything learned (room or tier changed: frames now cost something different). */
+  reset(_now?: number) {
+    this.buckets.clear();
     this.badWindows = 0;
-    this.windows = 0;
   }
 
   /** Returns true when the device has been struggling for `needBad` windows in a row. */
   sample(now: number, workMs: number, intervalMs: number, budgetMs: number): boolean {
-    if (this.windowStart === 0) this.windowStart = now;
-    this.workSum += workMs;
-    this.frames++;
-    if (intervalMs > budgetMs * 1.6) this.late++;
-    if (now - this.windowStart < this.windowMs) return false;
+    const key = Math.round(budgetMs);
+    let b = this.buckets.get(key);
+    if (!b) {
+      b = { windowStart: now, workSum: 0, frames: 0, late: 0, baseline: Infinity, windows: 0 };
+      this.buckets.set(key, b);
+    }
+    b.workSum += workMs;
+    b.frames++;
+    if (intervalMs > budgetMs * 1.6) b.late++;
+    if (now - b.windowStart < this.windowMs || b.frames < 10) return false;
 
-    const avg = this.workSum / Math.max(1, this.frames);
-    const lateShare = this.late / Math.max(1, this.frames);
-    this.windows++;
-    // First two windows only establish what "normal" costs here.
-    if (this.windows <= 2 || avg < this.baseline) this.baseline = Math.min(this.baseline, avg);
-    const slower = this.windows > 2 && avg > this.baseline * 1.8 && avg > budgetMs * 0.3;
-    const missing = this.frames >= 10 && lateShare > 0.35;
+    const avg = b.workSum / b.frames;
+    const lateShare = b.late / b.frames;
+    b.windows++;
+    // The first two windows at this frame rate only establish what "normal" costs.
+    const learning = b.windows <= 2;
+    const slower = !learning && avg > b.baseline * 1.8 && avg > budgetMs * 0.12;
+    const missing = lateShare > 0.35;
+    if (learning || avg < b.baseline) b.baseline = Math.min(b.baseline, avg);
     this.badWindows = slower || missing ? this.badWindows + 1 : 0;
 
-    this.windowStart = now;
-    this.workSum = 0;
-    this.frames = 0;
-    this.late = 0;
+    b.windowStart = now;
+    b.workSum = 0;
+    b.frames = 0;
+    b.late = 0;
     if (this.badWindows >= this.needBad) {
       this.badWindows = 0;
       return true;
     }
     return false;
   }
-
-  get baselineMs() { return this.baseline; }
 }
