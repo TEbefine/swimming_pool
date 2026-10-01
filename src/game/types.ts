@@ -94,6 +94,9 @@ export interface NpcDef {
   standAt?: { dx: number; dy: number; facing: 1 | -1 };
   /** Optional: the NPC walks around instead of standing still */
   wander?: NpcWander;
+  /** Optional, for NPCs that stand still: now and then play these poses in a row (e.g. a candy
+   *  seller clacking his scissors), then go back to idle for `pauseMs`. */
+  idleLoop?: { poses: string[]; frameMs: number; pauseMs: number };
 }
 
 export interface RoomDefinition {

@@ -1,6 +1,7 @@
 """Grey-box background for the Dalbit dock & market (placeholder until the real painting exists).
 
-Run:  python3 scripts/make_market_greybox.py   → public/maps/dalbit/market.webp (1024×576)
+Run:  python3 scripts/make_market_greybox.py   → public/maps/dalbit/market_greybox.webp (1024×576)
+RETIRED 2026-09-30: the real painting (src/assets/dalbit_market_src.webp) is in use; kept for reference.
 Plain boxes with labels, on purpose: play Day 1 first, then paint only what the scene proves it needs.
 Positions MUST match src/game/rooms/dalbitMarketLayout.ts.
 """
@@ -52,7 +53,7 @@ d.polygon([(846, 176), (930, 176), (916, 196), (858, 196)], fill=(120, 84, 56, 2
 # inn back door (left)
 box(20, 168, 232, 300, (176, 150, 118, 255), 'INN', 'back door')
 d.rectangle([108, 236, 150, 300], fill=(92, 64, 44, 255), outline=INK, width=2)
-person(130, 318, (122, 92, 150, 255), 'INNKEEPER')
+# (the innkeeper is a real NPC now)
 
 # rice shop + its price board
 box(262, 180, 468, 300, (190, 170, 120, 255), 'RICE SHOP', 'sacks inside')
@@ -61,19 +62,19 @@ d.text((492, 244), 'RICE', font=small, fill=INK)
 d.text((492, 262), '1 sack', font=small, fill=INK)
 d.text((492, 276), '30 c', font=small, fill=(156, 74, 62, 255))
 d.rectangle([512, 292, 518, 314], fill=INK)
-person(365, 318, (110, 130, 96, 255), 'RICE SELLER')
+# (the rice seller is a real NPC now)
 
 # Gu's fish stall by the dock, with the Governor's red seal banner
 box(596, 226, 872, 318, (150, 150, 150, 255), "GU'S FISH STALL", 'the dock seal')
 d.rectangle([840, 238, 862, 280], fill=(176, 52, 44, 255), outline=INK, width=2)
 d.ellipse([845, 250, 857, 262], fill=(240, 200, 90, 255))
-person(734, 338, (60, 60, 72, 255), 'MASTER GU')
+# (the master gu is a real NPC now)
 
 # yeot cart (lower left)
 box(170, 420, 290, 470, (214, 150, 80, 255), 'YEOT', None)
 d.ellipse([178, 462, 198, 482], fill=INK)
 d.ellipse([262, 462, 282, 482], fill=INK)
-person(316, 482, (180, 120, 70, 255), 'YEOT SELLER')
+# (the yeot seller is a real NPC now)
 
 # road sign, left edge
 d.rectangle([8, 376, 14, 420], fill=INK)
@@ -83,6 +84,6 @@ d.text((8, 362), '< RIVER', font=small, fill=INK)
 # grey-box stamp
 d.text((W - 150, H - 22), 'GREY-BOX v1', font=small, fill=(120, 100, 80, 255))
 
-out = ROOT / 'public/maps/dalbit/market.webp'
+out = ROOT / 'public/maps/dalbit/market_greybox.webp'
 img.save(out, lossless=True)
 print('wrote', out)

@@ -1,0 +1,40 @@
+{
+  "id": "rice_seller",
+  "displayName": "Rice Seller",
+  "role": "Sells rice at the dock; the price board (30 coins a sack). Grumpy, squeezed by the grain tax too.",
+  "room": "dalbit_market",
+  "status": "sprite-approved",
+  "voice": {
+    "tone": [
+      "grumpy",
+      "tired",
+      "kind underneath"
+    ],
+    "languages": [
+      "en"
+    ],
+    "maxSentencesPerLine": 2
+  },
+  "sheetPoses": [
+    "idle",
+    "talk",
+    "shrug",
+    "point"
+  ],
+  "portraits": {
+    "dir": "/sprites/npc/rice_seller/portrait/",
+    "faces": {
+      "neutral": "identity, rice measuring box",
+      "grumble": "complaining",
+      "shrug": "palms up (\"blame the tax\")",
+      "sigh": "eyes closed, tired",
+      "soft": "a rare kind smile"
+    }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/rice_seller/",
+    "spriteManifest": "/sprites/npc/rice_seller/manifest.json",
+    "sheetSource": "src/assets/npc_market_sheet.webp (row per person, scripts/process_npc_rows.py)",
+    "portraitSource": "docs/characters/rice_seller/references/ (scripts/process_photo_portraits.py)"
+  }
+}

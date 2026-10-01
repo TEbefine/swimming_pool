@@ -1,0 +1,41 @@
+{
+  "id": "innkeeper",
+  "displayName": "Innkeeper",
+  "role": "Runs the inn (a jumak) at the dock; pays 4 coins a fish before noon, by the back door. A future ally.",
+  "room": "dalbit_market",
+  "status": "sprite-approved",
+  "voice": {
+    "tone": [
+      "warm",
+      "quick",
+      "sly",
+      "motherly"
+    ],
+    "languages": [
+      "en"
+    ],
+    "maxSentencesPerLine": 2
+  },
+  "sheetPoses": [
+    "idle",
+    "talk",
+    "beckon",
+    "count"
+  ],
+  "portraits": {
+    "dir": "/sprites/npc/innkeeper/portrait/",
+    "faces": {
+      "neutral": "identity, ladle",
+      "laugh": "laughing, hand on chest",
+      "secret": "finger to lips, glancing sideways",
+      "pleased": "counting coins",
+      "worried": "hand at her cheek"
+    }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/innkeeper/",
+    "spriteManifest": "/sprites/npc/innkeeper/manifest.json",
+    "sheetSource": "src/assets/npc_market_sheet.webp (row per person, scripts/process_npc_rows.py)",
+    "portraitSource": "docs/characters/innkeeper/references/ (scripts/process_photo_portraits.py)"
+  }
+}

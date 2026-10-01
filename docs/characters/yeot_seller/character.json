@@ -1,0 +1,40 @@
+{
+  "id": "yeot_seller",
+  "displayName": "Yeot Seller",
+  "role": "Street candy seller with big iron scissors; 1 coin a yeot. The cheerful, handsome face of the market.",
+  "room": "dalbit_market",
+  "status": "sprite-approved",
+  "voice": {
+    "tone": [
+      "cheerful",
+      "cheeky",
+      "warm"
+    ],
+    "languages": [
+      "en"
+    ],
+    "maxSentencesPerLine": 2
+  },
+  "sheetPoses": [
+    "idle",
+    "clack_a",
+    "clack_b",
+    "give"
+  ],
+  "portraits": {
+    "dir": "/sprites/npc/yeot_seller/portrait/",
+    "faces": {
+      "neutral": "identity, candy basket",
+      "shout": "calling out, scissors up",
+      "wink": "playful wink, holding a candy",
+      "laugh": "laughing",
+      "thoughtful": "quiet, looking away"
+    }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/yeot_seller/",
+    "spriteManifest": "/sprites/npc/yeot_seller/manifest.json",
+    "sheetSource": "src/assets/npc_market_sheet.webp (row per person, scripts/process_npc_rows.py)",
+    "portraitSource": "docs/characters/yeot_seller/references/ (scripts/process_photo_portraits.py)"
+  }
+}

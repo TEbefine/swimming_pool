@@ -1,0 +1,22 @@
+{
+  "idle": {
+    "width": 78,
+    "height": 85,
+    "path": "/sprites/npc/gu/idle.webp"
+  },
+  "talk": {
+    "width": 78,
+    "height": 85,
+    "path": "/sprites/npc/gu/talk.webp"
+  },
+  "weigh": {
+    "width": 78,
+    "height": 85,
+    "path": "/sprites/npc/gu/weigh.webp"
+  },
+  "kneel": {
+    "width": 78,
+    "height": 85,
+    "path": "/sprites/npc/gu/kneel.webp"
+  }
+}

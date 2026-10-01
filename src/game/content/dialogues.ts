@@ -9,7 +9,10 @@ import { getTodayOmen, OMEN_CLOSING } from './spiritOmens';
 export type PortraitFace = 'neutral' | 'smile' | 'thinking' | 'idea' | 'wai' | 'finger_heart' | 'whistle' | 'explain' | 'confident' | 'shy' | 'grin'
   // Dalbit story faces
   | 'careful' | 'sorrow' | 'wistful' | 'determined' | 'worried' | 'surprised'
-  | 'watchful' | 'restrain' | 'fierce';
+  | 'watchful' | 'restrain' | 'fierce'
+  // Dalbit market people
+  | 'tired' | 'stern' | 'humble' | 'laugh' | 'secret' | 'pleased' | 'grumble' | 'shrug' | 'sigh' | 'soft'
+  | 'shout' | 'wink' | 'thoughtful';
 
 /** A single line of dialog text. */
 export interface DialogLine {

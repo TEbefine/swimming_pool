@@ -2243,6 +2243,16 @@ export class GameEngine {
       this.npcPoseOverride.delete(npcId);
     }
 
+    // Idle loop (standing NPCs): play a few poses now and then, e.g. clack clack
+    const loop = this.room.npcs?.find((n) => n.id === npcId)?.idleLoop;
+    if (loop && loop.poses.length) {
+      const run = loop.poses.length * loop.frameMs;
+      const offset = [...npcId].reduce((h, ch) => h + ch.charCodeAt(0) * 97, 0) % (run + loop.pauseMs); // not all in sync
+      const t = (time + offset) % (run + loop.pauseMs);
+      if (t < run) return loop.poses[Math.floor(t / loop.frameMs)];
+      return 'idle';
+    }
+
     // Blink animation: 150ms blink every ~4s
     if (!this.npcSprites.has(`npc_${npcId}_blink`)) return 'idle';
 

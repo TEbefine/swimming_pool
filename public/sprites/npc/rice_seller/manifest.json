@@ -1,0 +1,22 @@
+{
+  "idle": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/rice_seller/idle.webp"
+  },
+  "talk": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/rice_seller/talk.webp"
+  },
+  "shrug": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/rice_seller/shrug.webp"
+  },
+  "point": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/rice_seller/point.webp"
+  }
+}

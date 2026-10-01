@@ -236,11 +236,23 @@ const YUNSEUL: Speaker = {
   closePose: 'none',
 };
 
-// Market people: grey-box talk spots, no portraits or sprites yet.
-const GU: Speaker = { name: 'Master Gu', accent: '#4A4A58', closePose: 'none' };
-const INNKEEPER: Speaker = { name: 'Innkeeper', accent: '#6A4E86', closePose: 'none' };
-const RICE_SELLER: Speaker = { name: 'Rice seller', accent: '#5E7050', closePose: 'none' };
-const YEOT_SELLER: Speaker = { name: 'Yeot seller', accent: '#B0703A', closePose: 'none' };
+// Market people (standing NPCs in dalbit_market; photo portraits by scripts/process_photo_portraits.py).
+const GU: Speaker = {
+  name: npcName('gu'), portraitDir: '/sprites/npc/gu/portrait',
+  faces: ['neutral', 'smile', 'tired', 'stern', 'humble'], accent: '#3E5A5E', closePose: 'idle',
+};
+const INNKEEPER: Speaker = {
+  name: npcName('innkeeper'), portraitDir: '/sprites/npc/innkeeper/portrait',
+  faces: ['neutral', 'laugh', 'secret', 'pleased', 'worried'], accent: '#8E4F34', closePose: 'idle',
+};
+const RICE_SELLER: Speaker = {
+  name: npcName('rice_seller'), portraitDir: '/sprites/npc/rice_seller/portrait',
+  faces: ['neutral', 'grumble', 'shrug', 'sigh', 'soft'], accent: '#6E6A60', closePose: 'idle',
+};
+const YEOT_SELLER: Speaker = {
+  name: npcName('yeot_seller'), portraitDir: '/sprites/npc/yeot_seller/portrait',
+  faces: ['neutral', 'shout', 'wink', 'laugh', 'thoughtful'], accent: '#9C4A3E', closePose: 'idle',
+};
 
 function script(speaker: Speaker, start: string, nodes: DialogScript['nodes']): DialogScript {
   return {
@@ -439,26 +451,26 @@ function guDialog(s: StoryState): DialogScript {
   return script(GU, 'greet', {
     greet: {
       lines: hasFish
-        ? [{ text: 'Mackerel, two coins each. Same as yesterday. Same as tomorrow.' }]
-        : [{ text: 'No fish, no coins, boy. That is the whole business.' }],
+        ? [{ text: 'Mackerel, two coins each. Same as yesterday. Same as tomorrow.', pose: 'talk', face: 'smile' }]
+        : [{ text: 'No fish, no coins, boy. That is the whole business.', pose: 'talk', face: 'neutral' }],
       choices: [
         ...(hasFish ? [{ label: 'Sell fish', next: 'sell' }] : []),
         { label: 'Why only two?', next: 'why' },
         { label: 'Bye', next: 'bye' },
       ],
     },
-    sell: { lines: [{ text: "Put them on the scale. Let's see what the sea gave you." }] },
+    sell: { lines: [{ text: "Put them on the scale. Let's see what the sea gave you.", pose: 'weigh', face: 'smile' }] },
     why: {
       lines: [
-        { text: 'Two is the price. It was two yesterday. It will be two tomorrow.' },
-        { text: 'Want it to be three? Go and ask the Governor. He holds the seal. I only hold the scale.' },
+        { text: 'Two is the price. It was two yesterday. It will be two tomorrow.', pose: 'talk', face: 'tired' },
+        { text: 'Want it to be three? Go and ask the Governor. He holds the seal. I only hold the scale.', pose: 'idle', face: 'stern' },
       ],
       choices: [
         ...(hasFish ? [{ label: 'Sell fish', next: 'sell' }] : []),
         { label: 'Bye', next: 'bye' },
       ],
     },
-    bye: { lines: [{ text: 'Come back when the basket is full.' }] },
+    bye: { lines: [{ text: 'Come back when the basket is full.', pose: 'idle', face: 'neutral' }] },
   });
 }
 
@@ -467,8 +479,8 @@ function innkeeperDialog(s: StoryState): DialogScript {
     return script(INNKEEPER, 'a', {
       a: {
         lines: [
-          { text: "Fresh mackerel? I'd pay four. But only a few, and only before noon." },
-          { text: "The sun's already past the roof, lad. Come early tomorrow. And come by the back door." },
+          { text: "Fresh mackerel? I'd pay four. But only a few, and only before noon.", pose: 'talk', face: 'laugh' },
+          { text: "The sun's already past the roof, lad. Come early tomorrow. And come by the back door.", pose: 'beckon', face: 'secret' },
         ],
       },
     });
@@ -479,16 +491,16 @@ function innkeeperDialog(s: StoryState): DialogScript {
     greet: {
       lines: [
         left > 0
-          ? { text: `Fresh fish? Four coins. I can take ${left} more today.` }
-          : { text: "That's all I can take today. My cook will kill me." },
+          ? { text: `Fresh fish? Four coins. I can take ${left} more today.`, pose: 'talk', face: 'neutral' }
+          : { text: "That's all I can take today. My cook will kill me.", pose: 'talk', face: 'worried' },
       ],
       choices: [
         ...(left > 0 && hasFish ? [{ label: 'Sell fish', next: 'sell' }] : []),
         { label: 'Bye', next: 'bye' },
       ],
     },
-    sell: { lines: [{ text: "Quick, before Gu's men see you." }] },
-    bye: { lines: [{ text: 'Smart boy. Come again.' }] },
+    sell: { lines: [{ text: "Quick, before Gu's men see you.", pose: 'beckon', face: 'secret' }] },
+    bye: { lines: [{ text: 'Smart boy. Come again.', pose: 'count', face: 'pleased' }] },
   });
 }
 
@@ -498,8 +510,8 @@ function yeotDialog(s: StoryState): DialogScript {
   return script(YEOT_SELLER, 'greet', {
     greet: {
       lines: [
-        { text: '*clack clack* Sweet yeot! Sticks to your teeth, sticks to your heart!' },
-        { text: `${price === 1 ? 'One coin' : `${price} coins`} a piece!` },
+        { text: '*clack clack* Sweet yeot! Sticks to your teeth, sticks to your heart!', pose: 'clack_a', face: 'shout' },
+        { text: `${price === 1 ? 'One coin' : `${price} coins`} a piece!`, pose: 'clack_b', face: 'neutral' },
       ],
       choices: canPay
         ? [
@@ -508,9 +520,9 @@ function yeotDialog(s: StoryState): DialogScript {
           ]
         : [{ label: 'I have no coins', next: 'broke' }],
     },
-    buy: { lines: [{ text: "There you go! Don't let it melt in your pocket." }] },
-    broke: { lines: [{ text: 'No coin, no candy! Sell your fish to Master Gu first.' }] },
-    bye: { lines: [{ text: '*clack clack* Your loss, lad!' }] },
+    buy: { lines: [{ text: "There you go! Don't let it melt in your pocket.", pose: 'give', face: 'wink' }] },
+    broke: { lines: [{ text: 'No coin, no candy! Sell your fish to Master Gu first.', pose: 'talk', face: 'laugh' }] },
+    bye: { lines: [{ text: '*clack clack* Your loss, lad!', pose: 'clack_a', face: 'laugh' }] },
   });
 }
 
@@ -579,15 +591,6 @@ function lookDialog(id: string, s: StoryState): DialogScript | null {
     ]);
   }
   // ---- market ----
-  if (id === 'gu') return guDialog(s);
-  if (id === 'innkeeper') return innkeeperDialog(s);
-  if (id === 'yeot_cart') return yeotDialog(s);
-  if (id === 'rice_seller') {
-    return say(RICE_SELLER, [
-      { text: 'Thirty coins a sack. Up again.' },
-      { text: "Blame the Governor's grain tax, not me." },
-    ]);
-  }
   if (id === 'rice_board') {
     return say(YUNSEUL, [
       { text: 'The rice price board. One small sack: 30 coins.', face: 'neutral' },
@@ -603,6 +606,16 @@ export function storyDialog(targetId: string, action: ContextActionId | undefine
   if (action === 'talk') {
     if (targetId === 'mother') return motherDialog(s);
     if (targetId === 'father') return fatherDialog(s);
+    // the market people
+    if (targetId === 'gu') return guDialog(s);
+    if (targetId === 'innkeeper') return innkeeperDialog(s);
+    if (targetId === 'yeot_seller') return yeotDialog(s);
+    if (targetId === 'rice_seller') {
+      return say(RICE_SELLER, [
+        { text: 'Thirty coins a sack. Up again.', pose: 'talk', face: 'grumble' },
+        { text: "Blame the Governor's grain tax, not me.", pose: 'shrug', face: 'shrug' },
+      ]);
+    }
     return null;
   }
   if (action === 'read') return lookDialog(targetId, s);
@@ -642,7 +655,7 @@ export function onStoryNode(targetId: string, nodeId: string) {
     addLedger('The innkeeper pays four coins a fish, if you come before noon.');
   }
   if (targetId === 'innkeeper' && nodeId === 'sell') pendingPanel = { kind: 'sell', buyer: 'inn' };
-  if (targetId === 'yeot_cart' && nodeId === 'buy') {
+  if (targetId === 'yeot_seller' && nodeId === 'buy') {
     const price = ITEMS.yeot.buy ?? 1;
     if (s.coins >= price) {
       addCoins(-price);

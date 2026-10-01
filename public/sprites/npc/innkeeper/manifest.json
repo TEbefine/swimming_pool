@@ -1,0 +1,22 @@
+{
+  "idle": {
+    "width": 68,
+    "height": 82,
+    "path": "/sprites/npc/innkeeper/idle.webp"
+  },
+  "talk": {
+    "width": 68,
+    "height": 82,
+    "path": "/sprites/npc/innkeeper/talk.webp"
+  },
+  "beckon": {
+    "width": 68,
+    "height": 82,
+    "path": "/sprites/npc/innkeeper/beckon.webp"
+  },
+  "count": {
+    "width": 68,
+    "height": 82,
+    "path": "/sprites/npc/innkeeper/count.webp"
+  }
+}

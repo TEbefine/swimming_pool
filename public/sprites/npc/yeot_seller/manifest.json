@@ -1,0 +1,22 @@
+{
+  "idle": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/yeot_seller/idle.webp"
+  },
+  "clack_a": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/yeot_seller/clack_a.webp"
+  },
+  "clack_b": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/yeot_seller/clack_b.webp"
+  },
+  "give": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/yeot_seller/give.webp"
+  }
+}

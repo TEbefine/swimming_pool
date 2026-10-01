@@ -1,0 +1,41 @@
+{
+  "id": "gu",
+  "displayName": "Master Gu",
+  "role": "Fish broker and money lender at the dock; holds the Governor's dock seal (The Heir of Dalbit). Not a villain: a tired businessman in the chain.",
+  "room": "dalbit_market",
+  "status": "sprite-approved",
+  "voice": {
+    "tone": [
+      "quiet",
+      "polite",
+      "tired",
+      "businesslike"
+    ],
+    "languages": [
+      "en"
+    ],
+    "maxSentencesPerLine": 2
+  },
+  "sheetPoses": [
+    "idle",
+    "talk",
+    "weigh",
+    "kneel"
+  ],
+  "portraits": {
+    "dir": "/sprites/npc/gu/portrait/",
+    "faces": {
+      "neutral": "identity, abacus + seal token",
+      "smile": "salesman smile (\"two coins each\")",
+      "tired": "rubbing his temple (\"I just pass the bowl down\")",
+      "stern": "showing the seal token",
+      "humble": "bowed, hands together (before the Governor)"
+    }
+  },
+  "assets": {
+    "sprites": "/sprites/npc/gu/",
+    "spriteManifest": "/sprites/npc/gu/manifest.json",
+    "sheetSource": "src/assets/npc_market_sheet.webp (row per person, scripts/process_npc_rows.py)",
+    "portraitSource": "docs/characters/gu/references/ (scripts/process_photo_portraits.py)"
+  }
+}
