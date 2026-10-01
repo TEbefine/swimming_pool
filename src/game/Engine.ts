@@ -18,7 +18,13 @@ import { MoversManager } from './world/movers';
 import { renderAmbient } from './world/ambient';
 import { getTonightGenre } from './rooms/club';
 import { FrameBudget, LOW_POWER_QUERY, prefersLowPower } from './frameBudget';
-import { ImageLoader } from './imageLoader';
+import { ImageLoader, releaseSprite, spriteReady, type Sprite } from './imageLoader';
+import { findOpenArea, intersectRect, spanVisible, type ViewRect } from './renderView';
+import {
+  LabelCache, buildExitSign, buildNameTag, buildPromptBubble, buildSpeechBubble,
+  drawExitSign, drawNameTag, drawPromptBubble, drawSpeechBubble, exitSignWidth, nameTagSize, wrapBubbleText,
+} from './labelCache';
+import { quality, ThrottleWatch, TIER_LABEL } from './quality';
 
 /** Hash string into 32-bit unsigned integer (FNV-1a). */
 function hashString(str: string): number {
@@ -60,6 +66,11 @@ const NPC_WALK_CYCLE = ['walk1', 'walk2'] as const;
 const NPC_STRIDE_PX = 7;
 /** Body lift in the middle of each step at 1× (px) — the little up-down that makes it read as walking. */
 const NPC_STEP_BOB_PX = 1.5;
+/** With a crowd on screen, only this many name tags are drawn (closest first). Speech bubbles always show. */
+const MAX_NAME_TAGS = 12;
+/** The painted world is always 1024 × 576 art pixels; the canvas may be smaller (phone camera). */
+const WORLD_W = 1024;
+const WORLD_H = 576;
 /** Story worlds set long ago (view.past): nothing modern in the sky. */
 const PAST_SKIP_MOVERS: ReadonlySet<string> = new Set(['plane']);
 
@@ -262,12 +273,12 @@ export class GameEngine {
   private room: RoomDefinition;
 
   // Assets
-  private bgImage: HTMLImageElement | null = null;
-  private sprites: Map<string, HTMLImageElement> = new Map();
-  private elementImages: Map<string, HTMLImageElement> = new Map();
-  private npcSprites: Map<string, HTMLImageElement> = new Map();
-  private moverSprites: Map<string, HTMLImageElement> = new Map();
-  private cityImage: HTMLImageElement | null = null;
+  private bgImage: Sprite | null = null;
+  private sprites: Map<string, Sprite> = new Map();
+  private elementImages: Map<string, Sprite> = new Map();
+  private npcSprites: Map<string, Sprite> = new Map();
+  private moverSprites: Map<string, Sprite> = new Map();
+  private cityImage: Sprite | null = null;
   public isAssetsLoaded: boolean = false;
   private assetAbort = new AbortController();
   private imageLoader = new ImageLoader(6);
@@ -310,7 +321,7 @@ export class GameEngine {
   // Animation timing shared by local + remote players: when did each player's pose start?
   private poseStart: Map<string, { action: string; t: number }> = new Map();
   // Head column of each sprite, so every pose lines up on the head (no wobble between frames)
-  private headAnchor: WeakMap<HTMLImageElement, number> = new WeakMap();
+  private headAnchor: WeakMap<Sprite, number> = new WeakMap();
   private jumpUntil: number = 0;
 
   // Remote Players
@@ -374,7 +385,29 @@ export class GameEngine {
   private lowPower = prefersLowPower();
   private powerQuery = window.matchMedia(LOW_POWER_QUERY);
   private lastActiveTime = 0;
-  private lastCameraPosition = '';
+  /** Last real input (key, tap, D-pad). Long quiet stretches drop to the deep-idle frame rate. */
+  private lastInputTime = 0;
+  private wakeTimer: number | null = null;
+  private lastRenderAt = 0;
+  private throttle = new ThrottleWatch();
+  private perfHud: HTMLDivElement | null = null;
+  private perfWorkMs = 0;
+  private perfFrames = 0;
+  private perfSince = 0;
+  private unsubscribeQuality: (() => void) | null = null;
+
+  // What the player can actually see (phones crop the canvas with object-fit: cover)
+  private view: ViewRect = { x: 0, y: 0, w: 1024, h: 576 };
+  private cssW = 0;
+  private cssH = 0;
+  private resizeObserver: ResizeObserver | null = null;
+  /** See-through part of the room painting (windows / open sky); null = solid painting */
+  private openArea: ViewRect | null = null;
+  private labels = new LabelCache(320);
+  private promptLabel: ReturnType<typeof buildPromptBubble> | null = null;
+  /** Night lights pre-drawn once per minute instead of 4 gradients every frame */
+  private lightsCanvas: HTMLCanvasElement | null = null;
+  private lightsKey = '';
   private chatTimeout: number | null = null;
   private running: boolean = false;
 
@@ -425,6 +458,69 @@ export class GameEngine {
     this.network = new NetworkManager(this.localPlayer.id);
     this.setupNetworkHandlers();
     this.setupInputListeners();
+    this.observeCanvasSize();
+    this.unsubscribeQuality = quality.subscribe(() => {
+      // A different tier changes what a frame costs: re-learn "normal" before judging again.
+      this.throttle.reset(performance.now());
+      this.lastActiveTime = performance.now();
+    });
+    if (typeof location !== 'undefined' && /[?&]perf=1/.test(location.search)) this.createPerfHud();
+  }
+
+  /** Cache the canvas's on-screen size (reading clientWidth every frame would force layout). */
+  private observeCanvasSize() {
+    this.resizeObserver?.disconnect();
+    const update = () => {
+      this.cssW = this.canvas.clientWidth;
+      this.cssH = this.canvas.clientHeight;
+    };
+    update();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(update);
+      this.resizeObserver.observe(this.canvas);
+    }
+  }
+
+  private markInput = () => {
+    const now = performance.now();
+    this.lastInputTime = now;
+    this.lastActiveTime = now;
+    // Wake straight away from a slow idle frame instead of waiting for the timer.
+    if (this.wakeTimer !== null && this.running && !document.hidden) {
+      clearTimeout(this.wakeTimer);
+      this.wakeTimer = null;
+      cancelAnimationFrame(this.animId);
+      this.animId = requestAnimationFrame(this.gameLoop);
+    }
+  };
+
+  private createPerfHud() {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;left:4px;top:4px;z-index:9999;pointer-events:none;' +
+      'font:11px/1.35 ui-monospace,monospace;color:#d1fae5;background:rgba(2,6,23,.78);' +
+      'padding:3px 6px;border-radius:4px;white-space:pre';
+    el.textContent = 'perf…';
+    document.body.appendChild(el);
+    this.perfHud = el;
+  }
+
+  private updatePerfHud(now: number) {
+    if (!this.perfHud) return;
+    if (this.perfSince === 0) this.perfSince = now;
+    if (now - this.perfSince < 1000) return;
+    const secs = (now - this.perfSince) / 1000;
+    const fps = this.perfFrames / secs;
+    const work = this.perfWorkMs / Math.max(1, this.perfFrames);
+    const q = quality.getSnapshot();
+    const seen = Math.round((this.view.w * this.view.h) / (WORLD_W * WORLD_H) * 100);
+    const remote = this.remotePlayers.size;
+    this.perfHud.textContent =
+      `${fps.toFixed(0)} fps · ${work.toFixed(1)} ms/frame · CPU ${(work * fps / 10).toFixed(1)}%\n` +
+      `${TIER_LABEL[q.mode]}${q.mode === 'auto' ? ' → ' + TIER_LABEL[q.tier] : ''}${q.stepped ? ' (cooled down)' : ''}` +
+      ` · drawn ${seen}% · players ${remote + 1} · labels ${this.labels.size}`;
+    this.perfSince = now;
+    this.perfFrames = 0;
+    this.perfWorkMs = 0;
   }
 
   // =========================================================================
@@ -694,6 +790,7 @@ export class GameEngine {
       if (this.sprites.has(key)) return;
       const image = await this.imageLoader.load(info.path, signal);
       if (image && !signal.aborted) this.sprites.set(key, image);
+      else releaseSprite(image);
     })).then(() => {});
     this.waterLoads.set(color, pending);
     return pending;
@@ -708,24 +805,34 @@ export class GameEngine {
     const room = this.room;
     // Room-specific images must not grow with the number of places visited.
     // Keep the tiny shared land set; browser HTTP caching handles revisits.
-    for (const key of this.sprites.keys()) {
-      if (!key.startsWith('land_') || /^land_\d/.test(key)) this.sprites.delete(key);
+    for (const [key, img] of this.sprites) {
+      if (!key.startsWith('land_') || /^land_\d/.test(key)) { releaseSprite(img); this.sprites.delete(key); }
     }
     this.waterLoads.clear();
+    this.elementImages.forEach(releaseSprite);
     this.elementImages.clear();
+    this.npcSprites.forEach(releaseSprite);
     this.npcSprites.clear();
+    releaseSprite(this.bgImage);
     this.bgImage = null;
-    const loadInto = async (key: string, src: string, target: Map<string, HTMLImageElement>) => {
+    this.openArea = null;
+    this.lightsKey = '';
+    this.lastRenderAt = 0;
+    this.throttle.reset(performance.now());
+    const loadInto = async (key: string, src: string, target: Map<string, Sprite>) => {
       if (target.has(key)) return;
       const img = await this.imageLoader.load(src, signal);
       if (img && !signal.aborted) target.set(key, img);
+      else releaseSprite(img);
     };
     const loadSet = (prefix: string, entries: Record<string, { path: string }>, target = this.sprites) =>
       Promise.all(Object.entries(entries).map(([action, info]) => loadInto(prefix + action, info.path, target)));
 
     const jobs: Promise<unknown>[] = [];
     jobs.push(this.imageLoader.load(room.backgroundImage, signal).then((img) => {
-      if (!signal.aborted) this.bgImage = img;
+      if (signal.aborted) { releaseSprite(img); return; }
+      this.bgImage = img;
+      this.measureOpenArea(img);
     }));
     jobs.push((async () => {
       // The shared manifest contains both land and water dictionaries.
@@ -777,18 +884,21 @@ export class GameEngine {
       if (room.view.city !== false && !this.cityImage) {
         jobs.push(this.imageLoader.load(CITY.image, signal).then((img) => {
           if (!signal.aborted) this.cityImage = img;
+          else releaseSprite(img);
         }));
       }
       const movers = ['bird_up', 'bird_down', 'birds_flock', 'cloud_1', 'cloud_2', 'cloud_3'];
       if (!room.view.past) movers.push('plane');
       if (room.view.city !== false) movers.push('train_day', 'train_night');
       const paths = new Set(movers.map((name) => `/sprites/world/${name}.webp`));
-      for (const path of this.moverSprites.keys()) if (!paths.has(path)) this.moverSprites.delete(path);
+      for (const [path, img] of this.moverSprites) if (!paths.has(path)) { releaseSprite(img); this.moverSprites.delete(path); }
       for (const path of paths) jobs.push(loadInto(path, path, this.moverSprites));
     } else {
+      this.moverSprites.forEach(releaseSprite);
       this.moverSprites.clear();
     }
     if (!room.view || room.view.city === false) {
+      releaseSprite(this.cityImage);
       this.cityImage = null;
       this.cityCanvas.width = this.cityCanvas.height = 0;
     }
@@ -814,6 +924,9 @@ export class GameEngine {
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     this.powerQuery.addEventListener('change', this.updatePowerPreference);
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
+    // Any tap or key anywhere (Game Boy buttons, dialogs, chat) counts as the player being here.
+    window.addEventListener('pointerdown', this.markInput, { passive: true, capture: true });
+    window.addEventListener('keydown', this.markInput, { passive: true, capture: true });
   }
 
   /** Release every held key — stops "walking forever" after alt-tab / tab switch. */
@@ -830,13 +943,16 @@ export class GameEngine {
   private handleVisibilityChange = () => {
     this.clearKeys();
     cancelAnimationFrame(this.animId);
+    if (this.wakeTimer !== null) clearTimeout(this.wakeTimer);
+    this.wakeTimer = null;
     if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
     this.heartbeatId = null;
     if (document.hidden || !this.running) return;
     this.startHeartbeat();
     // Never replay time spent in the background or create multiple frame loops.
     this.frameBudget.reset(performance.now());
-    this.lastActiveTime = performance.now();
+    this.throttle.reset(performance.now());
+    this.lastActiveTime = this.lastInputTime = performance.now();
     this.broadcastState();
     this.animId = requestAnimationFrame(this.gameLoop);
   };
@@ -846,12 +962,14 @@ export class GameEngine {
     this.destroyed = true;
     this.running = false;
     this.assetAbort.abort();
-    this.sprites.clear();
-    this.elementImages.clear();
-    this.npcSprites.clear();
-    this.moverSprites.clear();
+    for (const map of [this.sprites, this.elementImages, this.npcSprites, this.moverSprites]) {
+      map.forEach(releaseSprite);
+      map.clear();
+    }
     this.manifests.clear();
     this.waterLoads.clear();
+    releaseSprite(this.bgImage);
+    releaseSprite(this.cityImage);
     this.bgImage = this.cityImage = null;
     this.skyCanvas.width = this.skyCanvas.height = 0;
     this.cityCanvas.width = this.cityCanvas.height = 0;
@@ -868,6 +986,18 @@ export class GameEngine {
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.powerQuery.removeEventListener('change', this.updatePowerPreference);
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
+    window.removeEventListener('pointerdown', this.markInput, { capture: true });
+    window.removeEventListener('keydown', this.markInput, { capture: true });
+    if (this.wakeTimer !== null) clearTimeout(this.wakeTimer);
+    this.wakeTimer = null;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    this.unsubscribeQuality?.();
+    this.unsubscribeQuality = null;
+    this.perfHud?.remove();
+    this.perfHud = null;
+    this.labels.clear();
+    this.lightsCanvas = null;
     if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
     if (this.fidgetTimeout !== null) clearTimeout(this.fidgetTimeout);
     this.network.sendPlayerLeave(this.localPlayer.id);
@@ -918,8 +1048,9 @@ export class GameEngine {
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.canvas.width / rect.width;
     const scaleY = this.canvas.height / rect.height;
-    const clickX = (e.clientX - rect.left) * scaleX;
-    const clickY = (e.clientY - rect.top) * scaleY;
+    // The phone canvas is a camera window onto the world: add its offset
+    const clickX = (e.clientX - rect.left) * scaleX + this.view.x;
+    const clickY = (e.clientY - rect.top) * scaleY + this.view.y;
 
     this.clickTarget = { x: clickX, y: clickY };
     this.createClickRipple(clickX, clickY);
@@ -947,29 +1078,34 @@ export class GameEngine {
     if (this.canvas === newCanvas) return;
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
     this.canvas = newCanvas;
-    this.lastCameraPosition = '';
     this.ctx = newCanvas.getContext('2d')!;
     this.canvas.addEventListener('pointerdown', this.handlePointerDown);
-    if (this.cameraFollow && this.canvas) {
-      this.canvas.style.objectFit = 'cover';
-      this.canvas.style.objectPosition = `${this.currentCamPctX.toFixed(2)}% center`;
+    this.observeCanvasSize();
+    this.applyCanvasMode();
+  }
+
+  /** Phone (camera follow): the canvas is only as big as what the screen shows, and the camera
+   *  moves by drawing the world shifted. Before, a full 1024 × 576 canvas was drawn every frame
+   *  and CSS cropped away more than half of it. Desktop: the whole world, letterboxed. */
+  private applyCanvasMode() {
+    if (!this.canvas) return;
+    if (this.cameraFollow) {
+      this.canvas.style.objectFit = 'fill';
+      this.canvas.style.objectPosition = 'center center';
+    } else {
+      if (this.canvas.width !== WORLD_W) this.canvas.width = WORLD_W;
+      if (this.canvas.height !== WORLD_H) this.canvas.height = WORLD_H;
+      this.canvas.style.objectFit = 'contain';
+      this.canvas.style.objectPosition = 'center center';
+      this.view = { x: 0, y: 0, w: WORLD_W, h: WORLD_H };
     }
   }
 
   public setCameraFollow(enabled: boolean) {
     this.cameraFollow = enabled;
-    this.lastCameraPosition = '';
-    if (this.canvas) {
-      if (enabled) {
-        this.canvas.style.objectFit = 'cover';
-        const targetPctX = Math.max(0, Math.min(100, (this.localPlayer.x / this.canvas.width) * 100));
-        this.currentCamPctX = targetPctX;
-        this.canvas.style.objectPosition = `${targetPctX.toFixed(2)}% center`;
-      } else {
-        this.canvas.style.objectFit = 'contain';
-        this.canvas.style.objectPosition = 'center center';
-      }
-    }
+    if (enabled) this.currentCamPctX = Math.max(0, Math.min(100, (this.localPlayer.x / WORLD_W) * 100));
+    this.applyCanvasMode();
+    if (enabled) this.updateCameraAndView(0);
   }
 
   // =========================================================================
@@ -1396,7 +1532,8 @@ export class GameEngine {
     if (this.running || this.destroyed) return;
     this.running = true;
     this.frameBudget.reset(performance.now());
-    this.lastActiveTime = performance.now();
+    this.throttle.reset(performance.now());
+    this.lastActiveTime = this.lastInputTime = performance.now();
     if (!document.hidden) this.animId = requestAnimationFrame(this.gameLoop);
     if (!document.hidden) this.startHeartbeat();
   }
@@ -1409,31 +1546,89 @@ export class GameEngine {
   }
 
   private targetFps(time: number): number {
-    const movingRemote = [...this.remotePlayers.values()].some((p) =>
-      p.data.roomId === this.room.roomId &&
-      (Math.abs(p.data.x - p.targetX) + Math.abs(p.data.y - p.targetY) > 0.5));
+    // A crowd is always moving somewhere: only players the camera can see keep the frame rate up.
+    let movingRemote = false;
+    for (const p of this.remotePlayers.values()) {
+      if (p.data.roomId !== this.room.roomId) continue;
+      if (Math.abs(p.data.x - p.targetX) + Math.abs(p.data.y - p.targetY) <= 0.5) continue;
+      if (spanVisible(this.view, p.data.x, 40)) { movingRemote = true; break; }
+    }
     const active = this.isMoving || this.clickTarget !== null ||
       this.virtualDpad.dx !== 0 || this.virtualDpad.dy !== 0 ||
       Object.keys(this.keys).some((code) => this.keys[code] && MOVE_CODES.has(code)) ||
       this.fadeDirection !== 'none' || this.particles.length > 0 || movingRemote ||
       this.emoteTimeout !== null || this.isAnimationActive?.();
     if (active) this.lastActiveTime = time;
-    const idle = time - this.lastActiveTime > 4000;
-    return this.lowPower ? (idle ? 15 : 30) : (idle ? 30 : 60);
+    const budget = quality.budget;
+    // Fishing and walking keep the full active rate; quiet scenes slow down in two steps.
+    if (time - this.lastActiveTime <= 4000) return budget.active;
+    if (time - this.lastInputTime > 45000) return budget.deep;
+    return budget.idle;
+  }
+
+  /** Ask for the next frame. Below the display rate, sleep on a timer instead of waking the
+   *  page on every vsync just to skip it (60–120 wake-ups/sec → 10–30). */
+  private scheduleNext(fps: number) {
+    if (!this.running || document.hidden || this.destroyed) return;
+    const wait = this.frameBudget.due - performance.now() - 4;
+    if (fps < 50 && wait > 8) {
+      this.wakeTimer = window.setTimeout(() => {
+        this.wakeTimer = null;
+        if (this.running && !document.hidden && !this.destroyed) this.animId = requestAnimationFrame(this.gameLoop);
+      }, wait);
+    } else {
+      this.animId = requestAnimationFrame(this.gameLoop);
+    }
+  }
+
+  /** Move the phone camera and work out which part of the world is on screen this frame. */
+  private updateCameraAndView(dt: number) {
+    if (!this.cameraFollow) {
+      this.view = { x: 0, y: 0, w: WORLD_W, h: WORLD_H };
+      return;
+    }
+    const focusX = this.cameraFocusX ?? this.localPlayer.x;
+    const targetPctX = Math.max(0, Math.min(100, (focusX / WORLD_W) * 100));
+    const smooth = dt > 0 ? 1 - Math.pow(1 - (this.cameraFocusX !== null ? 0.06 : 0.15), dt * 60) : 1;
+    this.currentCamPctX += (targetPctX - this.currentCamPctX) * smooth;
+
+    // Size the canvas to the screen box's shape (cover-fit of the world), in art pixels.
+    const cssW = this.cssW || this.canvas.clientWidth;
+    const cssH = this.cssH || this.canvas.clientHeight;
+    let visW = WORLD_W;
+    let visH = WORLD_H;
+    if (cssW > 0 && cssH > 0) {
+      const scale = Math.max(cssW / WORLD_W, cssH / WORLD_H);
+      visW = Math.max(16, Math.min(WORLD_W, Math.round(cssW / scale)));
+      visH = Math.max(16, Math.min(WORLD_H, Math.round(cssH / scale)));
+    }
+    if (this.canvas.width !== visW) this.canvas.width = visW;
+    if (this.canvas.height !== visH) this.canvas.height = visH;
+    // Whole art pixels only, so the pixel art never shimmers while the camera glides.
+    const x = Math.round((WORLD_W - visW) * this.currentCamPctX / 100);
+    const y = Math.round((WORLD_H - visH) / 2);
+    this.view = { x, y, w: visW, h: visH };
   }
 
   private gameLoop = (time: number) => {
     if (!this.running || document.hidden) return;
-    this.animId = requestAnimationFrame(this.gameLoop);
-    const dt = this.frameBudget.advance(time, this.targetFps(time));
-    if (dt === null || !this.isAssetsLoaded) return;
+    const fps = this.targetFps(time);
+    const dt = this.frameBudget.advance(time, fps);
+    if (dt === null || !this.isAssetsLoaded) {
+      this.scheduleNext(fps);
+      return;
+    }
+    const workStart = performance.now();
     // Smaller physics steps preserve collisions at lower render rates.
     let remaining = dt;
     while (remaining > 0) {
       const step = Math.min(remaining, 1 / 60);
       this.update(step);
       remaining -= step;
-      if (!this.isAssetsLoaded) return;
+      if (!this.isAssetsLoaded) {
+        this.scheduleNext(fps);
+        return;
+      }
     }
     this.updateContextAction();
     if (this.showDebug) {
@@ -1444,19 +1639,22 @@ export class GameEngine {
         this.debugSince = time;
       }
     }
+    this.updateCameraAndView(dt);
     this.render();
 
-    if (this.cameraFollow) {
-      const focusX = this.cameraFocusX ?? this.localPlayer.x;
-      const targetPctX = Math.max(0, Math.min(100, (focusX / this.canvas.width) * 100));
-      const smooth = 1 - Math.pow(1 - (this.cameraFocusX !== null ? 0.06 : 0.15), dt * 60);
-      this.currentCamPctX += (targetPctX - this.currentCamPctX) * smooth;
-      const position = `${this.currentCamPctX.toFixed(2)}% center`;
-      if (position !== this.lastCameraPosition) {
-        this.canvas.style.objectPosition = position;
-        this.lastCameraPosition = position;
-      }
+    const workEnd = performance.now();
+    const work = workEnd - workStart;
+    const interval = this.lastRenderAt ? time - this.lastRenderAt : 1000 / fps;
+    this.lastRenderAt = time;
+    if (this.throttle.sample(workEnd, work, interval, 1000 / fps) && quality.stepDown()) {
+      console.info('[perf] device is struggling, stepping quality down to', quality.tier);
     }
+    if (this.perfHud) {
+      this.perfFrames++;
+      this.perfWorkMs += work;
+      this.updatePerfHud(workEnd);
+    }
+    this.scheduleNext(fps);
   };
 
   private update(dt: number) {
@@ -1485,9 +1683,9 @@ export class GameEngine {
     const sky = skyAt(hour);
 
     // 1. Sky Canvas (full canvas: 1024x576)
-    if (this.skyCanvas.width !== this.canvas.width || this.skyCanvas.height !== this.canvas.height) {
-      this.skyCanvas.width = this.canvas.width;
-      this.skyCanvas.height = this.canvas.height;
+    if (this.skyCanvas.width !== WORLD_W || this.skyCanvas.height !== WORLD_H) {
+      this.skyCanvas.width = WORLD_W;
+      this.skyCanvas.height = WORLD_H;
     }
     const skyCtx = this.skyCanvas.getContext('2d')!;
     const grad = skyCtx.createLinearGradient(0, 0, 0, this.room.view?.skyBottomY ?? this.skyCanvas.height);
@@ -1812,7 +2010,7 @@ export class GameEngine {
   /** Column of the head's center in a sprite (average of opaque pixels in the head band).
    *  AI-drawn frames put the head at slightly different x positions; anchoring on it
    *  stops the character sliding back and forth between walk frames. Cached per image. */
-  private getHeadAnchor(img: HTMLImageElement): number {
+  private getHeadAnchor(img: Sprite): number {
     const cached = this.headAnchor.get(img);
     if (cached !== undefined) return cached;
     let ax = Math.floor(img.width / 2);
@@ -1821,7 +2019,7 @@ export class GameEngine {
       c.width = img.width;
       c.height = img.height;
       const g = c.getContext('2d', { willReadFrequently: true });
-      if (g && img.complete && img.width > 0) {
+      if (g && spriteReady(img)) {
         g.drawImage(img, 0, 0);
         const y0 = Math.floor(img.height * 0.08);
         const y1 = Math.floor(img.height * 0.3);
@@ -1839,7 +2037,7 @@ export class GameEngine {
     } catch {
       // Canvas read blocked — fall back to the image center
     }
-    if (img.complete) this.headAnchor.set(img, ax);
+    if (spriteReady(img)) this.headAnchor.set(img, ax);
     return ax;
   }
 
@@ -1945,21 +2143,16 @@ export class GameEngine {
       const alpha = Math.min(1, (140 - d) / 60);
       const left = cx < this.room.width / 2;
       const label = left ? `< ${target.name}` : `${target.name} >`;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.font = '12px "Sabai Pixel", monospace';
-      const w = Math.ceil(ctx.measureText(label).width) + 12;
+      const sign = this.labels.get(`exit:${label}`, () => buildExitSign(this.labels, label));
+      const w = sign ? sign.w : exitSignWidth(ctx, label);
       const bob = Math.round(Math.sin(time / 260) * 2) * (left ? -1 : 1);
       // pinned to the exit's own edge, above the player's name tag (the bottom of the screen is under the emote bar)
       const x = Math.round(Math.max(4, Math.min(this.room.width - w - 4, left ? ex + ew + 4 + bob : ex - w - 4 + bob)));
       const y = Math.round(Math.max(60, Math.min(cy, py) - 134));
-      ctx.fillStyle = '#4A2E1A';
-      ctx.fillRect(x - 2, y - 2, w + 4, 22);
-      ctx.fillStyle = '#FFF6E5';
-      ctx.fillRect(x, y, w, 18);
-      ctx.fillStyle = '#4A2E1A';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, x + 6, y + 10);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (sign) ctx.drawImage(sign.canvas, x - sign.ax, y - sign.ay);
+      else drawExitSign(ctx, label, x, y, w);
       ctx.restore();
     }
   }
@@ -2081,50 +2274,131 @@ export class GameEngine {
   // RENDERING
   // =========================================================================
 
+  /** Draw a full-canvas image, but only the part that is on screen. */
+  private drawCropped(img: CanvasImageSource & { width: number; height: number }, r: ViewRect) {
+    const kx = img.width / WORLD_W;
+    const ky = img.height / WORLD_H;
+    this.ctx.drawImage(img, r.x * kx, r.y * ky, r.w * kx, r.h * ky, r.x, r.y, r.w, r.h);
+  }
+
+  /** Room-light glows, painted once per minute into a small bitmap (was 3–7 gradients per frame). */
+  private getLightsCanvas(night: number): { canvas: HTMLCanvasElement; x: number; y: number } | null {
+    const lights = ROOM_LIGHTS[this.room.roomId];
+    if (!lights || lights.length === 0) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const l of lights) {
+      x0 = Math.min(x0, l.x - l.radius); y0 = Math.min(y0, l.y - l.radius);
+      x1 = Math.max(x1, l.x + l.radius); y1 = Math.max(y1, l.y + l.radius);
+    }
+    x0 = Math.floor(x0); y0 = Math.floor(y0);
+    const key = `${this.room.roomId}:${night.toFixed(2)}`;
+    if (this.lightsKey !== key || !this.lightsCanvas) {
+      const c = this.lightsCanvas ?? document.createElement('canvas');
+      c.width = Math.ceil(x1 - x0);
+      c.height = Math.ceil(y1 - y0);
+      const g = c.getContext('2d')!;
+      g.clearRect(0, 0, c.width, c.height);
+      g.globalCompositeOperation = 'lighter';
+      for (const light of lights) {
+        const lx = light.x - x0;
+        const ly = light.y - y0;
+        const grad = g.createRadialGradient(lx, ly, 0, lx, ly, light.radius);
+        const [r, gr, b] = light.color;
+        grad.addColorStop(0, `rgba(${r}, ${gr}, ${b}, ${0.35 * night})`);
+        grad.addColorStop(1, `rgba(${r}, ${gr}, ${b}, 0)`);
+        g.fillStyle = grad;
+        g.beginPath();
+        g.arc(lx, ly, light.radius, 0, Math.PI * 2);
+        g.fill();
+      }
+      this.lightsCanvas = c;
+      this.lightsKey = key;
+    }
+    return { canvas: this.lightsCanvas, x: x0, y: y0 };
+  }
+
+  /** Find the see-through part of the room painting once, when it loads. */
+  private measureOpenArea(img: Sprite | null) {
+    this.openArea = null;
+    if (!img || !this.room.view) return;
+    try {
+      const w = Math.min(img.width, 1024);
+      const h = Math.min(img.height, 576);
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const g = c.getContext('2d', { willReadFrequently: true })!;
+      g.drawImage(img, 0, 0, w, h);
+      const area = findOpenArea(g.getImageData(0, 0, w, h).data, w, h);
+      const kx = WORLD_W / w;
+      const ky = WORLD_H / h;
+      this.openArea = area
+        ? { x: Math.floor(area.x * kx), y: Math.floor(area.y * ky), w: Math.ceil(area.w * kx), h: Math.ceil(area.h * ky) }
+        : { x: 0, y: 0, w: 0, h: 0 };
+      c.width = c.height = 0;
+    } catch {
+      this.openArea = null; // unreadable: draw the whole sky as before
+    }
+  }
+
   private render() {
-    this.ctx.imageSmoothingEnabled = false; // Keep pixel art crisp
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const ctx = this.ctx;
+    const v = this.view;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false; // Keep pixel art crisp
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.save();
+    // Everything below draws in world coordinates; the canvas shows the camera window `v`.
+    ctx.translate(-v.x, -v.y);
 
     const hasView = !!this.room.view;
     const hour = bangkokHour(undefined, this.room.view?.fixedHour);
     const sky = skyAt(hour);
+    const time = performance.now();
+    const density = quality.budget.ambient;
 
     if (hasView) {
       this.updateSkyAndCityCache(hour);
+      // The sky, the city and everything flying only show through the painting's windows.
+      const skyRect = this.bgImage
+        ? (this.openArea ? intersectRect(this.openArea, v) : v)
+        : v;
+      if (skyRect) {
+        ctx.save();
+        if (skyRect !== v) {
+          ctx.beginPath();
+          ctx.rect(skyRect.x, skyRect.y, skyRect.w, skyRect.h);
+          ctx.clip();
+        }
+        // L0. Sky gradient
+        this.drawCropped(this.skyCanvas, skyRect);
+        renderAmbient(ctx, this.room.roomId, 'sky', time, sky.night, density);
 
-      // L0. Sky gradient (full canvas)
-      this.ctx.drawImage(this.skyCanvas, 0, 0);
-      renderAmbient(this.ctx, this.room.roomId, 'sky', performance.now(), sky.night);
+        // L0.5. Far movers (clouds, birds, plane)
+        this.movers.render(ctx, 'far', this.moverSprites, sky.night, this.room.view!.past ? PAST_SKIP_MOVERS : undefined);
 
-      // L0.5. Far movers (clouds, birds, plane)
-      this.movers.render(this.ctx, 'far', this.moverSprites, sky.night, this.room.view!.past ? PAST_SKIP_MOVERS : undefined);
-
-      // L0.7. City panorama at (cityOffsetX, CITY.y), multiplied by skyAt().cityTint
-      // (rooms with view.city === false — painted postcard scenes — have no city and no train)
-      if (this.room.view!.city !== false) {
-        const offsetX = this.room.view!.cityOffsetX;
-        this.ctx.drawImage(this.cityCanvas, offsetX, CITY.y);
-
-        // L0.8. Near movers (train)
-        this.movers.render(this.ctx, 'near', this.moverSprites, sky.night);
+        // L0.7. City panorama at (cityOffsetX, CITY.y), multiplied by skyAt().cityTint
+        // (rooms with view.city === false — painted postcard scenes — have no city and no train)
+        if (this.room.view!.city !== false) {
+          ctx.drawImage(this.cityCanvas, this.room.view!.cityOffsetX, CITY.y);
+          // L0.8. Near movers (train)
+          this.movers.render(ctx, 'near', this.moverSprites, sky.night);
+        }
+        ctx.restore();
       }
 
       // L1. Room background (transparent windows)
-      if (this.bgImage) {
-        this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
-      }
-    } else {
+      if (this.bgImage) this.drawCropped(this.bgImage, v);
+    } else if (this.bgImage) {
       // 1. Background (poolside / standard)
-      if (this.bgImage) {
-        this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
-      } else {
-        this.ctx.fillStyle = '#4079d0';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      }
+      this.drawCropped(this.bgImage, v);
+    } else {
+      ctx.fillStyle = '#4079d0';
+      ctx.fillRect(v.x, v.y, v.w, v.h);
     }
 
     // 1b. Ambient water glints on the painted background
-    renderAmbient(this.ctx, this.room.roomId, 'back', performance.now(), sky.night);
+    renderAmbient(ctx, this.room.roomId, 'back', time, sky.night, density);
 
     // 2. Click destination marker
     if (this.clickTarget) {
@@ -2141,7 +2415,7 @@ export class GameEngine {
     // 3b. Club genre banner (wall layer, stage panel rect x 141–516, y 42–219)
     if (this.room.roomId === 'club') {
       const bannerImg = this.elementImages.get('club_stage_banner');
-      if (bannerImg && bannerImg.complete && bannerImg.width > 0) {
+      if (spriteReady(bannerImg) && spanVisible(v, 328, 190)) {
         const boxX = 141;
         const boxY = 42;
         const boxW = 516 - 141; // 375
@@ -2151,7 +2425,7 @@ export class GameEngine {
         const dh = Math.round(bannerImg.height * scale);
         const dx = Math.round(boxX + (boxW - dw) / 2);
         const dy = Math.round(boxY + (boxH - dh) / 2);
-        this.ctx.drawImage(bannerImg, dx, dy, dw, dh);
+        ctx.drawImage(bannerImg, dx, dy, dw, dh);
       }
     }
 
@@ -2165,8 +2439,7 @@ export class GameEngine {
     // 5. Particles (splash / ripples)
     this.renderParticles();
 
-    // 6. Depth-sorted list: object elements + NPCs + players
-    const time = performance.now();
+    // 6. Depth-sorted list: object elements + NPCs + players (off-screen ones are skipped)
     const drawFns: { y: number; draw: () => void }[] = [];
     const overlayFns: (() => void)[] = [];
 
@@ -2174,6 +2447,8 @@ export class GameEngine {
     if (this.room.elements) {
       for (const el of this.room.elements) {
         if (el.layer === 'object') {
+          const img = this.elementImages.get(el.asset);
+          if (img && !spanVisible(v, el.x, img.width / 2 + 2)) continue;
           const capturedEl = el;
           drawFns.push({ y: el.y, draw: () => this.renderElement(capturedEl) });
         }
@@ -2184,6 +2459,7 @@ export class GameEngine {
     if (this.room.npcs) {
       for (const npc of this.room.npcs) {
         const state = this.getNpcRenderState(npc, time);
+        if (!spanVisible(v, state.x, 110)) continue;
         const capturedNpc = npc;
         const capturedState = state;
         drawFns.push({
@@ -2200,10 +2476,12 @@ export class GameEngine {
     // 6c. All players (local + remote in same room)
     const allPlayers: PlayerData[] = [this.localPlayer];
     for (const r of this.remotePlayers.values()) {
-      if ((r.data.roomId || 'poolside') === this.room.roomId) {
+      if ((r.data.roomId || 'poolside') === this.room.roomId && spanVisible(v, r.data.x, 110)) {
         allPlayers.push(r.data);
       }
     }
+    // A packed room: everyone is still drawn, but only the nearest name tags (they're the clutter)
+    const tagBudget = allPlayers.length > MAX_NAME_TAGS ? this.nearestPlayerIds(allPlayers, MAX_NAME_TAGS) : null;
     for (const player of allPlayers) {
       const sprite = this.getPlayerSprite(player);
       const h = sprite?.height ?? 82;
@@ -2226,12 +2504,13 @@ export class GameEngine {
       const capturedDrawY = drawY;
       const capturedH = h;
       const capturedAir = air;
+      const showTag = !tagBudget || tagBudget.has(player.id);
       drawFns.push({
         y: this.sortYFor(player),
         draw: () => {
           this.renderPlayerSprite(capturedPlayer, capturedDrawY, capturedSprite, capturedX, capturedAir);
           // Defer nametag + bubble as overlays
-          overlayFns.push(() => this.renderPlayerOverlay(capturedPlayer, capturedDrawY, capturedH));
+          overlayFns.push(() => this.renderPlayerOverlay(capturedPlayer, capturedDrawY, capturedH, showTag));
         }
       });
     }
@@ -2241,47 +2520,37 @@ export class GameEngine {
     for (const d of drawFns) {
       d.draw();
     }
-    this.onDrawLayer?.(this.ctx, 'world', time);
+    this.onDrawLayer?.(ctx, 'world', time);
 
     // 6d. Ambient sparkles / petals (darkened by the night overlay below)
-    renderAmbient(this.ctx, this.room.roomId, 'front', time, sky.night);
+    renderAmbient(ctx, this.room.roomId, 'front', time, sky.night, density);
 
-    // L4. Night: if night > 0, multiply canvas with rgba(20,24,60, 0.45*night),
-    // then add ROOM_LIGHTS as soft radial glows ('lighter', alpha 0.35*night)
+    // L4. Night: multiply the screen with rgba(20,24,60, 0.45*night), then add the room lights
     if (hasView && sky.night > 0) {
-      this.ctx.save();
-      this.ctx.globalCompositeOperation = 'multiply';
-      this.ctx.fillStyle = `rgba(20, 24, 60, ${(this.room.view?.nightDarkness ?? 0.45) * sky.night})`;
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      this.ctx.restore();
+      ctx.save();
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = `rgba(20, 24, 60, ${(this.room.view?.nightDarkness ?? 0.45) * sky.night})`;
+      ctx.fillRect(v.x, v.y, v.w, v.h);
+      ctx.restore();
 
-      const lights = ROOM_LIGHTS[this.room.roomId];
-      if (lights && lights.length > 0) {
-        this.ctx.save();
-        this.ctx.globalCompositeOperation = 'lighter';
-        for (const light of lights) {
-          const grad = this.ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.radius);
-          const [r, g, b] = light.color;
-          grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.35 * sky.night})`);
-          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-          this.ctx.fillStyle = grad;
-          this.ctx.beginPath();
-          this.ctx.arc(light.x, light.y, light.radius, 0, Math.PI * 2);
-          this.ctx.fill();
-        }
-        this.ctx.restore();
+      const lights = this.getLightsCanvas(sky.night);
+      if (lights) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(lights.canvas, lights.x, lights.y);
+        ctx.restore();
       }
     }
 
     // L4b. Beacon glows (lighthouse) on top of the night
-    if (hasView) renderAmbient(this.ctx, this.room.roomId, 'glow', time, sky.night);
+    if (hasView) renderAmbient(ctx, this.room.roomId, 'glow', time, sky.night, density);
 
     // 7. Overlays (name tags, speech bubbles) — always on top
     for (const fn of overlayFns) {
       fn();
     }
     this.drawExitHints(time);
-    this.onDrawLayer?.(this.ctx, 'top', time);
+    this.onDrawLayer?.(ctx, 'top', time);
 
     // 8. Debug overlay (F3)
     if (this.showDebug) {
@@ -2290,11 +2559,19 @@ export class GameEngine {
 
     // 9. Fade to/from black overlay
     if (this.fadeAlpha > 0) {
-      this.ctx.save();
-      this.ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(1, Math.max(0, this.fadeAlpha))})`;
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      this.ctx.restore();
+      ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(1, Math.max(0, this.fadeAlpha))})`;
+      ctx.fillRect(v.x, v.y, v.w, v.h);
     }
+    ctx.restore();
+  }
+
+  /** Ids of the `n` players closest to the local player (always including the local player). */
+  private nearestPlayerIds(players: PlayerData[], n: number): Set<string> {
+    const me = this.localPlayer;
+    const sorted = players
+      .map((p) => ({ id: p.id, d: p === me ? -1 : Math.abs(p.x - me.x) + Math.abs(p.y - me.y) * 1.5 }))
+      .sort((a, b) => a.d - b.d);
+    return new Set(sorted.slice(0, n).map((p) => p.id));
   }
 
   // =========================================================================
@@ -2302,7 +2579,7 @@ export class GameEngine {
   // =========================================================================
 
   /** Select the correct sprite for a player, accounting for actorScale. */
-  private getPlayerSprite(player: PlayerData): HTMLImageElement | undefined {
+  private getPlayerSprite(player: PlayerData): Sprite | undefined {
     const isWater = player.state === 'water';
 
     if (isWater) {
@@ -2394,7 +2671,7 @@ export class GameEngine {
   /** Draw a room element at its anchor (bottom-centre). */
   private renderElement(el: ElementDef) {
     const img = this.elementImages.get(el.asset);
-    if (!img) return;
+    if (!img || !spanVisible(this.view, el.x, img.width / 2 + 2)) return;
     this.ctx.drawImage(img, el.x - Math.floor(img.width / 2), el.y - img.height);
   }
 
@@ -2607,7 +2884,7 @@ export class GameEngine {
   }
 
   /** Draw a player's sprite (shadow, character, jump). */
-  private renderPlayerSprite(player: PlayerData, drawY: number, spriteImg: HTMLImageElement | undefined, drawX: number = player.x, air: number = 0) {
+  private renderPlayerSprite(player: PlayerData, drawY: number, spriteImg: Sprite | undefined, drawX: number = player.x, air: number = 0) {
     if (!spriteImg) return;
     const isWater = player.state === 'water';
     // Snap to whole pixels so the sprite never blurs between two pixels
@@ -2663,9 +2940,9 @@ export class GameEngine {
   }
 
   /** Deferred: player name tag + speech bubble (drawn above all depth-sorted items). */
-  private renderPlayerOverlay(player: PlayerData, drawY: number, spriteHeight: number) {
+  private renderPlayerOverlay(player: PlayerData, drawY: number, spriteHeight: number, showTag = true) {
     // Hide all name tags while dialog is open
-    if (!this.dialogFrozen) {
+    if (!this.dialogFrozen && showTag) {
       this.renderNameTag(player, player.x, drawY - spriteHeight - 6);
     }
 
@@ -2708,149 +2985,43 @@ export class GameEngine {
   }
 
   private renderNameTag(player: PlayerData, x: number, y: number) {
-    this.ctx.save();
     const isMe = player.id === this.localPlayer.id;
     const nameText = isMe ? `${player.name} (You)` : player.name;
-
-    this.ctx.font = '16px "Sabai Pixel", monospace';
-    const textWidth = this.ctx.measureText(nameText).width;
-    const paddingX = 6;
-    const boxW = textWidth + paddingX * 2;
-    const boxH = 20;
-
-    const boxX = Math.floor(x - boxW / 2);
-    const boxY = Math.floor(y - boxH);
-
-    // Pill background
-    this.ctx.fillStyle = isMe ? 'rgba(15, 32, 67, 0.85)' : 'rgba(0, 0, 0, 0.7)';
-    this.ctx.fillRect(boxX, boxY, boxW, boxH);
-
-    // Outline
-    this.ctx.strokeStyle = isMe ? '#4fc3f7' : '#90a4ae';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(boxX, boxY, boxW, boxH);
-
-    // Text
-    this.ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(nameText, x, boxY + boxH / 2 + 1);
-
+    const label = this.labels.get(`tag:${isMe ? 1 : 0}:${nameText}`, () => buildNameTag(this.labels, nameText, isMe));
+    if (label) {
+      this.ctx.drawImage(label.canvas, Math.floor(x - label.ax), Math.floor(y - label.ay));
+      return;
+    }
+    // Pixel font still loading: draw live (not cached, so it's redrawn properly once it arrives)
+    this.ctx.save();
+    const { boxW } = nameTagSize(this.ctx, nameText);
+    drawNameTag(this.ctx, nameText, isMe, Math.floor(x - boxW / 2), Math.floor(y - 20), boxW);
     this.ctx.restore();
   }
 
   private renderSpeechBubble(text: string, x: number, y: number, alpha: number) {
     this.ctx.save();
     this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-
-    this.ctx.font = '16px "Sabai Pixel", monospace';
-    const maxLineWidth = 180;
-    const words = text.split(' ');
-    const lines: string[] = [];
-    let currentLine = words[0] || '';
-
-    for (let i = 1; i < words.length; i++) {
-      const testLine = currentLine + ' ' + words[i];
-      if (this.ctx.measureText(testLine).width < maxLineWidth) {
-        currentLine = testLine;
-      } else {
-        lines.push(currentLine);
-        currentLine = words[i];
-      }
+    const label = this.labels.get(`say:${text}`, () => buildSpeechBubble(this.labels, text));
+    if (label) {
+      this.ctx.drawImage(label.canvas, Math.floor(x - label.ax), Math.floor(y - label.ay));
+    } else {
+      drawSpeechBubble(this.ctx, wrapBubbleText(this.ctx, text), x, y);
     }
-    lines.push(currentLine);
-
-    // Calculate bubble dimensions
-    let maxMeasured = 0;
-    for (const l of lines) {
-      maxMeasured = Math.max(maxMeasured, this.ctx.measureText(l).width);
-    }
-
-    const lineHeight = 24; // Sabai Pixel 16px + room for stacked Thai tone marks
-    const padX = 10;
-    const padY = 8;
-    const bw = maxMeasured + padX * 2;
-    const bh = lines.length * lineHeight + padY * 2;
-
-    const bx = Math.floor(x - bw / 2);
-    const by = Math.floor(y - bh);
-
-    // 8-bit Pixel Bubble Background (white with crisp black pixel border)
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.fillRect(bx, by, bw, bh);
-
-    this.ctx.strokeStyle = '#1a1a24';
-    this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(bx, by, bw, bh);
-
-    // Speech bubble tail pointing down
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.beginPath();
-    this.ctx.moveTo(x - 6, by + bh);
-    this.ctx.lineTo(x, by + bh + 6);
-    this.ctx.lineTo(x + 6, by + bh);
-    this.ctx.fill();
-
-    this.ctx.strokeStyle = '#1a1a24';
-    this.ctx.beginPath();
-    this.ctx.moveTo(x - 6, by + bh);
-    this.ctx.lineTo(x, by + bh + 6);
-    this.ctx.lineTo(x + 6, by + bh);
-    this.ctx.stroke();
-
-    // Cover seam between tail and bubble
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.fillRect(x - 5, by + bh - 2, 10, 3);
-
-    // Text lines
-    this.ctx.fillStyle = '#111827';
-    this.ctx.textAlign = 'left';
-    this.ctx.textBaseline = 'top';
-    for (let idx = 0; idx < lines.length; idx++) {
-      this.ctx.fillText(lines[idx], bx + padX, by + padY + idx * lineHeight);
-    }
-
     this.ctx.restore();
   }
 
   /** Draw a small pixel speech-bubble with ◯ above an NPC's head, gentle 2px bob. */
   private renderPromptBubble(x: number, y: number, time: number) {
-    this.ctx.save();
     const bob = Math.sin(time * 0.004) * 2;
-    const bx = Math.floor(x - 12);
-    const by = Math.floor(y - 18 + bob);
-    const bw = 24;
-    const bh = 16;
-
-    // Bubble bg
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.fillRect(bx, by, bw, bh);
-    this.ctx.strokeStyle = '#4A2E1A';
-    this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(bx, by, bw, bh);
-
-    // Small tail
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.beginPath();
-    this.ctx.moveTo(x - 3, by + bh);
-    this.ctx.lineTo(x, by + bh + 4);
-    this.ctx.lineTo(x + 3, by + bh);
-    this.ctx.fill();
-    this.ctx.strokeStyle = '#4A2E1A';
-    this.ctx.beginPath();
-    this.ctx.moveTo(x - 3, by + bh);
-    this.ctx.lineTo(x, by + bh + 4);
-    this.ctx.lineTo(x + 3, by + bh);
-    this.ctx.stroke();
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.fillRect(x - 2, by + bh - 1, 4, 2);
-
-    // ◯ symbol
-    this.ctx.fillStyle = '#4A2E1A';
-    this.ctx.font = '10px monospace';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText('◯', x, by + bh / 2);
+    if (!this.promptLabel) this.promptLabel = buildPromptBubble();
+    const l = this.promptLabel;
+    if (l) {
+      this.ctx.drawImage(l.canvas, Math.floor(x - l.ax), Math.floor(y + bob - l.ay));
+      return;
+    }
+    this.ctx.save();
+    drawPromptBubble(this.ctx, x, y + bob);
     this.ctx.restore();
   }
 
