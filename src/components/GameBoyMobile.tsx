@@ -521,16 +521,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               }}
             >
               {/* Chunky one-piece cross (SVG): no text glyphs, so iOS never shows the text loupe on a hold.
-                  It rocks toward the pressed direction like a real D-pad. */}
-              <div
-                className="pointer-events-none"
-                style={{
-                  width: 94,
-                  height: 98,
-                  transform: `perspective(240px) rotateX(${(activeDir.up ? 9 : 0) - (activeDir.down ? 9 : 0)}deg) rotateY(${(activeDir.right ? 9 : 0) - (activeDir.left ? 9 : 0)}deg)`,
-                  transition: 'transform 70ms ease-out',
-                }}
-              >
+                  Press feedback is only the arrow colour (Teera: the finger covers anything else). */}
+              <div className="pointer-events-none" style={{ width: 94, height: 98 }}>
                 <svg viewBox="0 0 100 104" width="94" height="98" aria-hidden="true" focusable="false">
                   <defs>
                     <linearGradient id="gbDpadFace" x1="0" y1="0" x2="0" y2="1">
