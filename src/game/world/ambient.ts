@@ -98,9 +98,11 @@ export const AMBIENT: Record<string, AmbientConfig> = {
   },
 };
 
-export function renderAmbient(ctx: CanvasRenderingContext2D, roomId: string, pass: AmbientPass, t: number, night: number) {
-  const cfg = AMBIENT[roomId];
-  if (!cfg) return;
+/** `density` < 1 (Battery quality) keeps only that share of the tiny specks; the big lights stay. */
+export function renderAmbient(ctx: CanvasRenderingContext2D, roomId: string, pass: AmbientPass, t: number, night: number, density = 1) {
+  const full = AMBIENT[roomId];
+  if (!full) return;
+  const cfg = density >= 1 ? full : thinned(roomId, full, density);
   ctx.save();
   if (pass === 'sky') drawStars(ctx, cfg, t, night);
   if (pass === 'back') { drawGlints(ctx, cfg, t, night); drawRing(ctx, cfg, t, night); drawPortalSpecks(ctx, cfg, t, night); }
@@ -108,6 +110,27 @@ export function renderAmbient(ctx: CanvasRenderingContext2D, roomId: string, pas
   // motes go after the night overlay so fireflies really glow in the dark
   if (pass === 'glow') { drawBeacons(ctx, cfg, t, night); drawPortalGlow(ctx, cfg, t, night); drawMotes(ctx, cfg, t, night); }
   ctx.restore();
+}
+
+const thinCache = new Map<string, AmbientConfig>();
+/** Every other speck — same positions as the full set, so switching quality doesn't reshuffle the sky. */
+function thinned(roomId: string, cfg: AmbientConfig, density: number): AmbientConfig {
+  const key = `${roomId}:${density}`;
+  const hit = thinCache.get(key);
+  if (hit) return hit;
+  const keep = Math.max(1, Math.round(1 / density));
+  const every = <T,>(list: T[] | undefined) => list?.filter((_, i) => i % keep === 0);
+  const out: AmbientConfig = {
+    ...cfg,
+    stars: cfg.stars && { ...cfg.stars, count: Math.ceil(cfg.stars.count * density) },
+    glints: every(cfg.glints),
+    sparkles: every(cfg.sparkles),
+    petals: cfg.petals && { ...cfg.petals, count: Math.ceil(cfg.petals.count * density) },
+    motes: cfg.motes && { ...cfg.motes, count: Math.ceil(cfg.motes.count * density) },
+    ring: cfg.ring && { ...cfg.ring, dots: Math.ceil(cfg.ring.dots * density) },
+  };
+  thinCache.set(key, out);
+  return out;
 }
 
 function drawStars(ctx: CanvasRenderingContext2D, cfg: AmbientConfig, t: number, night: number) {

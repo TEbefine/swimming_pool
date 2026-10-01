@@ -3,6 +3,11 @@ export class FrameBudget {
   private nextFrame = 0;
   private previousFrame = 0;
 
+  /** When the next frame is due (performance.now() clock). */
+  get due(): number {
+    return this.nextFrame;
+  }
+
   reset(now: number) {
     this.nextFrame = now;
     this.previousFrame = now;

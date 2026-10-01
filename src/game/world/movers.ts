@@ -1,3 +1,4 @@
+import type { Sprite } from '../imageLoader';
 import { CITY } from './cityView';
 
 export interface MoverDef {
@@ -132,7 +133,7 @@ export class MoversManager {
   }
 
   /** Update movers positions, wrapping, and spawn timers. */
-  public update(dt: number, night: number, moverSprites: Map<string, HTMLImageElement>) {
+  public update(dt: number, night: number, moverSprites: Map<string, Sprite>) {
     const now = performance.now();
 
     // 1. Update clouds (always present, drifting right at 4 px/s, wrapping)
@@ -202,7 +203,7 @@ export class MoversManager {
   public render(
     ctx: CanvasRenderingContext2D,
     layer: 'far' | 'near',
-    moverSprites: Map<string, HTMLImageElement>,
+    moverSprites: Map<string, Sprite>,
     night: number,
     /** Mover ids not to draw in this room (e.g. no plane over a story world set long ago) */
     skip?: ReadonlySet<string>
@@ -239,7 +240,7 @@ export class MoversManager {
   private renderMoverSprite(
     ctx: CanvasRenderingContext2D,
     m: MoverInstance,
-    moverSprites: Map<string, HTMLImageElement>,
+    moverSprites: Map<string, Sprite>,
     night: number
   ) {
     const { config } = m;

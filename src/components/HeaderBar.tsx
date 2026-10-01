@@ -1,6 +1,7 @@
 import React from 'react';
 import { Volume2, VolumeX, MessageSquare, HelpCircle, Palette, User, Gamepad2 } from 'lucide-react';
 import { sound } from '../game/audio';
+import { QualityButton } from './QualityButton';
 import type { FloatColor } from '../game/types';
 
 interface HeaderBarProps {
@@ -93,6 +94,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           />
           <span className="hidden sm:inline text-[16px] capitalize">{floatColor}</span>
         </button>
+
+        {/* Smoothness vs. battery */}
+        <QualityButton />
 
         {/* Audio Mute Toggle */}
         <button

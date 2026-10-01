@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { QualityButton } from './QualityButton';
 import type { PlayerState, FloatColor, ChatMessage } from '../game/types';
 import { Volume2, VolumeX, User, HelpCircle, X, Send } from 'lucide-react';
 import { sound } from '../game/audio';
@@ -766,6 +767,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             >
               {isWater ? '🏖️ Step Out to Land (◯)' : '🏊 Dive into Pool (◯)'}
             </button>
+            <QualityButton variant="menu" />
           </div>
         </div>
       )}
