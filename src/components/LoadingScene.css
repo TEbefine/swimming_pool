@@ -1,0 +1,267 @@
+/* Loading scene: pixel meadow + real-photo NPC standee. Everything is CSS-animated
+   (transform / opacity only) so it stays smooth on low-end phones. */
+
+.ls-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  container-type: size;
+  background: linear-gradient(#2c7bb6, #7db8e0 70%, #6fa84a 71%);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+.ls-root.ls-ready { cursor: pointer; }
+.ls-root.ls-leaving { opacity: 0; pointer-events: none; }
+.ls-root img { display: block; pointer-events: none; }
+
+/* --- the world: always covers the screen, ground on the bottom edge, pans left↔right --- */
+.ls-world {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: max(100cqw, calc(100cqh * 1.7834));
+  aspect-ratio: 1120 / 628;
+  animation: ls-pan 48s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes ls-pan {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(100cqw - 100%)); }
+}
+.ls-bg { width: 100%; height: 100%; image-rendering: pixelated; }
+
+.ls-cloud {
+  position: absolute;
+  left: 0;
+  width: 18%;
+  opacity: 0.9;
+  image-rendering: pixelated;
+  animation: ls-drift linear infinite;
+}
+.ls-cloud-a { top: 16%; width: 14%; opacity: 0.85; animation-duration: 95s; animation-delay: -30s; }
+.ls-cloud-b { top: 34%; width: 10%; opacity: 0.7; animation-duration: 140s; animation-delay: -90s; }
+@keyframes ls-drift {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(780%); }
+}
+
+/* a soft cloud shadow sliding over the grass */
+.ls-shade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  height: 21%;
+  background: radial-gradient(ellipse at center, rgba(10, 40, 20, 0.35), rgba(10, 40, 20, 0) 70%);
+  mix-blend-mode: multiply;
+  animation: ls-shade 34s linear infinite;
+}
+@keyframes ls-shade {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(240%); }
+}
+
+/* warm sun from the upper left */
+.ls-sun {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 8% 4%, rgba(255, 236, 196, 0.45), rgba(255, 236, 196, 0) 55%);
+  mix-blend-mode: screen;
+  animation: ls-sun 8s ease-in-out infinite alternate;
+}
+@keyframes ls-sun { from { opacity: 0.7; } to { opacity: 1; } }
+
+/* --- NPC standee --- */
+.ls-npc {
+  position: absolute;
+  right: 9%;
+  bottom: -6cqh;
+  height: 80cqh;
+  aspect-ratio: 231 / 760;
+  animation: ls-npc-in 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@container (min-aspect-ratio: 4 / 3) {
+  .ls-npc { right: 16%; height: 88cqh; bottom: -8cqh; }
+}
+.ls-npc-img {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+  animation: ls-breathe 4.2s ease-in-out infinite;
+  filter: saturate(0.95) contrast(1.02);
+}
+.ls-npc-shadow {
+  position: absolute;
+  left: 5%;
+  right: -10%;
+  bottom: 1%;
+  height: 5%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(15, 40, 15, 0.45), rgba(15, 40, 15, 0) 70%);
+}
+@keyframes ls-npc-in {
+  from { opacity: 0; transform: translateY(3%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ls-breathe {
+  0%, 100% { transform: scaleY(1) rotate(0deg); }
+  50% { transform: scaleY(1.009) rotate(-0.25deg); }
+}
+
+/* --- foreground grass with wind --- */
+.ls-front { pointer-events: none; }
+.ls-grass {
+  position: absolute;
+  left: -2%;
+  bottom: -1%;
+  width: 104%;
+  height: 21%;
+  image-rendering: pixelated;
+  transform-origin: 50% 100%;
+  animation: ls-sway 5.5s ease-in-out infinite;
+}
+@keyframes ls-sway {
+  0%, 100% { transform: skewX(-1.2deg); }
+  50% { transform: skewX(2deg); }
+}
+
+/* soft shade at the bottom so the text stays readable over the flowers */
+.ls-root::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22cqh;
+  pointer-events: none;
+  background: linear-gradient(rgba(8, 30, 14, 0), rgba(8, 30, 14, 0.38));
+}
+.ls-title, .ls-card, .ls-bottom { z-index: 1; }
+
+/* --- seeds on the wind (wind blows to the right, like her hair) --- */
+.ls-seeds { position: absolute; inset: 0; pointer-events: none; }
+.ls-seed {
+  position: absolute;
+  background: #fff4d6;
+  box-shadow: 0 0 2px rgba(255, 244, 214, 0.8);
+  opacity: 0;
+  animation-name: ls-seed;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes ls-seed {
+  0% { opacity: 0; transform: translate(0, 0); }
+  12% { opacity: 0.95; }
+  50% { transform: translate(22cqw, -14cqh); }
+  85% { opacity: 0.8; }
+  100% { opacity: 0; transform: translate(46cqw, -24cqh); }
+}
+
+/* --- text --- */
+.ls-title {
+  position: absolute;
+  left: 6cqw;
+  top: 6cqh;
+  right: 6cqw;
+  animation: ls-fade-in 1.2s 0.2s ease both;
+}
+.ls-room {
+  font-family: var(--font-pixel);
+  font-weight: 700;
+  font-size: clamp(16px, 7.5cqw, 34px);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: #fffaf0;
+  text-shadow: 0 2px 0 rgba(24, 58, 110, 0.55), 0 0 14px rgba(24, 58, 110, 0.35);
+}
+
+/* little NPC card in the dialogue colors (cream / brown) */
+.ls-card {
+  position: absolute;
+  left: 6cqw;
+  top: 20cqh;
+  max-width: 52cqw;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 9px 7px;
+  background: #fff6e5;
+  border: 2px solid #4a2e1a;
+  border-radius: 4px;
+  box-shadow: 2px 2px 0 rgba(74, 46, 26, 0.35);
+  animation: ls-card-in 0.7s 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.ls-card-name {
+  font-family: var(--font-pixel);
+  font-size: clamp(9px, 3.2cqw, 13px);
+  letter-spacing: 0.12em;
+  color: #8a5a32;
+}
+.ls-card-line {
+  font-family: var(--font-pixel);
+  font-size: clamp(11px, 4.2cqw, 17px);
+  color: #4a2e1a;
+  line-height: 1.2;
+}
+@keyframes ls-card-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ls-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.ls-bottom {
+  position: absolute;
+  left: 6cqw;
+  bottom: 5cqh;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-pixel);
+  color: #fffaf0;
+  text-shadow: 0 1px 0 rgba(20, 50, 20, 0.7), 0 0 8px rgba(20, 50, 20, 0.5);
+}
+.ls-phrase {
+  font-size: clamp(11px, 4.4cqw, 18px);
+  animation: ls-fade-in 0.4s ease both;
+}
+.ls-dots::after {
+  content: '';
+  animation: ls-dots 1.2s steps(4) infinite;
+}
+@keyframes ls-dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+.ls-bar {
+  display: block;
+  width: min(42cqw, 220px);
+  height: 6px;
+  background: rgba(255, 250, 240, 0.28);
+  border: 1px solid rgba(255, 250, 240, 0.7);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.ls-bar-fill {
+  display: block;
+  height: 100%;
+  background: #fff4d6;
+  transition: width 0.3s ease;
+}
+.ls-enter {
+  font-size: clamp(12px, 4.8cqw, 20px);
+  letter-spacing: 0.08em;
+  animation: ls-blink 1.1s steps(2, jump-none) infinite;
+}
+@keyframes ls-blink { 0% { opacity: 1; } 100% { opacity: 0.25; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-root *, .ls-root *::after { animation: none !important; }
+  .ls-seed { display: none; }
+}

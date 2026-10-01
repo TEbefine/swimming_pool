@@ -21,7 +21,7 @@ import { TradePanel } from './components/TradePanel';
 import type { ItemId } from './game/story/items';
 import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
-import { Waves } from 'lucide-react';
+import { LoadingScene } from './components/LoadingScene';
 
 /** Context-action IDs that should route through engine.interact(). */
 const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(['talk', 'sit', 'stand', 'read']);
@@ -42,6 +42,10 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
+  // Loading scene: assets ready → wait for the player's tap, then fade out
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [loadingLeaving, setLoadingLeaving] = useState(false);
+  const enterGameRef = useRef<(() => void) | null>(null);
   const [playerState, setPlayerState] = useState<PlayerState>('land');
   const [currentAction, setCurrentAction] = useState<string>('idle');
   const [playerName, setPlayerName] = useState<string>(() => {
@@ -412,16 +416,39 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     };
 
     const init = async () => {
-      setLoadProgress(30);
-      await engine.loadAssets();
+      setLoadProgress(12);
+      // Gentle progress while the art downloads (loadAssets has no per-file callback yet).
+      const creep = window.setInterval(() => setLoadProgress((p) => p + (92 - p) * 0.08), 140);
+      try {
+        await engine.loadAssets();
+      } finally {
+        window.clearInterval(creep);
+      }
       if (cancelled) return; // Don't start a destroyed engine
       setLoadProgress(100);
-      startTimer = window.setTimeout(() => {
-        if (cancelled) return;
-        setLoading(false);
+      // The loading scene now waits for the player (tap / any button / key) — see the effect below.
+      let entered = false;
+      enterGameRef.current = () => {
+        if (cancelled || entered) return;
+        entered = true;
+        enterGameRef.current = null;
         engine.start();
         setPlayerCountByRoom(engine.getPlayerCountByRoom());
         onEngineReady?.(engine);
+        setLoadingLeaving(true);
+        startTimer = window.setTimeout(() => {
+          if (cancelled) return;
+          setLoading(false);
+          setLoadingLeaving(false);
+        }, 500);
+      };
+      // Dev harnesses and ?autostart skip the wait.
+      if (devOverlay || new URLSearchParams(window.location.search).has('autostart')) {
+        enterGameRef.current();
+        return;
+      }
+      startTimer = window.setTimeout(() => {
+        if (!cancelled) setAssetsReady(true);
       }, 300);
     };
 
@@ -462,6 +489,41 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       engineRef.current = null;
     };
   }, []);
+
+  // While the loading scene waits, the first tap / button / key enters the game.
+  // Captured on window so that press is swallowed (it must not also open a menu or jump).
+  useEffect(() => {
+    if (!loading || !assetsReady) return;
+    let swallowUntil = 0;
+    const block = (e: Event) => {
+      e.stopPropagation();
+      if (e.cancelable) e.preventDefault();
+    };
+    const enter = (e: Event) => {
+      if (performance.now() < swallowUntil) return block(e);
+      if (!enterGameRef.current) return;
+      if (e instanceof KeyboardEvent && (e.repeat || e.metaKey || e.ctrlKey)) return;
+      block(e);
+      swallowUntil = performance.now() + 600;
+      enterGameRef.current();
+    };
+    const swallow = (e: Event) => {
+      if (performance.now() < swallowUntil) block(e);
+    };
+    const opts = { capture: true, passive: false } as AddEventListenerOptions;
+    window.addEventListener('pointerdown', enter, opts);
+    window.addEventListener('keydown', enter, opts);
+    window.addEventListener('pointerup', swallow, opts);
+    window.addEventListener('touchend', swallow, opts);
+    window.addEventListener('click', swallow, opts);
+    return () => {
+      window.removeEventListener('pointerdown', enter, opts);
+      window.removeEventListener('keydown', enter, opts);
+      window.removeEventListener('pointerup', swallow, opts);
+      window.removeEventListener('touchend', swallow, opts);
+      window.removeEventListener('click', swallow, opts);
+    };
+  }, [loading, assetsReady]);
 
   const handleSelectFloatColor = (color: FloatColor) => {
     setFloatColor(color);
@@ -597,32 +659,20 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   // Canvas blur class for world focus effect
   const canvasBlurClass = dialogOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
 
+  // Loading scene lives INSIDE the game screen (Game Boy window / arcade screen), not over the page.
+  const loadingElement = loading ? (
+    <LoadingScene
+      roomId={currentRoom.roomId}
+      roomName={currentRoom.name}
+      progress={loadProgress}
+      ready={assetsReady}
+      leaving={loadingLeaving}
+      onEnter={() => enterGameRef.current?.()}
+    />
+  ) : null;
+
   return (
     <div className="relative w-screen h-screen bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
-      {/* Loading Overlay */}
-      {loading && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0d1527] text-white">
-          <div className="flex items-center gap-3 mb-6 animate-bounce">
-            <Waves className="w-9 h-9 text-sky-400" />
-            <span
-              className="text-[24px] md:text-xl font-bold tracking-wider text-sky-300"
-              style={{ fontFamily: 'var(--font-pixel)' }}
-            >
-              {currentRoom.name}
-            </span>
-          </div>
-          <div className="w-64 h-4 bg-slate-800 border-2 border-slate-600 rounded-sm p-0.5 overflow-hidden mb-3">
-            <div
-              className="h-full bg-sky-400 transition-all duration-300 rounded-xs"
-              style={{ width: `${loadProgress}%` }}
-            />
-          </div>
-          <p className="text-[16px] text-slate-400 font-mono tracking-widest animate-pulse">
-            LOADING SPRITES & RESORT MAP...
-          </p>
-        </div>
-      )}
-
       {/* RENDER VIEW: Game Boy Handheld on Mobile vs Desktop Arcade Cabinet */}
       {effectiveIsMobile ? (
         <GameBoyMobile
@@ -660,14 +710,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           onOpenNameModal={() => setNameModalOpen(true)}
           onOpenHelpModal={() => setHelpModalOpen(true)}
           onToggleSceneBox={handleToggleSceneBox}
-          screenOverlay={
+          screenOverlay={loadingElement ?? (
             <>
               {storyHudElement}
               {fishingElement}
               {dialogBoxElement}
               {sceneBoxElement}
             </>
-          }
+          )}
         />
       ) : (
         /* Main Game Screen with Retro Arcade Border */
@@ -739,6 +789,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
               messages={visibleChatLog}
               currentUserId={localPlayerId}
             />
+
+            {/* Loading scene inside the arcade screen */}
+            {loadingElement && <div className="absolute inset-0 z-[40]">{loadingElement}</div>}
 
             {/* CRT scanline effect subtle overlay (hidden during dialog) */}
             {!dialogBoxElement && (
