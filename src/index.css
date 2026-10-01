@@ -159,32 +159,110 @@ html, body {
 }
 
 /* Classic Game Boy Handheld Styling */
+
+/* ---- Shell theme tokens ---------------------------------------------------
+   Light = the classic DMG grey (unchanged). Dark = a "black edition" shell that
+   follows the phone's system appearance, so the device blends into the iPhone
+   status bar instead of glowing grey in dark mode. */
 .gameboy-body {
-  background-color: #d6d6ce;
+  --gb-shell: #d6d6ce;
+  --gb-shell-dot-a: #cececd;
+  --gb-shell-dot-b: #c6c6bd;
+  --gb-shell-sheen: rgba(255, 255, 255, 0.2);
+  --gb-shell-shade: rgba(0, 0, 0, 0.05);
+  --gb-edge: #b8b8ae;
+  --gb-ridge: #cfcfc6;
+  --gb-ridge-line: #a8a89f;
+  --gb-ridge-text: #78786f;
+  --gb-ridge-strong: #1e293b;
+  --gb-ridge-icon: #334155;
+  --gb-ink: #152377;
+  --gb-ink-soft: #8b8b80;
+  --gb-bezel: #5a606c;
+  --gb-bezel-edge: #3d434f;
+  --gb-bezel-text: #d6d8d6;
+  --gb-bezel-hi: rgba(255, 255, 255, 0.15);
+  --gb-bezel-ink: #c3c7cf;
+  --gb-bezel-logo: #b9c6e4;
+  --gb-socket: #c8c8be;
+  --gb-socket-shadow: rgba(0, 0, 0, 0.42);
+  --gb-socket-rim: rgba(255, 255, 255, 0.5);
+  --gb-cross: #1c1d22;
+  --gb-cross-base: #0d0e10;
+  --gb-cross-hi: rgba(255, 255, 255, 0.15);
+  --gb-cross-top: #34363d;
+  --gb-dpad-arrow: #7f8188;
+  --gb-dpad-arrow-on: #e9eaee;
+  --gb-pill: #52525b;
+  --gb-pill-base: #27272a;
+  --gb-pill-hi: #71717a;
+  --gb-speaker: #b2b2a8;
+  --gb-speaker-hi: rgba(255, 255, 255, 0.6);
+  --gb-speaker-hi-in: rgba(255, 255, 255, 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  .gameboy-body {
+    --gb-shell: #16171b;
+    --gb-shell-dot-a: #1b1c21;
+    --gb-shell-dot-b: #121316;
+    --gb-shell-sheen: rgba(255, 255, 255, 0.035);
+    --gb-shell-shade: rgba(0, 0, 0, 0.25);
+    --gb-edge: #0b0c0e;
+    --gb-ridge: #101114;
+    --gb-ridge-line: #23252b;
+    --gb-ridge-text: #6b6e78;
+    --gb-ridge-strong: #e6e8ee;
+    --gb-ridge-icon: #a8adb8;
+    --gb-ink: #9aa5f2;
+    --gb-ink-soft: #4a4d56;
+    --gb-bezel: #0a0b0d;
+    --gb-bezel-edge: #2a2c33;
+    --gb-bezel-text: #8a8e99;
+    --gb-bezel-hi: rgba(255, 255, 255, 0.06);
+    --gb-bezel-ink: #7d818c;
+    --gb-bezel-logo: #8e9bd8;
+    --gb-socket: #0e0f12;
+    --gb-socket-shadow: rgba(0, 0, 0, 0.85);
+    --gb-socket-rim: rgba(255, 255, 255, 0.07);
+    --gb-cross: #2b2d34;
+    --gb-cross-base: #07080a;
+    --gb-cross-hi: rgba(255, 255, 255, 0.12);
+    --gb-cross-top: #3d4048;
+    --gb-dpad-arrow: #92959d;
+    --gb-dpad-arrow-on: #eef0f3;
+    --gb-pill: #2e3038;
+    --gb-pill-base: #08090b;
+    --gb-pill-hi: #44474f;
+    --gb-speaker: #0b0c0f;
+    --gb-speaker-hi: rgba(255, 255, 255, 0.05);
+    --gb-speaker-hi-in: rgba(255, 255, 255, 0.04);
+  }
+}
+
+.gameboy-body {
+  background-color: var(--gb-shell);
   background-image: 
-    linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0.05) 100%),
-    radial-gradient(#cececd 15%, transparent 16%), 
-    radial-gradient(#c6c6bd 15%, transparent 16%);
+    linear-gradient(180deg, var(--gb-shell-sheen) 0%, var(--gb-shell-shade) 100%),
+    radial-gradient(var(--gb-shell-dot-a) 15%, transparent 16%), 
+    radial-gradient(var(--gb-shell-dot-b) 15%, transparent 16%);
   background-size: 100% 100%, 8px 8px, 8px 8px;
   background-position: 0 0, 0 0, 4px 4px;
+  transition: background-color 0.35s ease, border-color 0.35s ease;
 }
 
 .gameboy-bezel {
-  background-color: #5a606c;
-  border: 1.5px solid #3d434f;
+  background-color: var(--gb-bezel);
+  border: 1.5px solid var(--gb-bezel-edge);
   box-shadow: 
     0 0 0 1px rgba(0, 0, 0, 0.4),
-    inset 0 1.5px 1px rgba(255, 255, 255, 0.15),
+    inset 0 1.5px 1px var(--gb-bezel-hi),
     inset 0 -2px 4px rgba(0, 0, 0, 0.35),
     0 3px 10px rgba(0, 0, 0, 0.25);
-  clip-path: polygon(
-    0% 0%,
-    100% 0%,
-    100% calc(100% - 24px),
-    calc(100% - 24px) 100%,
-    0% 100%
-  );
-  padding: 12px 20px 22px 20px;
+  /* Classic sweep: small radii, one big soft curve bottom-right. A real radius (not a clip-path
+     cut) keeps the border, highlight and shadow running all the way round the corner. */
+  border-radius: 10px 10px 44px 10px;
+  padding: 0 24px; /* top/bottom bands are fixed-height rows in the component */
   box-sizing: border-box;
 }
 
@@ -192,15 +270,16 @@ html, body {
   position: relative;
   background-color: #080d1a;
   border: 2px solid #2e323b;
-  border-radius: 4px;
+  /* Small playful curve bottom-right, echoing the frame's big corner */
+  border-radius: 4px 4px 22px 4px;
   box-shadow: 
     inset 0 2px 5px rgba(0, 0, 0, 0.6),
     0 1px 1px rgba(255, 255, 255, 0.08);
 }
 
 .gameboy-pill-btn {
-  background: #52525b;
-  box-shadow: 0 3px 0 #27272a, 0 4px 6px rgba(0, 0, 0, 0.35);
+  background: var(--gb-pill);
+  box-shadow: 0 3px 0 var(--gb-pill-base), 0 4px 6px rgba(0, 0, 0, 0.35);
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
@@ -208,16 +287,33 @@ html, body {
 
 .gameboy-pill-btn:active {
   transform: translateY(2px) rotate(-25deg);
-  box-shadow: 0 1px 0 #27272a, 0 2px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 0 var(--gb-pill-base), 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Minimal round SELECT / START keys */
+.gb-round-btn {
+  background: radial-gradient(circle at 35% 30%, var(--gb-pill-hi) 0%, var(--gb-pill) 65%);
+  box-shadow:
+    0 2px 0 var(--gb-pill-base),
+    0 3px 5px rgba(0, 0, 0, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+}
+
+button:active > .gb-round-btn {
+  transform: translateY(2px);
+  box-shadow:
+    0 0 0 var(--gb-pill-base),
+    inset 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* Subtle Molded Decorative Speaker Slots */
 .gameboy-speaker-slot {
-  background: #b2b2a8;
+  background: var(--gb-speaker);
   box-shadow: 
     inset 0 1.5px 2px rgba(0, 0, 0, 0.35),
-    inset 0 -0.5px 1px rgba(255, 255, 255, 0.4),
-    0 1px 0 rgba(255, 255, 255, 0.6);
+    inset 0 -0.5px 1px var(--gb-speaker-hi-in),
+    0 1px 0 var(--gb-speaker-hi);
   border: 0.5px solid rgba(0, 0, 0, 0.08);
 }
 
@@ -235,16 +331,20 @@ html, body {
 
 /* Symmetrical circular sockets for D-Pad and Button Cluster */
 .minimal-socket {
-  background: #c8c8be;
+  background: var(--gb-socket);
   box-shadow: 
-    inset 0 2.5px 5px rgba(0, 0, 0, 0.42),
-    0 1px 1px rgba(255, 255, 255, 0.5);
+    inset 0 2.5px 5px var(--gb-socket-shadow),
+    0 1px 1px var(--gb-socket-rim);
   border: 1px solid rgba(0, 0, 0, 0.08);
   user-select: none !important;
   -webkit-user-select: none !important;
   -webkit-touch-callout: none !important;
   -webkit-user-drag: none !important;
   touch-action: none !important;
+}
+
+.gameboy-body {
+  touch-action: manipulation; /* no double-tap zoom anywhere on the handheld */
 }
 
 .gameboy-body,
@@ -265,11 +365,11 @@ html, body {
 }
 
 .minimal-dpad-cross {
-  background: #1c1d22;
+  background: var(--gb-cross);
   box-shadow: 
-    0 3px 0 #0d0e10,
+    0 3px 0 var(--gb-cross-base),
     0 4px 6px rgba(0, 0, 0, 0.35),
-    inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    inset 0 1px 1px var(--gb-cross-hi);
 }
 
 .minimal-dpad-center {

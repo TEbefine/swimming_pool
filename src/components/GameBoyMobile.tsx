@@ -29,6 +29,12 @@ interface GameBoyMobileProps {
   hideStatusBadge?: boolean;
 }
 
+/** One-piece D-pad cross: rounded outer tips, softly filleted inner corners (100×100 box). */
+const DPAD_PATH =
+  'M40 0H60A7 7 0 0 1 67 7V29A4 4 0 0 0 71 33H93A7 7 0 0 1 100 40V60A7 7 0 0 1 93 67H71A4 4 0 0 0 67 71V93' +
+  'A7 7 0 0 1 60 100H40A7 7 0 0 1 33 93V71A4 4 0 0 0 29 67H7A7 7 0 0 1 0 60V40A7 7 0 0 1 7 33H29A4 4 0 0 0 33 29V7' +
+  'A7 7 0 0 1 40 0Z';
+
 export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   canvasRef,
   playerState,
@@ -86,6 +92,17 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       el.removeEventListener('touchstart', block);
       el.removeEventListener('touchmove', block);
       el.removeEventListener('touchend', block);
+    };
+  }, []);
+
+  // iOS Safari ignores `user-scalable=no`, so a pinch could still zoom the whole handheld.
+  useEffect(() => {
+    const stop = (e: Event) => e.preventDefault();
+    document.addEventListener('gesturestart', stop);
+    document.addEventListener('gesturechange', stop);
+    return () => {
+      document.removeEventListener('gesturestart', stop);
+      document.removeEventListener('gesturechange', stop);
     };
   }, []);
 
@@ -295,7 +312,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     <div
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
-      className="relative w-full h-[100dvh] max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none gameboy-body border-x-4 border-t-4 border-b-8 border-[#b8b8ae] shadow-2xl"
+      className="relative w-full h-[100dvh] max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none gameboy-body border-x-4 border-t-4 border-b-8 border-[var(--gb-edge)] shadow-2xl"
       style={{
         WebkitTouchCallout: 'none',
         WebkitUserSelect: 'none',
@@ -303,19 +320,19 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       }}
     >
       {/* Top Console Ridge with OFF/ON indicator */}
-      <div className="w-full h-5 bg-[#cfcfc6] border-b border-[#a8a89f] flex items-center justify-between px-4 text-[8px] font-mono text-[#78786f] uppercase tracking-wider shrink-0">
+      <div className="w-full h-5 bg-[var(--gb-ridge)] border-b border-[var(--gb-ridge-line)] flex items-center justify-between px-4 text-[8px] font-mono text-[var(--gb-ridge-text)] uppercase tracking-wider shrink-0">
         <div className="flex items-center gap-1.5">
           <span>◀ OFF</span>
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9e9e94]"></span>
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9e9e94] dark:bg-[#e0705c] dark:shadow-[0_0_4px_#e0705c]"></span>
           <span>ON ▶</span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleToggleMute}
-            className="text-[16px] hover:text-black transition-colors cursor-pointer"
+            className="text-[16px] hover:text-[var(--gb-ridge-strong)] transition-colors cursor-pointer"
             title="Toggle Sound"
           >
-            {muted ? <VolumeX size={12} className="text-rose-600 inline" /> : <Volume2 size={12} className="text-emerald-700 inline" />}
+            {muted ? <VolumeX size={12} className="text-rose-600 dark:text-rose-400 inline" /> : <Volume2 size={12} className="text-emerald-700 dark:text-emerald-400 inline" />}
           </button>
           <button
             onClick={onOpenFloatPicker}
@@ -323,7 +340,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             title="Change Float Ring"
           >
             <div
-              className="w-3 h-3 rounded-full border border-black/40"
+              className="w-3 h-3 rounded-full border border-black/40 dark:border-white/30"
               style={{ backgroundColor: floatColorMap[floatColor] }}
             />
           </button>
@@ -332,15 +349,15 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             className="flex items-center gap-1 hover:text-black transition-colors cursor-pointer"
             title="Change Name"
           >
-            <User size={11} className="inline text-sky-800" />
-            <span className="max-w-[70px] truncate font-bold text-slate-800">{playerName}</span>
+            <User size={11} className="inline text-sky-800 dark:text-sky-300" />
+            <span className="max-w-[70px] truncate font-bold text-[var(--gb-ridge-strong)]">{playerName}</span>
           </button>
           <button
             onClick={onOpenHelpModal}
-            className="hover:text-black cursor-pointer"
+            className="hover:text-[var(--gb-ridge-strong)] cursor-pointer"
             title="Help"
           >
-            <HelpCircle size={12} className="inline text-slate-700" />
+            <HelpCircle size={12} className="inline text-[var(--gb-ridge-icon)]" />
           </button>
         </div>
       </div>
@@ -350,9 +367,12 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       {/* ========================================================================= */}
       <div className="flex-1 min-h-0 flex flex-col justify-center px-3.5 pt-1 pb-1 relative">
         {/* Game Boy Classic Screen Bezel */}
-        <div className="w-full h-full gameboy-bezel flex flex-col justify-between relative rounded-t-xl rounded-bl-xl rounded-br-[28px]">
+        <div className="w-full h-full gameboy-bezel flex flex-col justify-between relative">
           {/* Bezel Header: Retro dual stripes + room name + battery LED */}
-          <div className="w-full flex items-center justify-between pb-1.5 shrink-0 gap-2 px-0.5">
+          {/* Fixed-height band: the title sits dead centre, both across and up/down. */}
+          <div className="w-full h-6 flex items-center justify-between shrink-0 gap-2">
+            {/* Invisible twin of the power LED, so the title is truly centred */}
+            <div className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
             {/* Left stripes */}
             <div className="flex flex-col gap-[3px] flex-1">
               <div className="h-[1.5px] w-full bg-[#c05746] rounded-full"></div>
@@ -360,7 +380,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             </div>
 
             {/* Center text */}
-            <span className="text-[7.5px] font-sans font-bold tracking-widest text-[#d6d8d6] uppercase text-center px-1.5 shrink-0">
+            <span className="text-[7.5px] font-sans font-bold tracking-widest text-[var(--gb-bezel-text)] uppercase text-center px-1.5 shrink-0">
               {statusLabel || 'WEEKDAY CHILL CAFÉ'}
             </span>
 
@@ -371,9 +391,9 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             </div>
 
             {/* Red battery / power indicator dot */}
-            <div className="flex items-center pl-0.5 shrink-0">
+            <div className="flex items-center shrink-0">
               <div
-                className="w-2.5 h-2.5 rounded-full bg-[#e0705c] shadow-[0_0_5px_#e0705c] border border-[#3d434f]"
+                className="w-2.5 h-2.5 rounded-full bg-[#e0705c] shadow-[0_0_5px_#e0705c] border border-[var(--gb-bezel-edge)]"
                 title="Power"
               />
             </div>
@@ -440,6 +460,27 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               )}
             </div>
           </div>
+
+          {/* Logo printed on the screen frame, under the screen (like the Game Boy Color) */}
+          <div className="w-full h-8 flex items-center justify-center shrink-0 pointer-events-none">
+           <div className="flex items-baseline gap-1">
+            <span className="text-[var(--gb-bezel-ink)] font-sans font-semibold text-[12px] leading-none tracking-tight">
+              Nintendo
+            </span>
+            <span
+              className="text-[var(--gb-bezel-logo)] font-sans font-black italic text-[12px] leading-none tracking-wider"
+              style={{ transform: 'skewX(-6deg)' }}
+            >
+              GAME BOY
+            </span>
+            <span
+              className="text-[var(--gb-bezel-ink)] text-[6px] leading-none font-sans font-bold"
+              style={{ position: 'relative', top: -5 }}
+            >
+              TM
+            </span>
+           </div>
+          </div>
         </div>
       </div>
 
@@ -452,25 +493,14 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
         onContextMenu={(e) => e.preventDefault()}
         className="h-[156px] flex flex-col justify-between px-3 pt-1 pb-1 relative shrink-0"
         style={{
+          paddingTop: 10,
           WebkitTouchCallout: 'none',
           WebkitUserSelect: 'none',
           userSelect: 'none'
         }}
       >
-        {/* Game Boy Classic Blue Branding */}
-        <div className="flex items-baseline gap-1 pl-6 pt-0 shrink-0 translate-x-[44px]">
-          <span className="text-[#152377] font-sans font-bold text-[16px] tracking-tight">Nintendo</span>
-          <span
-            className="text-[#152377] font-sans font-black italic text-[16px] tracking-wider"
-            style={{ transform: 'skewX(-6deg)' }}
-          >
-            GAME BOY
-          </span>
-          <span className="text-[#152377] text-[8px] font-sans font-bold align-top">TM</span>
-        </div>
-
         {/* Controls Row: Compact, Spacious Thumb Targets (108px sockets) */}
-        <div className="flex items-center justify-between w-full max-w-[330px] my-auto translate-x-[42px]">
+        <div className="flex items-center justify-between w-full my-auto" style={{ paddingLeft: 14, paddingRight: 14 }}>
           {/* ================= MINIMAL STYLE CROSS D-PAD ================= */}
           <div className="flex items-center justify-center">
             {/* Symmetrical Left Recessed Socket (108px) */}
@@ -490,52 +520,55 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 touchAction: 'none'
               }}
             >
-              {/* Minimal Clean Cross Container */}
-              <div className="relative w-[94px] h-[94px] flex items-center justify-center pointer-events-none">
-                {/* Horizontal Cross Arm */}
-                <div
-                  className="absolute w-[92px] h-[32px] minimal-dpad-cross rounded-xs flex items-center justify-between px-1.5"
-                >
-                  <span
-                    className={`text-[9.5px] transition-colors ${
-                      activeDir.left ? 'text-amber-400 font-bold' : 'text-white/35'
-                    }`}
-                  >
-                    ◀
-                  </span>
-                  <span
-                    className={`text-[9.5px] transition-colors ${
-                      activeDir.right ? 'text-amber-400 font-bold' : 'text-white/35'
-                    }`}
-                  >
-                    ▶
-                  </span>
-                </div>
-
-                {/* Vertical Cross Arm */}
-                <div
-                  className="absolute h-[92px] w-[32px] minimal-dpad-cross rounded-xs flex flex-col items-center justify-between py-1.5"
-                >
-                  <span
-                    className={`text-[9.5px] transition-colors ${
-                      activeDir.up ? 'text-amber-400 font-bold' : 'text-white/35'
-                    }`}
-                  >
-                    ▲
-                  </span>
-                  <span
-                    className={`text-[9.5px] transition-colors ${
-                      activeDir.down ? 'text-amber-400 font-bold' : 'text-white/35'
-                    }`}
-                  >
-                    ▼
-                  </span>
-                </div>
-
-                {/* Clean Center Dimple */}
-                <div className="relative z-10 w-[20px] h-[20px] rounded-full minimal-dpad-center border border-black/50 flex items-center justify-center">
-                  <div className="w-[8px] h-[8px] rounded-full bg-[#111215] shadow-inner"></div>
-                </div>
+              {/* Chunky one-piece cross (SVG): no text glyphs, so iOS never shows the text loupe on a hold.
+                  It rocks toward the pressed direction like a real D-pad. */}
+              <div
+                className="pointer-events-none"
+                style={{
+                  width: 94,
+                  height: 98,
+                  transform: `perspective(240px) rotateX(${(activeDir.up ? 9 : 0) - (activeDir.down ? 9 : 0)}deg) rotateY(${(activeDir.right ? 9 : 0) - (activeDir.left ? 9 : 0)}deg)`,
+                  transition: 'transform 70ms ease-out',
+                }}
+              >
+                <svg viewBox="0 0 100 104" width="94" height="98" aria-hidden="true" focusable="false">
+                  <defs>
+                    <linearGradient id="gbDpadFace" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" style={{ stopColor: 'var(--gb-cross-top)' }} />
+                      <stop offset="1" style={{ stopColor: 'var(--gb-cross)' }} />
+                    </linearGradient>
+                    <radialGradient id="gbDpadDimple" cx="50%" cy="42%" r="60%">
+                      <stop offset="0" style={{ stopColor: 'var(--gb-cross-base)' }} />
+                      <stop offset="1" style={{ stopColor: 'var(--gb-cross)' }} />
+                    </radialGradient>
+                  </defs>
+                  {/* Side wall (gives the key its thickness) */}
+                  <path d={DPAD_PATH} transform="translate(0 4)" style={{ fill: 'var(--gb-cross-base)' }} />
+                  {/* Face */}
+                  <path d={DPAD_PATH} fill="url(#gbDpadFace)" />
+                  {/* Top bevel highlight */}
+                  <path d={DPAD_PATH} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                  {/* Centre dimple */}
+                  <circle cx="50" cy="50" r="9" fill="url(#gbDpadDimple)" />
+                  {/* Arrows: soft rounded triangles, inset from each tip. Pressed = brighter grey. */}
+                  {([
+                    ['up', '50,8.5 54.5,15 45.5,15'],
+                    ['down', '50,91.5 54.5,85 45.5,85'],
+                    ['left', '8.5,50 15,45.5 15,54.5'],
+                    ['right', '91.5,50 85,45.5 85,54.5'],
+                  ] as const).map(([dir, pts]) => {
+                    const c = activeDir[dir] ? 'var(--gb-dpad-arrow-on)' : 'var(--gb-dpad-arrow)';
+                    return (
+                      <polygon
+                        key={dir}
+                        points={pts}
+                        strokeWidth="3.5"
+                        strokeLinejoin="round"
+                        style={{ fill: c, stroke: c, transition: 'fill 80ms, stroke 80ms' }}
+                      />
+                    );
+                  })}
+                </svg>
               </div>
             </div>
           </div>
@@ -655,50 +688,35 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
         {/* Lower Row: SELECT & START moved to center-right, plus Speaker Ribs */}
         <div className="relative w-full h-5 flex items-center px-4 shrink-0">
-          {/* SELECT & START: Positioned further to the right */}
-          <div
-            className="absolute left-[49%] -translate-x-1/2 -top-1.5 flex items-center gap-3.5"
-            style={{ transform: 'rotate(-25deg)' }}
-          >
-            {/* SELECT BUTTON -> Opens Chat */}
-            <div className="flex flex-col items-center">
-              <button
-                type="button"
-                {...press(handlePressSelect)}
-                onContextMenu={(e) => e.preventDefault()}
-                className="w-8 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
-                title="Select (Open Chat)"
-                style={{
-                  WebkitTouchCallout: 'none',
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none',
-                  touchAction: 'none'
-                }}
-              />
-              <span className="text-[8px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
-                SELECT
-              </span>
-            </div>
-
-            {/* START / PAUSE BUTTON -> Opens Emote Picker */}
-            <div className="flex flex-col items-center">
-              <button
-                type="button"
-                {...press(handlePressStart)}
-                onContextMenu={(e) => e.preventDefault()}
-                className="w-8 h-2.5 rounded-full gameboy-pill-btn cursor-pointer active:scale-95"
-                title="Start (Pause / Emotes Menu)"
-                style={{
-                  WebkitTouchCallout: 'none',
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none',
-                  touchAction: 'none'
-                }}
-              />
-              <span className="text-[8px] font-black text-[#152377] font-sans tracking-wider uppercase mt-0.5">
-                START
-              </span>
-            </div>
+          {/* SELECT & START: two minimal round keys, level and centred.
+              The button is a 40×32 touch target; the visible circle sits inside it. */}
+          <div className="absolute left-1/2 -translate-x-1/2 -top-8 flex items-start gap-4">
+            {[
+              { label: 'Select', fn: handlePressSelect, title: 'Select (Scene)' },
+              { label: 'Start', fn: handlePressStart, title: 'Start (Emotes Menu)' },
+            ].map((key) => (
+              <div key={key.label} className="flex flex-col items-center">
+                <button
+                  type="button"
+                  {...press(key.fn)}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className="w-10 h-8 flex items-center justify-center cursor-pointer"
+                  title={key.title}
+                  aria-label={key.label}
+                  style={{
+                    WebkitTouchCallout: 'none',
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none',
+                    touchAction: 'none'
+                  }}
+                >
+                  <span className="gb-round-btn block w-[18px] h-[18px] rounded-full" />
+                </button>
+                <span className="h-2 leading-none text-[7px] font-bold text-[var(--gb-ink)] font-sans tracking-[0.2em] uppercase">
+                  {key.label}
+                </span>
+              </div>
+            ))}
           </div>
 
           {/* 6 Decorative Molded Speaker Ribs on Bottom-Right */}
@@ -713,7 +731,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
         </div>
 
         {/* Bottom edge: PHONES */}
-        <div className="w-full flex items-center justify-center gap-1 text-[5.5px] font-mono text-[#8b8b80] uppercase tracking-widest shrink-0 -mt-0.5">
+        <div className="w-full flex items-center justify-center gap-1 text-[5.5px] font-mono text-[var(--gb-ink-soft)] uppercase tracking-widest shrink-0 -mt-0.5">
           <span>◀ PHONES ▶</span>
         </div>
       </div>
