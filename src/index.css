@@ -55,7 +55,7 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.1s ease;
+  transition: background-color 0.1s ease, border-color 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
   box-shadow: 0 3px 0 #0f172a;
 }
 
@@ -380,4 +380,41 @@ html, body {
 }
 .dialog-portrait-face-out {
   animation: faceOut 160ms ease-out forwards;
+}
+
+/* Sampling the live game behind a blur costs GPU work every time its pixels change.
+   Handheld screens retain the same colors, borders and dimmed overlays without that pass. */
+@media (pointer: coarse), (max-width: 767px) {
+  .pixel-panel {
+    background: #12192c;
+  }
+
+  .pixel-panel,
+  .game-overlay-backdrop {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .dialog-world-blur,
+  .dialog-world-unblur {
+    filter: none;
+    transition: none;
+  }
+
+  .animate-pulse,
+  .dialog-bob-arrow {
+    animation: none !important;
+  }
+}
+
+/* Keep final states and interaction feedback, without decorative motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

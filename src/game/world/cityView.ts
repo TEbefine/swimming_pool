@@ -77,21 +77,38 @@ export const SKY_KEYS: SkyKey[] = [
   { hour: 24,   top: [18, 22, 52],    bottom: [48, 44, 92],    cityTint: [0.35, 0.38, 0.58], night: 1 },
 ];
 
+// The scene asks for its lighting time several times per frame. Reuse the
+// expensive locale formatter, and only format again when the minute changes.
+const bangkokClock = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,
+});
+let cachedMinute = Number.NaN;
+let cachedHour = 0;
+let cachedSearch: string | undefined;
+let forcedHour: number | undefined;
+
 /** Current hour (0–24, fractional) in Asia/Bangkok. `?hour=19.5` in the URL overrides it. */
-export function bangkokHour(now: Date = new Date(), fixedHour?: number): number {
-  if (typeof window !== 'undefined') {
-    const forced = new URLSearchParams(window.location.search).get('hour');
-    if (forced !== null && !Number.isNaN(Number(forced))) return Number(forced) % 24;
+export function bangkokHour(now?: Date, fixedHour?: number): number {
+  const search = typeof window === 'undefined' ? '' : window.location.search;
+  if (search !== cachedSearch) {
+    cachedSearch = search;
+    const forced = new URLSearchParams(search).get('hour');
+    const numericHour = forced === null ? Number.NaN : Number(forced);
+    forcedHour = Number.isFinite(numericHour) ? numericHour % 24 : undefined;
   }
+  if (forcedHour !== undefined) return forcedHour;
   if (fixedHour !== undefined) {
     return fixedHour % 24;
   }
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).formatToParts(now);
+  const timestamp = now?.getTime() ?? Date.now();
+  const minute = Math.floor(timestamp / 60_000);
+  if (minute === cachedMinute) return cachedHour;
+  const parts = bangkokClock.formatToParts(timestamp);
   const h = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24;
   const m = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
-  return h + m / 60;
+  cachedMinute = minute;
+  cachedHour = h + m / 60;
+  return cachedHour;
 }
 
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;

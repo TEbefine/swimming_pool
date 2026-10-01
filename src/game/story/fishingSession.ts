@@ -754,16 +754,16 @@ function drawBarFrame(ctx: CanvasRenderingContext2D, now: number) {
 }
 
 /** The casting power gauge: bottom = right by the pier, top = far deep water. */
-function drawPowerGauge(ctx: CanvasRenderingContext2D, now: number) {
+function drawPowerGauge(ctx: CanvasRenderingContext2D, now: number, reducedMotion: boolean) {
   const W = REEL_BAR_W;
   const H = REEL_BAR_H;
   ctx.save();
   const inT = Math.min(1, (now - chargeAt) / 220);
-  const s = easeOutBack(inT);
+  const s = reducedMotion ? 1 : easeOutBack(inT);
   ctx.translate(W / 2, H / 2);
   ctx.scale(s, s);
   ctx.translate(-W / 2, -H / 2);
-  const { X, col } = drawBarFrame(ctx, now);
+  const { X, col } = drawBarFrame(ctx, reducedMotion ? 0 : now);
   const yAt = (v: number) => col.y + col.h - v * col.h;
 
   // water by distance: shallow (near) at the bottom → deep (far) at the top
@@ -783,7 +783,7 @@ function drawPowerGauge(ctx: CanvasRenderingContext2D, now: number) {
   px(ctx, col.x, ny0, col.w, ny1 - ny0, inNice ? '#FFE9A8' : '#E0B84E');
   px(ctx, col.x, ny0, col.w, 1, C.outline);
   px(ctx, col.x, ny1 - 1, col.w, 1, C.outline);
-  if (inNice) {
+  if (inNice && !reducedMotion) {
     for (let i = 0; i < 3; i++) px(ctx, col.x + 3 + i * 7, ny0 + 2 + ((Math.floor(now / 90) + i) % 3), 2, 2, '#FFFFFF');
   }
   // fill up to the power + the float riding on top
@@ -812,25 +812,26 @@ function drawPowerGauge(ctx: CanvasRenderingContext2D, now: number) {
   ctx.restore();
 }
 
-export function drawReelBar(ctx: CanvasRenderingContext2D, now: number) {
+/** Returns false after clearing a finished bar, so the HUD can stop requesting frames. */
+export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedMotion = false): boolean {
   const W = REEL_BAR_W;
   const H = REEL_BAR_H;
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, W, H);
   if (view.aiming) {
-    drawPowerGauge(ctx, now);
-    return;
+    drawPowerGauge(ctx, now, reducedMotion);
+    return true;
   }
   const ended = fs.phase === 'caught' || fs.phase === 'escaped';
-  if (fs.phase !== 'reel' && !(ended && now - endAt < BAR_END_MS)) return;
+  if (fs.phase !== 'reel' && !(ended && now - endAt < BAR_END_MS)) return false;
   const endT = ended ? (now - endAt) / BAR_END_MS : 0;
 
   ctx.save();
   // pop in (overshoot) at the strike; on a catch it swells a little, on an escape it shakes hard
   const inT = Math.min(1, (now - reelStart) / 260);
-  let s = easeOutBack(inT);
-  if (fs.phase === 'caught') s = 1 + 0.08 * Math.sin(Math.min(1, endT) * Math.PI);
-  const amp = fs.phase === 'escaped' ? 3 : fs.phase === 'reel' ? (tension > 0.8 ? 2 : tension > 0.55 ? 1 : 0) : 0;
+  let s = reducedMotion ? 1 : easeOutBack(inT);
+  if (fs.phase === 'caught' && !reducedMotion) s = 1 + 0.08 * Math.sin(Math.min(1, endT) * Math.PI);
+  const amp = reducedMotion ? 0 : fs.phase === 'escaped' ? 3 : fs.phase === 'reel' ? (tension > 0.8 ? 2 : tension > 0.55 ? 1 : 0) : 0;
   const sx = amp ? Math.round(Math.sin(now / 19) * amp) : 0;
   const sy = amp > 1 ? Math.round(Math.cos(now / 23)) : 0;
   ctx.translate(W / 2 + sx, H / 2 + sy);
@@ -850,7 +851,7 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number) {
   px(ctx, X + 1, Y + 1, 32, 1, '#B08A5C');
   for (const [pxX, pxY] of [[X + 3, Y + 4], [X + 28, Y + 4], [X + 3, Y + FH - 7], [X + 28, Y + FH - 7]]) px(ctx, pxX, pxY, 3, 3, '#C9A56B');
   // tiny float on top as a label (bobs)
-  const lb = Math.floor(now / 400) % 2;
+  const lb = reducedMotion ? 0 : Math.floor(now / 400) % 2;
   px(ctx, X + 14, Y + 2 + lb, 6, 8, C.outline);
   px(ctx, X + 15, Y + 3 + lb, 4, 3, C.red);
   px(ctx, X + 15, Y + 6 + lb, 4, 3, C.white);
@@ -862,7 +863,7 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number) {
   bands.forEach((c, i) => px(ctx, col.x, col.y + i * bh, col.w, Math.max(0, Math.min(bh, col.h - i * bh)), c));
   // rising bubbles (faster when the fish is fighting)
   const speed = 22 - tension * 10;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; !reducedMotion && i < 6; i++) {
     const by = col.y + col.h - ((now / speed + i * 31) % col.h);
     px(ctx, col.x + 3 + ((i * 7) % (col.w - 6)), by, 2, 2, 'rgba(242,250,246,0.55)');
   }
@@ -874,7 +875,7 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number) {
   ctx.fillStyle = C.mesh;
   for (let yy = ny + 3; yy < ny + nh - 1; yy += 4) ctx.fillRect(col.x, yy, col.w, 1);
   for (let xx = col.x + 3; xx < col.x + col.w; xx += 4) ctx.fillRect(xx, ny, 1, nh);
-  const flash = Math.max(0, 1 - (now - netFlashAt) / 180);
+  const flash = reducedMotion ? 0 : Math.max(0, 1 - (now - netFlashAt) / 180);
   if (flash > 0) {
     ctx.globalAlpha *= 0.7 * flash;
     px(ctx, col.x, ny, col.w, nh, '#FFFFFF');
@@ -888,11 +889,11 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number) {
     const img = icon(fs.fish);
     const size = 22;
     const cy = col.y + col.h - fs.fishY * col.h;
-    const wig = Math.sin(now / 55) * (tension > 0.6 ? 2 : 1);
+    const wig = reducedMotion ? 0 : Math.sin(now / 55) * (tension > 0.6 ? 2 : 1);
     if (img.complete && img.naturalWidth) {
       ctx.save();
       ctx.translate(col.x + col.w / 2 + wig, cy);
-      ctx.rotate(fishTilt);
+      ctx.rotate(reducedMotion ? 0 : fishTilt);
       ctx.filter = fs.inNet ? 'brightness(0.2)' : 'brightness(0.08)';
       ctx.drawImage(img, -size / 2, -size / 2, size, size);
       ctx.restore();
@@ -903,7 +904,7 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number) {
 
   // catch meter (right): red → yellow → green, glows near full, blinks when the line is in danger
   const m = { x: X + 38, y: col.y, w: 8, h: col.h };
-  const danger = fs.phase === 'reel' && fs.progress < 0.2 && Math.floor(now / 120) % 2 === 0;
+  const danger = fs.phase === 'reel' && fs.progress < 0.2 && (reducedMotion || Math.floor(now / 120) % 2 === 0);
   px(ctx, m.x - 1, m.y - 1, m.w + 2, m.h + 2, danger ? C.meterLow : C.outline);
   px(ctx, m.x, m.y, m.w, m.h, C.meterBg);
   const prog = fs.phase === 'caught' ? 1 : fs.progress;
@@ -911,10 +912,10 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number) {
   const mc = prog > 0.66 ? '#7DB35F' : prog > 0.25 ? '#D9B44A' : C.meterLow;
   px(ctx, m.x, m.y + m.h - mh, m.w, mh, mc);
   px(ctx, m.x, m.y + m.h - mh, m.w, 1, 'rgba(255,255,255,0.6)');
-  if (prog > 0.85 && Math.floor(now / 100) % 2 === 0) px(ctx, m.x + 1, m.y + m.h - mh + 2, 2, Math.max(0, mh - 4), 'rgba(255,255,255,0.35)');
+  if (!reducedMotion && prog > 0.85 && Math.floor(now / 100) % 2 === 0) px(ctx, m.x + 1, m.y + m.h - mh + 2, 2, Math.max(0, mh - 4), 'rgba(255,255,255,0.35)');
 
   // catch flash + sparkles
-  if (fs.phase === 'caught') {
+  if (fs.phase === 'caught' && !reducedMotion) {
     const a = Math.max(0, 1 - endT * 1.6);
     ctx.globalAlpha = a * 0.75;
     px(ctx, X, Y, 48, FH, '#FFFFFF');
@@ -926,4 +927,5 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number) {
     }
   }
   ctx.restore();
+  return true;
 }

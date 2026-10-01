@@ -8,22 +8,67 @@ export class NetworkManager {
   private listeners: Map<string, Set<NetworkEventCallback>> = new Map();
   private isConnected: boolean = false;
   private localPlayerId: string;
+  private wsUrl: string | null;
+  private destroyed = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempt = 0;
 
   public getIsConnected(): boolean {
     return this.isConnected;
   }
 
-  constructor(localPlayerId: string) {
+  constructor(localPlayerId: string, wsUrl?: string | null) {
     this.localPlayerId = localPlayerId;
+    this.wsUrl = wsUrl === undefined ? this.resolveWebSocketUrl() : wsUrl;
     this.setupBroadcastChannel();
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleAvailabilityChange);
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', this.handleAvailabilityChange);
+      window.addEventListener('offline', this.handleAvailabilityChange);
+    }
     this.setupWebSocket();
   }
+
+  private resolveWebSocketUrl(): string | null {
+    if (typeof window === 'undefined') return null;
+    const configured = import.meta.env?.VITE_WS_URL?.trim();
+    if (configured) return configured;
+    // The optional Node relay runs separately in development. A production
+    // deployment must opt in to its real wss:// endpoint, rather than retrying
+    // an unavailable/insecure port on every visitor's phone.
+    if (import.meta.env?.DEV && window.location.protocol === 'http:') {
+      return `ws://${window.location.hostname}:3001`;
+    }
+    return null;
+  }
+
+  private isActive(): boolean {
+    return !this.destroyed
+      && (typeof document === 'undefined' || !document.hidden);
+  }
+
+  private isAvailable(): boolean {
+    return this.isActive()
+      && (typeof navigator === 'undefined' || navigator.onLine !== false);
+  }
+
+  private handleAvailabilityChange = () => {
+    if (!this.isAvailable()) {
+      this.clearReconnectTimer();
+      this.closeWebSocket();
+      return;
+    }
+    this.setupWebSocket();
+  };
 
   private setupBroadcastChannel() {
     try {
       if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
         this.channel = new BroadcastChannel('pixel_pool_hangout');
         this.channel.onmessage = (event) => {
+          if (!this.isActive()) return;
           const { type, data, senderId } = event.data;
           if (senderId === this.localPlayerId) return;
           this.emit(type, data);
@@ -35,123 +80,135 @@ export class NetworkManager {
   }
 
   private setupWebSocket() {
-    if (typeof window === 'undefined') return;
+    if (!this.wsUrl || !this.isAvailable() || this.ws || this.reconnectTimer !== null) return;
+    if (typeof WebSocket === 'undefined') return;
     try {
-      const wsUrl = `ws://${window.location.hostname}:3001`;
-      this.ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(this.wsUrl);
+      this.ws = ws;
 
-      this.ws.onopen = () => {
-        this.isConnected = true;
-        this.emit('connection_change', { connected: true, transport: 'websocket' });
+      ws.onopen = () => {
+        if (this.destroyed || this.ws !== ws) return;
+        this.reconnectAttempt = 0;
+        this.setConnected(true);
       };
 
-      this.ws.onmessage = (event) => {
+      ws.onmessage = (event) => {
+        if (!this.isAvailable() || this.ws !== ws) return;
         try {
           const { type, data, senderId } = JSON.parse(event.data);
           if (senderId === this.localPlayerId) return;
           this.emit(type, data);
         } catch {
-          // ignore malformed msg
+          // Ignore malformed messages.
         }
       };
 
-      this.ws.onerror = () => {
-        // Fallback to BroadcastChannel is active
-        this.isConnected = false;
-        this.emit('connection_change', { connected: false, transport: 'broadcast_channel' });
+      ws.onerror = () => {
+        if (this.ws === ws) this.setConnected(false);
       };
 
-      this.ws.onclose = () => {
-        this.isConnected = false;
-        this.emit('connection_change', { connected: false, transport: 'broadcast_channel' });
-        // Try reconnecting after 5 seconds
-        setTimeout(() => this.setupWebSocket(), 5000);
+      ws.onclose = () => {
+        if (this.ws !== ws) return;
+        this.ws = null;
+        this.setConnected(false);
+        this.scheduleReconnect();
       };
     } catch {
-      // WebSocket connection failed, BroadcastChannel active
+      // Invalid URLs and blocked mixed-content connections will not improve
+      // through retries. BroadcastChannel remains available.
+      this.setConnected(false);
     }
   }
 
-  public on(event: string, cb: NetworkEventCallback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
+  private setConnected(connected: boolean) {
+    if (this.isConnected === connected) return;
+    this.isConnected = connected;
+    this.emit('connection_change', {
+      connected,
+      transport: connected ? 'websocket' : 'broadcast_channel',
+    });
+  }
+
+  private scheduleReconnect() {
+    if (!this.isAvailable() || this.reconnectTimer !== null) return;
+    const delay = Math.min(30_000, 1000 * 2 ** Math.min(this.reconnectAttempt++, 5));
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.setupWebSocket();
+    }, delay);
+  }
+
+  private clearReconnectTimer() {
+    if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
+  private closeWebSocket() {
+    const ws = this.ws;
+    this.ws = null;
+    if (ws) {
+      // Clear callbacks before close: intentional teardown must not reconnect.
+      ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+      ws.close();
     }
+    this.setConnected(false);
+  }
+
+  public on(event: string, cb: NetworkEventCallback) {
+    if (this.destroyed) return;
+    if (!this.listeners.has(event)) this.listeners.set(event, new Set());
     this.listeners.get(event)!.add(cb);
   }
 
   public off(event: string, cb: NetworkEventCallback) {
-    const list = this.listeners.get(event);
-    if (list) {
-      list.delete(cb);
-    }
+    this.listeners.get(event)?.delete(cb);
   }
 
   private emit(event: string, data: unknown) {
-    const list = this.listeners.get(event);
-    if (list) {
-      list.forEach((cb) => cb(event, data));
+    this.listeners.get(event)?.forEach((cb) => cb(event, data));
+  }
+
+  private send(type: string, data: unknown) {
+    if (this.destroyed) return;
+    const payload = { type, senderId: this.localPlayerId, data };
+    this.channel?.postMessage(payload);
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      // Movement is replaceable: avoid an ever-growing queue on slow mobile
+      // networks. Chat and leave messages retain their normal delivery path.
+      if (type === 'player_state' && this.ws.bufferedAmount > 64 * 1024) return;
+      this.ws.send(JSON.stringify(payload));
     }
   }
 
   public broadcastPlayerState(player: PlayerData) {
-    const payload = {
-      type: 'player_state',
-      senderId: this.localPlayerId,
-      data: player
-    };
-
-    // Broadcast channel
-    if (this.channel) {
-      this.channel.postMessage(payload);
-    }
-
-    // WebSocket
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(payload));
-    }
+    if (this.isActive()) this.send('player_state', player);
   }
 
   public sendChatMessage(message: ChatMessage) {
-    const payload = {
-      type: 'chat_message',
-      senderId: this.localPlayerId,
-      data: message
-    };
-
-    if (this.channel) {
-      this.channel.postMessage(payload);
-    }
-
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(payload));
-    }
+    this.send('chat_message', message);
   }
 
   public sendPlayerLeave(playerId: string) {
-    const payload = {
-      type: 'player_leave',
-      senderId: this.localPlayerId,
-      data: { id: playerId }
-    };
-
-    if (this.channel) {
-      this.channel.postMessage(payload);
-    }
-
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(payload));
-    }
+    this.send('player_leave', { id: playerId });
   }
 
   public destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.clearReconnectTimer();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleAvailabilityChange);
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('online', this.handleAvailabilityChange);
+      window.removeEventListener('offline', this.handleAvailabilityChange);
+    }
     if (this.channel) {
+      this.channel.onmessage = null;
       this.channel.close();
       this.channel = null;
     }
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
+    this.closeWebSocket();
     this.listeners.clear();
   }
 }
