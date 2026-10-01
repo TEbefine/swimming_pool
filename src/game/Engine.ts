@@ -850,15 +850,22 @@ export class GameEngine {
           .map((p) => this.ensureWaterColor(p.data.floatColor)),
       ]);
     })());
-    if (this.actorScale > 1) {
+    // Close-up rooms draw the big swimsuit set only when the room has no outfit of its own
+    // (landPrefix() prefers the outfit), so don't download both.
+    const loadScaledLand = async (): Promise<void> => {
+      if (this.actorScale <= 1 || signal.aborted) return;
       const folder = landFolder(this.actorScale);
-      jobs.push(this.readManifest(`/sprites/${folder}/manifest.json`).then((m) =>
-        signal.aborted ? undefined : loadSet(`${folder}_`, m)));
-    }
+      const m = await this.readManifest(`/sprites/${folder}/manifest.json`);
+      if (!signal.aborted) await loadSet(`${folder}_`, m);
+    };
     const outfit = room.outfit;
     if (outfit && outfit !== 'swim') {
-      jobs.push(this.readManifest(`/sprites/outfits/${outfit}/manifest.json`).then((m) =>
-        signal.aborted ? undefined : loadSet(`outfit_${outfit}_`, m)).catch(() => {}));
+      jobs.push(this.readManifest(`/sprites/outfits/${outfit}/manifest.json`)
+        .then(async (m) => { if (!signal.aborted) await loadSet(`outfit_${outfit}_`, m); })
+        .then(() => (this.sprites.has(`outfit_${outfit}_idle`) ? undefined : loadScaledLand()))
+        .catch(() => loadScaledLand()));
+    } else {
+      jobs.push(loadScaledLand());
     }
     for (const asset of new Set(room.elements?.map((el) => el.asset))) {
       jobs.push(loadInto(asset, asset, this.elementImages));
