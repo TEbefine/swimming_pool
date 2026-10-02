@@ -43,6 +43,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
   useEffect(() => {
     music.playForRoom(currentRoom.roomId);
+    void music.tryAutoPlay();
   }, []);
 
   const [loading, setLoading] = useState(true);
@@ -422,6 +423,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     };
 
     const init = async () => {
+      // Preload start chime early so it's ready when the player presses START
+      music.preloadStartChime();
       setLoadProgress(12);
       // Gentle progress while the art downloads (loadAssets has no per-file callback yet).
       const creep = window.setInterval(() => setLoadProgress((p) => p + (92 - p) * 0.08), 140);
@@ -438,6 +441,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
         if (cancelled || entered) return;
         entered = true;
         enterGameRef.current = null;
+        void music.playStartChime();
         engine.start();
         setPlayerCountByRoom(engine.getPlayerCountByRoom());
         onEngineReady?.(engine);
@@ -508,7 +512,24 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     const enter = (e: Event) => {
       if (performance.now() < swallowUntil) return block(e);
       if (!enterGameRef.current) return;
-      if (e instanceof KeyboardEvent && (e.repeat || e.metaKey || e.ctrlKey)) return;
+      if (e instanceof KeyboardEvent) {
+        if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+        const key = e.key.toLowerCase();
+        const code = e.code;
+        if (
+          code !== 'Space' &&
+          code !== 'KeyO' &&
+          code !== 'Enter' &&
+          code !== 'NumpadEnter' &&
+          key !== ' ' &&
+          key !== 'spacebar' &&
+          key !== 'o' &&
+          key !== 'enter' &&
+          key !== 'return'
+        ) {
+          return;
+        }
+      }
       block(e);
       swallowUntil = performance.now() + 600;
       enterGameRef.current();
@@ -674,6 +695,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       ready={assetsReady}
       leaving={loadingLeaving}
       onEnter={() => enterGameRef.current?.()}
+      isMobile={effectiveIsMobile}
+      onEarlyTouch={() => { void music.tryAutoPlay(); }}
     />
   ) : null;
 

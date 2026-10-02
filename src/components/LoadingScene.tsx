@@ -14,6 +14,8 @@ interface LoadingSceneProps {
   ready: boolean; // assets loaded, waiting for the player
   leaving: boolean; // fading out
   onEnter: () => void;
+  isMobile?: boolean;
+  onEarlyTouch?: () => void;
 }
 
 const PHRASES: Record<string, string[]> = {
@@ -40,7 +42,7 @@ const SEEDS = Array.from({ length: 14 }, (_, i) => {
   };
 });
 
-export const LoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, progress, ready, leaving, onEnter }) => {
+export const LoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, progress, ready, leaving, onEnter, isMobile, onEarlyTouch }) => {
   const phrases = useMemo(() => phrasesFor(roomId), [roomId]);
   const [phraseIdx, setPhraseIdx] = useState(0);
 
@@ -50,12 +52,14 @@ export const LoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, pr
     return () => window.clearInterval(t);
   }, [ready, phrases.length]);
 
+  const enterLabel = isMobile ? 'Press ◯' : 'Press SPACE';
+
   return (
     <div
       className={`ls-root ${ready ? 'ls-ready' : ''} ${leaving ? 'ls-leaving' : ''}`}
-      onPointerDown={ready ? (e) => { e.preventDefault(); onEnter(); } : undefined}
+      onPointerDown={ready ? (e) => { e.preventDefault(); onEnter(); } : onEarlyTouch}
       role="status"
-      aria-label={ready ? 'Tap to enter' : 'Loading'}
+      aria-label={ready ? enterLabel : 'Loading'}
     >
       {/* 1. Pixel world (pans slowly) */}
       <div className="ls-world">
@@ -102,7 +106,7 @@ export const LoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, pr
 
       <div className="ls-bottom">
         {ready ? (
-          <span className="ls-enter">TAP TO ENTER</span>
+          <span className="ls-enter">{enterLabel}</span>
         ) : (
           <>
             <span className="ls-phrase" key={phraseIdx}>

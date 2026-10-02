@@ -21,6 +21,7 @@ export const MUSIC_LABELS: Record<MusicLevel, string> = {
  */
 export const ROOM_MUSIC: Record<string, string | null> = {
   town: '/audio/lumen_bay_morning.m4a',
+  cafe: '/audio/cafe_hours.m4a',
 };
 
 const STORAGE_KEY = 'pixel_pool_music';
@@ -37,6 +38,11 @@ export class MusicManager {
   // Keep at most the current decoded buffer in memory (plus old one only during its 0.8s fade)
   private currentBuffer: AudioBuffer | null = null;
   private currentBufferUrl: string | null = null;
+
+  // Single-shot start chime buffer (/audio/start_chime.m4a)
+  private chimeBuffer: AudioBuffer | null = null;
+  private chimeLoading: Promise<AudioBuffer | null> | null = null;
+  private chimeSource: AudioBufferSourceNode | null = null;
 
   private masterGain: GainNode | null = null;
   private masterGainCtx: AudioContext | null = null;
@@ -246,7 +252,7 @@ export class MusicManager {
         // Autoplay rule: context is suspended/interrupted until first user gesture
         this.pendingStart = { buffer, trackUrl: targetTrack, requestId };
       } else {
-        const startAt = Math.max(ctx.currentTime, oldFadeEndTime);
+        const startAt = ctx.currentTime;
         this.startTrack(buffer, targetTrack, startAt, requestId);
       }
     } catch {
@@ -303,8 +309,105 @@ export class MusicManager {
     }
   }
 
+  /**
+   * Attempt to start playback immediately on page load if browser policy allows.
+   * If blocked by autoplay policy, safely catches without error and waits for user gesture.
+   */
+  public async tryAutoPlay(): Promise<void> {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') {
+      try {
+        await ctx.resume();
+        this.onContextResumed();
+      } catch {
+        // Autoplay blocked by browser policy until user gesture
+      }
+    } else {
+      this.onContextResumed();
+    }
+  }
+
+  /**
+   * Preload start chime so it is already decoded and ready in memory
+   * when the player taps / presses START.
+   */
+  public preloadStartChime(): void {
+    void this.loadChimeBuffer();
+  }
+
+  private async loadChimeBuffer(): Promise<AudioBuffer | null> {
+    if (this.chimeBuffer) return this.chimeBuffer;
+    const ctx = this.getContext();
+    if (!ctx) return null;
+
+    if (!this.chimeLoading) {
+      this.chimeLoading = (async () => {
+        try {
+          const res = await fetch('/audio/start_chime.m4a');
+          if (!res.ok) return null;
+          const ab = await res.arrayBuffer();
+          const decoded = await ctx.decodeAudioData(ab);
+          this.chimeBuffer = decoded;
+          return decoded;
+        } catch {
+          return null;
+        } finally {
+          this.chimeLoading = null;
+        }
+      })();
+    }
+    return this.chimeLoading;
+  }
+
+  /**
+   * Resumes the shared AudioContext (first user gesture), plays /audio/start_chime.m4a
+   * once through the music manager's master gain (respecting Off/Low/Normal setting),
+   * and triggers the room background music fade-in.
+   */
+  public async playStartChime(): Promise<void> {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    // 1) Resume the shared AudioContext (this is the first user gesture)
+    if (ctx.state === 'suspended' || (ctx.state as string) === 'interrupted') {
+      try {
+        await ctx.resume();
+      } catch {}
+    }
+
+    // Trigger queued room background music fade in (3: room music fades in as usual)
+    this.onContextResumed();
+
+    // 2) Play /audio/start_chime.m4a once through the music manager's master gain
+    try {
+      const buffer = await this.loadChimeBuffer();
+      if (!buffer || ctx.state === 'closed') return;
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = false;
+
+      const master = this.getMasterGain(ctx);
+      source.connect(master);
+      this.chimeSource = source;
+
+      source.onended = () => {
+        source.onended = null;
+        try { source.disconnect(); } catch {}
+        if (this.chimeSource === source) {
+          this.chimeSource = null;
+        }
+      };
+
+      source.start(ctx.currentTime);
+    } catch {
+      // Audio error catch
+    }
+  }
+
   public isPlaying(): boolean {
-    return (this.activeSource !== null || this.fadingSource !== null) && this.level !== 'off';
+    return (this.activeSource !== null || this.fadingSource !== null || this.chimeSource !== null) && this.level !== 'off';
   }
 
   public getLevel(): MusicLevel {
@@ -353,6 +456,14 @@ export class MusicManager {
   }
 
   public destroy(): void {
+    if (this.chimeSource) {
+      try { this.chimeSource.stop(); } catch {}
+      this.chimeSource.disconnect();
+      this.chimeSource = null;
+    }
+    this.chimeBuffer = null;
+    this.chimeLoading = null;
+
     if (this.activeSource) {
       try { this.activeSource.stop(); } catch {}
       this.activeSource.disconnect();

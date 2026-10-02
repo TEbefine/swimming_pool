@@ -17,6 +17,7 @@ registerHooks({
 });
 
 class FakeGain {
+  destination = null;
   gain = {
     value: 1,
     values: [],
@@ -31,7 +32,9 @@ class FakeGain {
     },
     cancelScheduledValues() {},
   };
-  connect() {}
+  connect(dest) {
+    this.destination = dest;
+  }
   disconnect() {}
 }
 
@@ -41,7 +44,10 @@ class FakeSource {
   startedAt = null;
   stoppedAt = null;
   onended = null;
-  connect() {}
+  destination = null;
+  connect(dest) {
+    this.destination = dest;
+  }
   disconnect() {}
   start(time = 0) {
     this.startedAt = time;
@@ -128,9 +134,9 @@ globalThis.fetch = async (url) => {
 const { music, ROOM_MUSIC, MUSIC_VOLUMES } = await import('../src/game/audio/music.ts');
 const { sound } = await import('../src/game/audio.ts');
 
-test('ROOM_MUSIC maps town to lumen bay morning track and other rooms to null', () => {
+test('ROOM_MUSIC maps town and cafe tracks, other rooms to null', () => {
   assert.equal(ROOM_MUSIC.town, '/audio/lumen_bay_morning.m4a');
-  assert.equal(ROOM_MUSIC.cafe ?? null, null);
+  assert.equal(ROOM_MUSIC.cafe, '/audio/cafe_hours.m4a');
   assert.equal(ROOM_MUSIC.poolside ?? null, null);
 });
 
@@ -205,35 +211,68 @@ test('playForRoom with same track keeps playing and does not restart', async () 
   assert.equal(ctx.sources.length, sourceCountBefore);
 });
 
-test('room change to cafe fades out old track over 0.8s and stops', async () => {
+test('room change town → café crossfades from town song to café song (0.8s out, 1.5s in)', async () => {
   const ctx = sound.getContext();
-  const activeSource = ctx.sources.at(-1);
-  const activeGain = ctx.gains.at(-1);
+  const townSource = ctx.sources.at(-1);
+  const townGain = ctx.gains.at(-1);
 
   music.playForRoom('cafe');
   await new Promise((r) => setTimeout(r, 10));
 
-  // Old source should have scheduled stop at now + 0.8
+  // Old town source fades out over 0.8s and stops at now + 0.8
+  assert.equal(townSource.stoppedAt, ctx.currentTime + 0.8);
+  assert.ok(townGain.gain.ramps.some((r) => r.val === 0 && r.time === ctx.currentTime + 0.8));
+
+  // New cafe source started immediately and ramps to 1 at now + 1.5
+  const cafeSource = ctx.sources.at(-1);
+  assert.notEqual(cafeSource, townSource);
+  assert.equal(cafeSource.loop, true);
+  assert.equal(cafeSource.startedAt, ctx.currentTime);
+  const cafeGain = ctx.gains.at(-1);
+  assert.ok(cafeGain.gain.ramps.some((r) => r.val === 1 && r.time === ctx.currentTime + 1.5));
+});
+
+test('room change café → town crossfades back (0.8s out, 1.5s in)', async () => {
+  const ctx = sound.getContext();
+  const cafeSource = ctx.sources.at(-1);
+  const cafeGain = ctx.gains.at(-1);
+
+  music.playForRoom('town');
+  await new Promise((r) => setTimeout(r, 10));
+
+  // Old cafe source fades out over 0.8s
+  assert.equal(cafeSource.stoppedAt, ctx.currentTime + 0.8);
+  assert.ok(cafeGain.gain.ramps.some((r) => r.val === 0 && r.time === ctx.currentTime + 0.8));
+
+  // New town source started immediately and ramps to 1 over 1.5s
+  const townSource = ctx.sources.at(-1);
+  assert.notEqual(townSource, cafeSource);
+  assert.equal(townSource.loop, true);
+  assert.equal(townSource.startedAt, ctx.currentTime);
+  const townGain = ctx.gains.at(-1);
+  assert.ok(townGain.gain.ramps.some((r) => r.val === 1 && r.time === ctx.currentTime + 1.5));
+});
+
+test('room change to unmapped room (poolside) fades out over 0.8s and stops', async () => {
+  const ctx = sound.getContext();
+  const activeSource = ctx.sources.at(-1);
+  const activeGain = ctx.gains.at(-1);
+
+  music.playForRoom('poolside');
+  await new Promise((r) => setTimeout(r, 10));
+
   assert.equal(activeSource.stoppedAt, ctx.currentTime + 0.8);
   assert.ok(activeGain.gain.ramps.some((r) => r.val === 0 && r.time === ctx.currentTime + 0.8));
 
-  // When stop ends, onended disconnects and cleans up
   activeSource.end();
   assert.equal(music.isPlaying(), false);
 });
 
-test('returning to town fades track in again', async () => {
-  const ctx = sound.getContext();
+test('switching tabs suspends audio; returning resumes audio', async () => {
   music.playForRoom('town');
   win.dispatchEvent(new Event('pointerdown'));
   await new Promise((r) => setTimeout(r, 10));
 
-  assert.equal(music.isPlaying(), true);
-  const newSource = ctx.sources.at(-1);
-  assert.equal(newSource.loop, true);
-});
-
-test('switching tabs suspends audio; returning resumes audio', async () => {
   const ctx = sound.getContext();
   const suspendsBefore = ctx.suspendCalls;
   const resumesBefore = ctx.resumeCalls;
@@ -252,3 +291,73 @@ test('switching tabs suspends audio; returning resumes audio', async () => {
 
   assert.ok(ctx.resumeCalls > resumesBefore);
 });
+
+test('playStartChime resumes AudioContext, plays chime once through master gain, and starts queued room music fade-in', async () => {
+  music.destroy();
+  const ctx = sound.getContext();
+  ctx.state = 'suspended';
+  music.setLevel('normal');
+
+  // Queue town room
+  music.playForRoom('town');
+  await new Promise((r) => setTimeout(r, 10));
+
+  // Not playing yet while suspended
+  assert.equal(ctx.state, 'suspended');
+
+  // Player triggers start chime (tap anywhere / START button / Enter key)
+  await music.playStartChime();
+  await new Promise((r) => setTimeout(r, 10));
+
+  // 1) Context is resumed
+  assert.equal(ctx.state, 'running');
+
+  // 2) Chime played once (loop = false) and connects to masterGain
+  const chimeSource = ctx.sources.find((s) => s.loop === false && s.startedAt !== null);
+  assert.ok(chimeSource, 'chime source must be created and started');
+  assert.equal(chimeSource.loop, false);
+  assert.ok(chimeSource.destination, 'chime must be connected');
+  // masterGain connects to destination
+  assert.equal(chimeSource.destination.destination, ctx.destination);
+
+  // 3) Room music fades in as usual (loop = true, ramp to 1 over 1.5s)
+  const roomSource = ctx.sources.find((s) => s.loop === true && s.startedAt !== null);
+  assert.ok(roomSource, 'room music must be started');
+  assert.equal(roomSource.loop, true);
+  assert.ok(ctx.gains.some((g) => g.gain.ramps.some((r) => r.val === 1 && r.time === ctx.currentTime + 1.5)));
+});
+
+test('playStartChime respects Music Off/Low/Normal setting via master gain', async () => {
+  const ctx = sound.getContext();
+
+  music.setLevel('off');
+  await music.playStartChime();
+  const master = ctx.gains.findLast((g) => g.destination === ctx.destination);
+  assert.ok(master);
+  assert.equal(master.gain.value, 0);
+
+  music.setLevel('low');
+  assert.equal(master.gain.value, 0.3);
+
+  music.setLevel('normal');
+  assert.equal(master.gain.value, 0.5);
+});
+
+test('tryAutoPlay attempts to resume suspended context and begins playback if allowed', async () => {
+  music.destroy();
+  const ctx = sound.getContext();
+  ctx.state = 'suspended';
+  music.setLevel('normal');
+
+  music.playForRoom('town');
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.equal(ctx.state, 'suspended');
+
+  await music.tryAutoPlay();
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.equal(ctx.state, 'running');
+  assert.equal(music.isPlaying(), true);
+});
+
