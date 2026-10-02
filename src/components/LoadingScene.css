@@ -25,7 +25,7 @@
   bottom: 0;
   width: max(100cqw, calc(100cqh * 1.7834));
   aspect-ratio: 1120 / 628;
-  animation: ls-pan 48s ease-in-out infinite alternate;
+  animation: ls-pan 80s ease-in-out infinite alternate;
   will-change: transform;
 }
 @keyframes ls-pan {
@@ -42,8 +42,8 @@
   image-rendering: pixelated;
   animation: ls-drift linear infinite;
 }
-.ls-cloud-a { top: 16%; width: 14%; opacity: 0.85; animation-duration: 95s; animation-delay: -30s; }
-.ls-cloud-b { top: 34%; width: 10%; opacity: 0.7; animation-duration: 140s; animation-delay: -90s; }
+.ls-cloud-a { top: 16%; width: 14%; opacity: 0.85; animation-duration: 160s; animation-delay: -50s; }
+.ls-cloud-b { top: 34%; width: 10%; opacity: 0.7; animation-duration: 230s; animation-delay: -140s; }
 @keyframes ls-drift {
   from { transform: translateX(-120%); }
   to { transform: translateX(780%); }
@@ -58,7 +58,7 @@
   height: 21%;
   background: radial-gradient(ellipse at center, rgba(10, 40, 20, 0.35), rgba(10, 40, 20, 0) 70%);
   mix-blend-mode: multiply;
-  animation: ls-shade 34s linear infinite;
+  animation: ls-shade 70s linear infinite;
 }
 @keyframes ls-shade {
   from { transform: translateX(-110%); }
@@ -72,7 +72,7 @@
   pointer-events: none;
   background: radial-gradient(circle at 8% 4%, rgba(255, 236, 196, 0.45), rgba(255, 236, 196, 0) 55%);
   mix-blend-mode: screen;
-  animation: ls-sun 8s ease-in-out infinite alternate;
+  animation: ls-sun 12s ease-in-out infinite alternate;
 }
 @keyframes ls-sun { from { opacity: 0.7; } to { opacity: 1; } }
 
@@ -92,7 +92,7 @@
   width: 100%;
   height: 100%;
   transform-origin: 50% 100%;
-  animation: ls-breathe 4.2s ease-in-out infinite;
+  animation: ls-breathe 5.6s ease-in-out infinite;
   filter: saturate(0.95) contrast(1.02);
 }
 .ls-npc-shadow {
@@ -123,11 +123,11 @@
   height: 21%;
   image-rendering: pixelated;
   transform-origin: 50% 100%;
-  animation: ls-sway 5.5s ease-in-out infinite;
+  animation: ls-sway 9s ease-in-out infinite;
 }
 @keyframes ls-sway {
-  0%, 100% { transform: skewX(-1.2deg); }
-  50% { transform: skewX(2deg); }
+  0%, 100% { transform: skewX(-0.6deg); }
+  50% { transform: skewX(1.2deg); }
 }
 
 /* soft shade at the bottom so the text stays readable over the flowers */
@@ -143,24 +143,120 @@
 }
 .ls-title, .ls-card, .ls-bottom { z-index: 1; }
 
-/* --- seeds on the wind (wind blows to the right, like her hair) --- */
-.ls-seeds { position: absolute; inset: 0; pointer-events: none; }
-.ls-seed {
+/* --- wind particles: pixel sprites from the meadow sheet ---------------------------
+   .ls-p      = the path (where it travels; wobbly, never the same twice)
+   .ls-spr    = the sprite (frame animation + spin), sized in cqh so it scales with the screen */
+.ls-particles { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.ls-p {
   position: absolute;
-  background: #fff4d6;
-  box-shadow: 0 0 2px rgba(255, 244, 214, 0.8);
   opacity: 0;
-  animation-name: ls-seed;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
+  will-change: transform, opacity;
 }
-@keyframes ls-seed {
+.ls-spr {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-size: calc(var(--n) * 100%) 100%;
+  image-rendering: pixelated;
+  animation:
+    ls-frames var(--fdur, 1.2s) steps(var(--n), jump-none) infinite,
+    var(--spin-name, ls-none) var(--spin-dur, 6s) ease-in-out infinite alternate;
+}
+.ls-near .ls-spr { filter: blur(0.7px); }
+.ls-far { opacity: 0.8; }
+@keyframes ls-frames { from { background-position-x: 0%; } to { background-position-x: 100%; } }
+@keyframes ls-none { from { transform: none; } to { transform: none; } }
+@keyframes ls-spin { from { transform: rotate(0deg); } to { transform: rotate(320deg); } }
+@keyframes ls-rock { from { transform: rotate(-14deg); } to { transform: rotate(12deg); } }
+
+/* three different wind paths (all drift right, like her hair) */
+@keyframes ls-path-a {
   0% { opacity: 0; transform: translate(0, 0); }
-  12% { opacity: 0.95; }
-  50% { transform: translate(22cqw, -14cqh); }
-  85% { opacity: 0.8; }
-  100% { opacity: 0; transform: translate(46cqw, -24cqh); }
+  8% { opacity: 1; }
+  25% { transform: translate(13cqw, -7cqh); }
+  50% { transform: translate(27cqw, -3cqh); }
+  75% { transform: translate(42cqw, -11cqh); }
+  90% { opacity: 1; }
+  100% { opacity: 0; transform: translate(60cqw, -9cqh); }
 }
+@keyframes ls-path-b {
+  0% { opacity: 0; transform: translate(0, 0); }
+  8% { opacity: 1; }
+  30% { transform: translate(16cqw, -11cqh); }
+  55% { transform: translate(31cqw, -6cqh); }
+  80% { transform: translate(48cqw, -17cqh); }
+  90% { opacity: 1; }
+  100% { opacity: 0; transform: translate(66cqw, -22cqh); }
+}
+@keyframes ls-path-c {
+  0% { opacity: 0; transform: translate(0, 0); }
+  8% { opacity: 1; }
+  25% { transform: translate(14cqw, 4cqh); }
+  50% { transform: translate(28cqw, -3cqh); }
+  75% { transform: translate(45cqw, 5cqh); }
+  90% { opacity: 1; }
+  100% { opacity: 0; transform: translate(64cqw, 1cqh); }
+}
+
+/* a gust: fast burst across the field, once */
+.ls-gust .ls-p { animation-iteration-count: 1; animation-fill-mode: both; }
+@keyframes ls-path-gust {
+  0% { opacity: 0; transform: translate(0, 0); }
+  10% { opacity: 1; }
+  50% { transform: translate(48cqw, -10cqh); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(100cqw, -20cqh); }
+}
+
+/* pollen glints twinkling in the flowers */
+.ls-spark { position: absolute; opacity: 0; animation: ls-twinkle 7s ease-in-out infinite; }
+.ls-spark .ls-spr { animation: ls-frames 3s steps(2, jump-none) infinite; }
+@keyframes ls-twinkle { 0%, 100% { opacity: 0; } 40%, 60% { opacity: 0.75; } }
+
+/* grass bends harder during a gust */
+.ls-grass-gust { position: absolute; inset: 0; transform-origin: 50% 100%; }
+.ls-gusting .ls-grass-gust { animation: ls-gust-bend 7s ease-in-out; }
+@keyframes ls-gust-bend {
+  0% { transform: skewX(0deg); }
+  30% { transform: skewX(2.6deg); }
+  60% { transform: skewX(1.4deg); }
+  75% { transform: skewX(1.8deg); }
+  100% { transform: skewX(0deg); }
+}
+
+/* --- the butterfly: drifts in, rests on her coffee cup, flies away --------------- */
+.ls-fly {
+  position: absolute;
+  left: 13%;
+  top: 21%;
+  width: 6cqh;
+  aspect-ratio: 50 / 49;
+  margin: -1.8cqh 0 0 -2.6cqh; /* sit on the lid */
+  opacity: 0;
+  animation: ls-fly-path 56s linear -10s infinite;
+}
+.ls-fly .ls-spr { position: absolute; inset: 0; }
+.ls-fly-flap { --n: 4; animation: ls-frames 0.6s steps(4, jump-none) infinite, ls-fly-flapvis 56s linear -10s infinite !important; }
+.ls-fly-rest { --n: 4; animation: ls-fly-restframes 3.6s steps(1, end) infinite, ls-fly-restvis 56s linear -10s infinite !important; }
+@keyframes ls-fly-restframes { 0% { background-position-x: 0%; } 50% { background-position-x: 33.333%; } }
+@keyframes ls-fly-path {
+  0% { opacity: 0; transform: translate(-62cqw, -24cqh); }
+  4% { opacity: 1; }
+  14% { transform: translate(-48cqw, -30cqh); }
+  24% { transform: translate(-30cqw, -18cqh); }
+  32% { transform: translate(-12cqw, -12cqh); }
+  38% { transform: translate(-2cqw, -3cqh); }
+  41%, 72% { transform: translate(0, 0); }
+  78% { transform: translate(6cqw, -8cqh); }
+  88% { opacity: 1; transform: translate(24cqw, -22cqh); }
+  95% { opacity: 0; transform: translate(40cqw, -32cqh); }
+  100% { opacity: 0; transform: translate(40cqw, -32cqh); }
+}
+@keyframes ls-fly-flapvis { 0%, 40.9% { opacity: 1; } 41%, 72% { opacity: 0; } 72.1%, 100% { opacity: 1; } }
+@keyframes ls-fly-restvis { 0%, 40.9% { opacity: 0; } 41%, 72% { opacity: 1; } 72.1%, 100% { opacity: 0; } }
 
 /* --- text --- */
 .ls-title {
@@ -231,7 +327,7 @@
 }
 .ls-dots::after {
   content: '';
-  animation: ls-dots 1.2s steps(4) infinite;
+  animation: ls-dots 2.4s steps(4) infinite;
 }
 @keyframes ls-dots {
   0% { content: ''; }
@@ -258,14 +354,14 @@
   font-family: 'Pixelify Sans', var(--font-pixel);
   font-size: clamp(11px, 4cqw, 16px);
   letter-spacing: 0.1em;
-  animation: ls-blink 1.4s ease-in-out infinite alternate;
+  animation: ls-blink 2.6s ease-in-out infinite alternate;
 }
 @keyframes ls-blink {
   0% { opacity: 1; }
-  100% { opacity: 0.28; }
+  100% { opacity: 0.35; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ls-root *, .ls-root *::after { animation: none !important; }
-  .ls-seed { display: none; }
+  .ls-particles, .ls-fly { display: none; }
 }
