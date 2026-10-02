@@ -15,12 +15,15 @@ export class SoundManager {
     }
   }
 
-  private initCtx() {
+  public isMusicPlaying?: () => boolean;
+
+  private ensureCtx(): AudioContext | null {
     if (this.idleTimer !== null) clearTimeout(this.idleTimer);
     this.idleTimer = null;
     if (!this.ctx) {
+      if (typeof window === 'undefined') return null;
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) return;
+      if (!AudioContextClass) return null;
       this.ctx = new AudioContextClass({ latencyHint: 'interactive' });
     }
     if (!this.listening) {
@@ -28,12 +31,25 @@ export class SoundManager {
       window.addEventListener('pagehide', this.handlePageHide);
       this.listening = true;
     }
-    if (this.ctx.state === 'suspended' && !this.resumePending) {
-      const ctx = this.ctx;
+    return this.ctx;
+  }
+
+  public getContext(): AudioContext | null {
+    return this.ensureCtx();
+  }
+
+  public getActiveSourceCount(): number {
+    return this.sources.size;
+  }
+
+  private initCtx() {
+    const ctx = this.ensureCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended' && !this.resumePending) {
       const resume = ctx.resume();
       this.resumePending = resume;
       void resume.then(() => {
-        if (ctx === this.ctx && (this.muted || document.hidden || this.sources.size === 0)) {
+        if (ctx === this.ctx && (this.muted || document.hidden || (this.sources.size === 0 && !this.isMusicPlaying?.()))) {
           return ctx.suspend();
         }
       }).catch(() => {
@@ -81,7 +97,9 @@ export class SoundManager {
       nodes.forEach((node) => node.disconnect());
     });
     this.sources.clear();
-    if (this.ctx && this.ctx.state !== 'closed') void this.ctx.suspend().catch(() => {});
+    if (this.ctx && this.ctx.state !== 'closed' && (document.hidden || !this.isMusicPlaying?.())) {
+      void this.ctx.suspend().catch(() => {});
+    }
   }
 
   public destroy() {

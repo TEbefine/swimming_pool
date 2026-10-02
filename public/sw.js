@@ -5,17 +5,18 @@
  *    (stale-while-revalidate), so new art still arrives on the next visit.
  *  - The page itself: network first, phone copy only when offline.
  *  Bump VERSION to throw every cached file away. */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CODE = `code-${VERSION}`;
 const ART = `art-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
+const AUDIO = `audio-${VERSION}`;
 const ART_LIMIT = 1200;
 
 self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    const keep = new Set([CODE, ART, PAGES]);
+    const keep = new Set([CODE, ART, PAGES, AUDIO]);
     for (const name of await caches.keys()) if (!keep.has(name)) await caches.delete(name);
     await self.clients.claim();
   })());
@@ -31,6 +32,15 @@ async function trim(cacheName, limit) {
 
 async function cacheFirst(request) {
   const cache = await caches.open(CODE);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const res = await fetch(request);
+  if (res.ok) cache.put(request, res.clone());
+  return res;
+}
+
+async function cacheFirstAudio(request) {
+  const cache = await caches.open(AUDIO);
   const hit = await cache.match(request);
   if (hit) return hit;
   const res = await fetch(request);
@@ -72,6 +82,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(networkFirst(request));
   } else if (url.pathname.startsWith('/assets/')) {
     event.respondWith(cacheFirst(request));
+  } else if (/^\/audio\/.*\.m4a$/.test(url.pathname)) {
+    event.respondWith(cacheFirstAudio(request));
   } else if (isArt(url.pathname)) {
     event.respondWith(staleWhileRevalidate(request, event));
   }

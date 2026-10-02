@@ -11,6 +11,7 @@ import type {
   NpcDef
 } from './types';
 import { sound } from './audio';
+import { music } from './audio/music';
 import { NetworkManager } from './network';
 import { rooms } from './rooms';
 import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
@@ -441,6 +442,7 @@ export class GameEngine {
     this.ctx = canvas.getContext('2d')!;
     this.room = room;
     this.actorScale = room.actorScale ?? 1;
+    music.playForRoom(room.roomId);
 
     const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
     this.localPlayer = {
@@ -720,6 +722,7 @@ export class GameEngine {
           const arrival = targetRoom.arrivals?.[this.room.roomId];
           this.room = targetRoom;
           this.actorScale = targetRoom.actorScale ?? 1;
+          music.playForRoom(targetRoom.roomId);
           this.localPlayer.roomId = targetRoom.roomId;
           this.localPlayer.x = arrival?.x ?? targetRoom.spawnPoint.x;
           this.localPlayer.y = arrival?.y ?? targetRoom.spawnPoint.y;
@@ -1020,6 +1023,7 @@ export class GameEngine {
     this.network.sendPlayerLeave(this.localPlayer.id);
     this.network.destroy();
     sound.destroy();
+    music.destroy();
   }
 
   private handleKeyDown = (e: KeyboardEvent) => {

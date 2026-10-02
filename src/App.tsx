@@ -22,6 +22,7 @@ import type { ItemId } from './game/story/items';
 import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { LoadingScene } from './components/LoadingScene';
+import { music } from './game/audio/music';
 
 /** Context-action IDs that should route through engine.interact(). */
 const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(['talk', 'sit', 'stand', 'read']);
@@ -39,6 +40,10 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
   // Room state stored in React state (runtime room travel)
   const [currentRoom, setCurrentRoom] = useState<RoomDefinition>(() => getRoomForToday());
+
+  useEffect(() => {
+    music.playForRoom(currentRoom.roomId);
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -378,6 +383,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     engine.onRoomChanged = (newRoom) => {
       setCurrentRoom(newRoom);
       setPlayerCountByRoom(engine.getPlayerCountByRoom());
+      music.playForRoom(newRoom.roomId);
     };
 
     // Walking into a map exit: the story may say "not yet" (e.g. before breakfast)

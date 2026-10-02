@@ -2,6 +2,7 @@ import React from 'react';
 import { Volume2, VolumeX, MessageSquare, HelpCircle, Palette, User, Gamepad2 } from 'lucide-react';
 import { sound } from '../game/audio';
 import { QualityButton } from './QualityButton';
+import { MusicButton } from './MusicButton';
 import type { FloatColor } from '../game/types';
 
 interface HeaderBarProps {
@@ -97,6 +98,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
         {/* Smoothness vs. battery */}
         <QualityButton />
+
+        {/* Background Music Setting */}
+        <MusicButton />
 
         {/* Audio Mute Toggle */}
         <button
