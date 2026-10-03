@@ -232,9 +232,9 @@
   position: absolute;
   left: 13%;
   top: 21%;
-  width: 6cqh;
+  width: 3.4cqh;
   aspect-ratio: 50 / 49;
-  margin: -1.8cqh 0 0 -2.6cqh; /* sit on the lid */
+  margin: 0.5cqh 0 0 -0.2cqh; /* perch on the right rim of the lid, small, so the cup stays a cup */
   opacity: 0;
   animation: ls-fly-path 56s linear -10s infinite;
 }
