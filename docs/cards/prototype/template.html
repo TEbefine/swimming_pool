@@ -1,0 +1,128 @@
+<title>Memory Disk Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;600&display=swap">
+<style>
+/* Layout: two disk cards side by side on a night table (stacked on phones). Single dark look by choice. */
+@font-face{font-family:"TEERA Handwriting TH";src:url(data:font/woff2;base64,__TEERA__) format("woff2");font-display:block}
+:root{
+  --night:#0f131c; --night-2:#171d2a; --ink:#e9edf6; --muted:#8c97ad;
+  --paper:#f6f1e4; --rule:#c9d3e3; --pen:#1f2c66; --pen-soft:#33427f;
+  --type-wealth:#c99234; --type-spirit:#6b58b0;
+  --hand:"TEERA Handwriting TH", "Segoe Print", "Bradley Hand", cursive;
+  --pixel:"Pixelify Sans", ui-monospace, Menlo, monospace;
+  color-scheme:dark;
+}
+html,body{min-height:100%}
+body{background:radial-gradient(120% 80% at 50% 0%, var(--night-2), var(--night) 70%);color:var(--ink);font-family:var(--pixel);margin:0;padding-inline:16px;padding-block:28px;box-sizing:border-box;overflow-x:hidden}
+.table{display:flex;flex-wrap:wrap;justify-content:center;gap:36px 32px;max-width:960px;margin:0 auto}
+.slot{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(100%,400px)}
+.tier{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.stage{perspective:1200px;width:100%}
+.card{position:relative;width:100%;aspect-ratio:1086/1448;max-width:100%;container-type:inline-size;transform-style:preserve-3d;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .25s ease-out;touch-action:none;user-select:none;-webkit-user-select:none;filter:drop-shadow(0 18px 28px rgba(0,0,0,.55))}
+.card.live{transition:none}
+.win{position:absolute;left:9.67%;top:10.01%;width:84.07%;height:77.83%;overflow:hidden;border-radius:1.6%;background:#0b1220}
+.layer{position:absolute;inset:-6%;background-size:cover;background-position:center 40%;will-change:transform;transform:translate3d(var(--tx,0),var(--ty,0),0)}
+.still{position:absolute;inset:0;background-size:cover;background-position:center 22%}
+.holo{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:.38;background:linear-gradient(115deg,transparent 30%,rgba(140,190,255,.55) 42%,rgba(255,236,200,.45) 50%,rgba(180,140,255,.5) 58%,transparent 70%);background-size:250% 100%;background-position:var(--hx,120%) 0}
+.story{position:absolute;left:0;right:0;bottom:0;padding:7cqw 5.5cqw 5cqw;background:linear-gradient(to top,rgba(8,12,24,.93) 58%,rgba(8,12,24,0));color:#eef3ff;font-size:3.3cqw;line-height:1.45;opacity:var(--open,0);transform:translateY(calc((1 - var(--open,0)) * 6%));pointer-events:none}
+.story p{margin:0;max-width:60ch}
+.story .file{display:block;color:#9fb6e6;font-size:2.6cqw;margin-bottom:1.6cqw;letter-spacing:.06em}
+.recess{position:absolute;left:26.6%;top:1.2%;width:47%;height:8.9%;border-radius:1.2cqw;background:linear-gradient(#0a0f1a,#1b2538);box-shadow:inset 0 .6cqw 1.2cqw rgba(0,0,0,.7)}
+.frame{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.shutter{position:absolute;left:26.43%;top:.97%;width:47.33%;height:15.19%;transform:translateX(calc(var(--slide,0) * 1%));cursor:grab;touch-action:none;border:0;padding:0;background:none}
+.shutter:focus-visible{outline:2px solid #9fc0ff;outline-offset:3px;border-radius:4px}
+.shutter img{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.film{position:absolute;left:66.1%;top:22%;width:20.3%;height:67.3%;border-radius:1cqw;background:repeating-radial-gradient(circle at -40% 320%,rgba(255,255,255,.08) 0 1px,transparent 1px 3px),linear-gradient(135deg,var(--film-a),var(--film-b) 55%,var(--film-a));background-position:0 0,var(--fx,50%) 0;background-size:auto,220% 100%}
+.common{--film-a:#3a2618;--film-b:#9a6a44}
+.rare{--film-a:#0e2a5c;--film-b:#5f8fdc}
+.label{position:absolute;left:9.67%;top:88.81%;width:84.07%;height:7.18%;background:var(--paper);border-radius:.7cqw;box-shadow:0 .4cqw .8cqw rgba(0,0,0,.25);overflow:hidden}
+.strip{position:absolute;left:0;right:0;top:0;height:21.2%;background:var(--strip)}
+.common .strip{--strip:var(--type-wealth)}
+.rare .strip{--strip:var(--type-spirit);overflow:hidden}
+.rare .strip::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.22) 50%,transparent 60%);background-size:300% 100%;background-position:100% 0;animation:foil 9s ease-in-out infinite}
+@keyframes foil{0%,70%{background-position:100% 0}100%{background-position:0 0}}
+.rule{position:absolute;left:2%;right:2%;height:max(1px,.18cqw);background:var(--rule)}
+.l1{top:61.5%}.l2{top:92.3%}
+.line{position:absolute;left:2.4%;right:2.4%;bottom:38.5%;white-space:nowrap;color:var(--pen);font-family:var(--hand);line-height:1;transform:rotate(-.2deg);transform-origin:left bottom}
+.line .t{font-size:4.1cqw;-webkit-text-stroke:.12cqw currentColor}
+.line .s{font-size:3.3cqw;color:var(--pen-soft)}
+.hint{color:var(--muted);font-size:13px;text-align:center;line-height:1.5;max-width:40ch;margin:30px auto 0;text-wrap:balance}
+.hint b{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion:reduce){.card{transition:none}.rare .strip::after{animation:none}}
+</style>
+
+<div class="table">
+  <section class="slot">
+    <span class="tier">Common &middot; Before</span>
+    <div class="stage"><div class="card common" aria-label="Common card: The First Crate">
+      <div class="win">
+        <div class="still" style="background-image:url(data:image/jpeg;base64,__C_ART__)"></div>
+        <div class="story" aria-live="polite"><span class="file">A:\&gt; TYPE CRATE.SAV</span>
+          <p>Before the top hat and the gold coins, he carried crates at the harbor from dawn to dusk. He kept one cheap tin star from those days. He still wears it.</p></div>
+      </div>
+      <div class="recess" aria-hidden="true"></div>
+      <img class="frame" alt="" src="data:image/webp;base64,__C_FRAME__">
+      <button class="shutter" aria-label="Slide the shutter to read the story" aria-expanded="false"><span class="film"></span><img alt="" src="data:image/webp;base64,__C_SHUT__"></button>
+      <div class="label"><div class="strip"></div><div class="rule l1"></div><div class="rule l2"></div>
+        <div class="line"><span class="t">The First Crate</span><span class="s"> &nbsp;&ndash; every fortune starts small.</span></div></div>
+    </div></div>
+  </section>
+
+  <section class="slot">
+    <span class="tier">Rare &middot; Dream</span>
+    <div class="stage"><div class="card rare depth" aria-label="Rare card: Dream High">
+      <div class="win">
+        <div class="layer back" style="background-image:url(data:image/jpeg;base64,__R_BACK__)"></div>
+        <div class="layer front" style="background-image:url(data:image/webp;base64,__R_FRONT__)"></div>
+        <div class="holo"></div>
+        <div class="story" aria-live="polite"><span class="file">A:\&gt; TYPE DREAMHI.SAV</span>
+          <p>Every night Yunseul climbs the roof to watch the sky. He doesn't know yet whose son he really is. He only knows the sky is bigger than the debt, the market and the small house below.</p></div>
+      </div>
+      <div class="recess" aria-hidden="true"></div>
+      <img class="frame" alt="" src="data:image/webp;base64,__R_FRAME__">
+      <button class="shutter" aria-label="Slide the shutter to read the story" aria-expanded="false"><span class="film"></span><img alt="" src="data:image/webp;base64,__R_SHUT__"></button>
+      <div class="label"><div class="strip"></div><div class="rule l1"></div><div class="rule l2"></div>
+        <div class="line"><span class="t">Dream High</span><span class="s"> &nbsp;&ndash; every dream is close enough to touch.</span></div></div>
+    </div></div>
+  </section>
+</div>
+<p class="hint"><b>Drag across a card</b> to tilt it. <b>Slide the metal shutter</b> to read its story.</p>
+
+<script>
+(()=>{
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+document.querySelectorAll('.card').forEach((card,i)=>{
+  const depth=card.classList.contains('depth');
+  const back=card.querySelector('.back'),front=card.querySelector('.front'),holo=card.querySelector('.holo'),
+    film=card.querySelector('.film'),shutter=card.querySelector('.shutter'),story=card.querySelector('.story');
+  let nx=0,ny=0,touched=false,dragging=false;
+  const amt=depth?1:0.55;
+  function apply(){
+    card.style.setProperty('--ry',(nx*9*amt).toFixed(2)+'deg');card.style.setProperty('--rx',(-ny*7*amt).toFixed(2)+'deg');
+    if(depth){back.style.setProperty('--tx',(-nx*1.2).toFixed(2)+'%');back.style.setProperty('--ty',(-ny*0.9).toFixed(2)+'%');
+      front.style.setProperty('--tx',(nx*2.6).toFixed(2)+'%');front.style.setProperty('--ty',(ny*1.6).toFixed(2)+'%');
+      holo.style.setProperty('--hx',(50-nx*70).toFixed(1)+'%');}
+    film.style.setProperty('--fx',(50+nx*40).toFixed(1)+'%');
+  }
+  function fromEvent(e){const r=card.getBoundingClientRect();nx=Math.max(-1,Math.min(1,((e.clientX-r.left)/r.width)*2-1));ny=Math.max(-1,Math.min(1,((e.clientY-r.top)/r.height)*2-1));}
+  card.addEventListener('pointerdown',e=>{if(e.target.closest('.shutter'))return;dragging=true;touched=true;card.classList.add('live');card.setPointerCapture(e.pointerId);fromEvent(e);apply();});
+  card.addEventListener('pointermove',e=>{if(e.target.closest('.shutter')&&!dragging)return;if(dragging||e.pointerType==='mouse'){touched=true;card.classList.add('live');fromEvent(e);apply();}});
+  const settle=()=>{dragging=false;card.classList.remove('live');nx=0;ny=0;apply();};
+  card.addEventListener('pointerup',settle);card.addEventListener('pointercancel',settle);card.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')settle();});
+  if(depth&&!reduce){const t0=performance.now();(function sway(t){if(!touched){const k=(t-t0)/1000;nx=Math.sin(k*0.7)*0.35;ny=Math.sin(k*0.5)*0.12;card.classList.add('live');apply();requestAnimationFrame(sway);}else card.classList.remove('live');})(t0);}
+  const MAX=30;let slide=0,sx=0,s0=0,moved=false,sdrag=false;
+  function setSlide(v){slide=Math.max(0,Math.min(MAX,v));shutter.style.setProperty('--slide',slide);const o=slide/MAX;story.style.setProperty('--open',o.toFixed(3));shutter.setAttribute('aria-expanded',o>0.5?'true':'false');}
+  function snap(open){shutter.style.transition='transform .28s ease-out';story.style.transition='opacity .28s, transform .28s';setSlide(open?MAX:0);setTimeout(()=>{shutter.style.transition='';story.style.transition='';},300);}
+  shutter.addEventListener('pointerdown',e=>{e.stopPropagation();sdrag=true;moved=false;sx=e.clientX;s0=slide;shutter.setPointerCapture(e.pointerId);touched=true;});
+  shutter.addEventListener('pointermove',e=>{if(!sdrag)return;const w=shutter.getBoundingClientRect().width;const d=(e.clientX-sx)/w*100;if(Math.abs(d)>2)moved=true;setSlide(s0+d);});
+  shutter.addEventListener('pointerup',()=>{if(!sdrag)return;sdrag=false;if(!moved)snap(slide<MAX/2);else snap(slide>MAX*0.4);});
+  shutter.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){snap(true);e.preventDefault();}if(e.key==='ArrowLeft'||e.key==='Escape'){snap(false);e.preventDefault();}});
+  shutter.addEventListener('click',e=>{if(e.detail===0)snap(slide<MAX/2);});
+  if(!reduce)setTimeout(()=>{if(slide>0)return;shutter.animate([{transform:'translateX(0)'},{transform:'translateX(3%)'},{transform:'translateX(0)'},{transform:'translateX(2%)'},{transform:'translateX(0)'}],{duration:900,easing:'ease-in-out'});},1600+i*500);
+  const line=card.querySelector('.line');
+  function fit(){const t=line.querySelector('.t'),s=line.querySelector('.s');t.style.fontSize='';s.style.fontSize='';let k=1;const bt=parseFloat(getComputedStyle(t).fontSize),bs=parseFloat(getComputedStyle(s).fontSize);while(line.scrollWidth>line.clientWidth&&k>0.6){k-=0.04;t.style.fontSize=bt*k+'px';s.style.fontSize=bs*k+'px';}}
+  (document.fonts?document.fonts.ready:Promise.resolve()).then(fit);addEventListener('resize',fit);
+  apply();
+});
+})();
+</script>
