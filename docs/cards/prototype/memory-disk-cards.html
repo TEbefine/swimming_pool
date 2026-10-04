@@ -38,9 +38,7 @@ body{background:radial-gradient(120% 80% at 50% 0%, var(--night-2), var(--night)
 .label{position:absolute;left:9.67%;top:88.81%;width:84.07%;height:7.18%;background:var(--paper);border-radius:.7cqw;box-shadow:0 .4cqw .8cqw rgba(0,0,0,.25);overflow:hidden}
 .strip{position:absolute;left:0;right:0;top:0;height:21.2%;background:var(--strip)}
 .common .strip{--strip:var(--type-wealth)}
-.rare .strip{--strip:var(--type-spirit);overflow:hidden}
-.rare .strip::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.22) 50%,transparent 60%);background-size:300% 100%;background-position:100% 0;animation:foil 9s ease-in-out infinite}
-@keyframes foil{0%,70%{background-position:100% 0}100%{background-position:0 0}}
+.rare .strip{background:linear-gradient(rgba(200,204,220,.12),rgba(200,204,220,.12)),linear-gradient(100deg,#a9aec2 0%,#9b80e0 14%,#5fb2ea 28%,#7fd8a8 42%,#e9d27a 56%,#e992b8 70%,#9b80e0 84%,#a9aec2 100%);background-size:100% 100%,320% 100%;background-position:0 0,var(--sx,50%) 0;transition:background-position .3s ease-out}
 .rule{position:absolute;left:2%;right:2%;height:max(1px,.18cqw);background:var(--rule)}
 .l1{top:61.5%}.l2{top:92.3%}
 .line{position:absolute;left:2.4%;right:2.4%;bottom:38.5%;white-space:nowrap;color:var(--pen);font-family:var(--hand);line-height:1;transform:rotate(-.2deg);transform-origin:left bottom}
@@ -48,7 +46,7 @@ body{background:radial-gradient(120% 80% at 50% 0%, var(--night-2), var(--night)
 .line .s{font-size:3.3cqw;color:var(--pen-soft)}
 .hint{color:var(--muted);font-size:13px;text-align:center;line-height:1.5;max-width:40ch;margin:30px auto 0;text-wrap:balance}
 .hint b{color:var(--ink);font-weight:600}
-@media (prefers-reduced-motion:reduce){.card{transition:none}.rare .strip::after{animation:none}}
+@media (prefers-reduced-motion:reduce){.card{transition:none}}
 </style>
 
 <div class="table">
@@ -102,7 +100,7 @@ document.querySelectorAll('.card').forEach((card,i)=>{
     if(depth){back.style.setProperty('--tx',(-nx*1.2).toFixed(2)+'%');back.style.setProperty('--ty',(-ny*0.9).toFixed(2)+'%');
       front.style.setProperty('--tx',(nx*2.6).toFixed(2)+'%');front.style.setProperty('--ty',(ny*1.6).toFixed(2)+'%');
       holo.style.setProperty('--hx',(50-nx*70).toFixed(1)+'%');}
-    film.style.setProperty('--fx',(50+nx*40).toFixed(1)+'%');
+    film.style.setProperty('--fx',(50+nx*40).toFixed(1)+'%');card.style.setProperty('--sx',(50+nx*45).toFixed(1)+'%');
   }
   function fromEvent(e){const r=card.getBoundingClientRect();nx=Math.max(-1,Math.min(1,((e.clientX-r.left)/r.width)*2-1));ny=Math.max(-1,Math.min(1,((e.clientY-r.top)/r.height)*2-1));}
   card.addEventListener('pointerdown',e=>{if(e.target.closest('.shutter'))return;dragging=true;touched=true;card.classList.add('live');card.setPointerCapture(e.pointerId);fromEvent(e);apply();});
