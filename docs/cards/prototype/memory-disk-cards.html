@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Memory Disk Cards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;600&display=swap">
@@ -7,9 +8,9 @@
 :root{
   --night:#0f131c; --night-2:#171d2a; --ink:#e9edf6; --muted:#8c97ad;
   --paper:#f6f1e4; --rule:#c9d3e3; --pen:#1f2c66; --pen-soft:#33427f;
-  --type-wealth:#c99234; --type-spirit:#6b58b0;
+  --type-wealth:#c99234; --type-wisdom:#3f5e8c; --type-heart:#b5544b; --type-courage:#c0692e; --type-craft:#6f7a3a; --type-spirit:#857c99;
   --hand:"TEERA Handwriting TH", "Segoe Print", "Bradley Hand", cursive;
-  --pixel:"Pixelify Sans", ui-monospace, Menlo, monospace;
+  --pixel:"Pixelify Sans", "TEERA Handwriting TH", ui-monospace, Menlo, monospace;
   color-scheme:dark;
 }
 html,body{min-height:100%}
@@ -38,12 +39,21 @@ body{background:radial-gradient(120% 80% at 50% 0%, var(--night-2), var(--night)
 .label{position:absolute;left:9.67%;top:88.81%;width:84.07%;height:7.18%;background:var(--paper);border-radius:.7cqw;box-shadow:0 .4cqw .8cqw rgba(0,0,0,.25);overflow:hidden}
 .strip{position:absolute;left:0;right:0;top:0;height:21.2%;background:var(--strip)}
 .common .strip{--strip:var(--type-wealth)}
-.rare .strip{background:linear-gradient(rgba(200,204,220,.12),rgba(200,204,220,.12)),linear-gradient(100deg,#a9aec2 0%,#9b80e0 14%,#5fb2ea 28%,#7fd8a8 42%,#e9d27a 56%,#e992b8 70%,#9b80e0 84%,#a9aec2 100%);background-size:100% 100%,320% 100%;background-position:0 0,var(--sx,50%) 0;transition:background-position .3s ease-out}
+.rare .strip{--c:var(--type-spirit);background:linear-gradient(100deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.26) 46%,rgba(255,255,255,0) 60%),linear-gradient(100deg,rgba(155,128,224,.8) 0%,rgba(95,178,234,.8) 17%,rgba(127,216,168,.8) 34%,rgba(233,210,122,.8) 51%,rgba(233,146,184,.8) 68%,rgba(155,128,224,.8) 85%,rgba(95,178,234,.8) 100%),var(--c);background-size:300% 100%,320% 100%,100% 100%;background-position:var(--sx,50%) 0,var(--sx,50%) 0,0 0;background-blend-mode:normal,soft-light,normal;transition:background-position .3s ease-out}
 .rule{position:absolute;left:2%;right:2%;height:max(1px,.18cqw);background:var(--rule)}
 .l1{top:61.5%}.l2{top:92.3%}
 .line{position:absolute;left:2.4%;right:2.4%;bottom:38.5%;white-space:nowrap;color:var(--pen);font-family:var(--hand);line-height:1;transform:rotate(-.2deg);transform-origin:left bottom}
 .line .t{font-size:4.1cqw;-webkit-text-stroke:.12cqw currentColor}
 .line .s{font-size:3.3cqw;color:var(--pen-soft)}
+.types{max-width:760px;margin:44px auto 0;display:flex;flex-direction:column;gap:14px;touch-action:pan-y}
+.types h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0;text-align:center}
+.tgrid{display:grid;grid-template-columns:auto 1fr 1fr;gap:10px 14px;align-items:center}
+.tgrid .hd{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tname{font-size:12px;color:var(--ink);letter-spacing:.08em;min-width:0}
+.tab{height:22px;border-radius:4px;min-width:0}
+.tab.flat{background:var(--c)}
+.tab.foil{background:linear-gradient(100deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.26) 46%,rgba(255,255,255,0) 60%),linear-gradient(100deg,rgba(155,128,224,.8) 0%,rgba(95,178,234,.8) 17%,rgba(127,216,168,.8) 34%,rgba(233,210,122,.8) 51%,rgba(233,146,184,.8) 68%,rgba(155,128,224,.8) 85%,rgba(95,178,234,.8) 100%),var(--c);background-size:300% 100%,320% 100%,100% 100%;background-position:var(--sx,50%) 0,var(--sx,50%) 0,0 0;background-blend-mode:normal,soft-light,normal;transition:background-position .3s ease-out}
+@media (max-width:480px){.tgrid{grid-template-columns:1fr 1fr}.tname{grid-column:1/-1;margin-top:4px}.tgrid .hd.n{display:none}}
 .hint{color:var(--muted);font-size:13px;text-align:center;line-height:1.5;max-width:40ch;margin:30px auto 0;text-wrap:balance}
 .hint b{color:var(--ink);font-weight:600}
 @media (prefers-reduced-motion:reduce){.card{transition:none}}
@@ -84,7 +94,8 @@ body{background:radial-gradient(120% 80% at 50% 0%, var(--night-2), var(--night)
     </div></div>
   </section>
 </div>
-<p class="hint"><b>Drag across a card</b> to tilt it. <b>Slide the metal shutter</b> to read its story.</p>
+<section class="types" id="types"><h2>Type tabs</h2><div class="tgrid"><span class="hd n"></span><span class="hd">Common &middot; flat</span><span class="hd">Rare &middot; foil</span><span class="tname">Wealth &middot; ความมั่งคั่ง</span><div class="tab flat" style="--c:var(--type-wealth)"></div><div class="tab foil" style="--c:var(--type-wealth)"></div><span class="tname">Wisdom &middot; ปัญญา</span><div class="tab flat" style="--c:var(--type-wisdom)"></div><div class="tab foil" style="--c:var(--type-wisdom)"></div><span class="tname">Heart &middot; ความเมตตา</span><div class="tab flat" style="--c:var(--type-heart)"></div><div class="tab foil" style="--c:var(--type-heart)"></div><span class="tname">Courage &middot; ความกล้า</span><div class="tab flat" style="--c:var(--type-courage)"></div><div class="tab foil" style="--c:var(--type-courage)"></div><span class="tname">Craft &middot; ฝีมือ</span><div class="tab flat" style="--c:var(--type-craft)"></div><div class="tab foil" style="--c:var(--type-craft)"></div><span class="tname">Spirit &middot; จิตวิญญาณ</span><div class="tab flat" style="--c:var(--type-spirit)"></div><div class="tab foil" style="--c:var(--type-spirit)"></div></div></section>
+<p class="hint"><b>Drag across a card</b> to tilt it. <b>Slide the metal shutter</b> to read its story. Drag across the type tabs to see the foil move.</p>
 
 <script>
 (()=>{
@@ -122,5 +133,6 @@ document.querySelectorAll('.card').forEach((card,i)=>{
   (document.fonts?document.fonts.ready:Promise.resolve()).then(fit);addEventListener('resize',fit);
   apply();
 });
+const types=document.getElementById('types');const setP=e=>{const r=types.getBoundingClientRect();types.style.setProperty('--sx',(5+((e.clientX-r.left)/r.width)*90).toFixed(1)+'%');};types.addEventListener('pointermove',setP);types.addEventListener('pointerdown',setP);types.addEventListener('pointerleave',()=>types.style.setProperty('--sx','50%'));
 })();
 </script>
