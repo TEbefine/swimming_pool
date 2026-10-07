@@ -283,7 +283,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     if (!hasPortrait) return;
     onLineChange?.(0, 'hidden');
     return () => {
-      onLineChange?.(0, 'idle');
+      onLineChange?.(0, undefined);
     };
   }, [hasPortrait, onLineChange]);
 
@@ -361,8 +361,14 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     setLeanKey(k => k + 1);
   }, []);
 
+  const lastAdvanceTimeRef = useRef(0);
+
   const advance = useCallback(() => {
     if (showChoices) return;
+
+    const now = performance.now();
+    if (now - lastAdvanceTimeRef.current < 150) return;
+    lastAdvanceTimeRef.current = now;
 
     if (!isComplete) {
       // Skip typewriter — show full page text immediately
@@ -405,6 +411,10 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 
   const confirmChoice = useCallback(() => {
     if (!showChoices || !node?.choices) return;
+    const now = performance.now();
+    if (now - lastAdvanceTimeRef.current < 150) return;
+    lastAdvanceTimeRef.current = now;
+
     const choice = node.choices[choiceIndex];
     if (choice) {
       goToNode(choice.next);
@@ -454,6 +464,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      if (e.repeat) return;
       const key = e.key.toLowerCase();
 
       if (key === 'escape' || key === 'x') {

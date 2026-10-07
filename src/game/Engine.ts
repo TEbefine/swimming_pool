@@ -61,11 +61,11 @@ interface NpcWanderSegment {
   facing: 1 | -1;
 }
 
-/** NPC side walk: the two STRIDE frames only (a standing frame in between made them look like they glide). */
-const NPC_WALK_CYCLE = ['walk1', 'walk2'] as const;
-/** Ground covered per step at 1× (px). Steps advance by distance, so the feet never slide. */
-const NPC_STRIDE_PX = 7;
-/** Body lift in the middle of each step at 1× (px) — the little up-down that makes it read as walking. */
+/** NPC walk cycle: 4 frames (stride 1 -> middle passing -> stride 2 -> middle passing). */
+const NPC_WALK_CYCLE = ['walk1', 'side_idle', 'walk2', 'side_idle'] as const;
+/** Ground covered per frame at 1× (px). A full 2-step cycle covers 4 * NPC_FRAME_PX = 24px. */
+const NPC_FRAME_PX = 6;
+/** Body lift on the passing frames at 1× (px) — subtle authentic pixel-art step bounce. */
 const NPC_STEP_BOB_PX = 1.5;
 /** With a crowd on screen, only this many name tags are drawn (closest first). Speech bubbles always show. */
 const MAX_NAME_TAGS = 12;
@@ -79,15 +79,20 @@ const PAST_SKIP_MOVERS: ReadonlySet<string> = new Set(['plane']);
 const NPC_SETTLE_MS = 450;
 
 function npcWalkFrame(distancePx: number, actorScale: number): string {
-  const i = Math.floor(distancePx / (NPC_STRIDE_PX * (actorScale || 1))) % NPC_WALK_CYCLE.length;
+  const framePx = NPC_FRAME_PX * (actorScale || 1);
+  const i = Math.floor(distancePx / framePx) % NPC_WALK_CYCLE.length;
   return NPC_WALK_CYCLE[i];
 }
 
-/** Up-down bob for the current step: 0 when a foot lands, highest halfway through the step. */
+/** Step bounce: on passing frames (index 1 & 3: side_idle), lift the sprite slightly. */
 function npcStepBob(distancePx: number, actorScale: number): number {
   const k = actorScale || 1;
-  const phase = (distancePx / (NPC_STRIDE_PX * k)) % 1;
-  return Math.round(Math.sin(phase * Math.PI) * NPC_STEP_BOB_PX * k);
+  const framePx = NPC_FRAME_PX * k;
+  const i = Math.floor(distancePx / framePx) % NPC_WALK_CYCLE.length;
+  if (i === 1 || i === 3) {
+    return Math.round(NPC_STEP_BOB_PX * k);
+  }
+  return 0;
 }
 
 interface NpcWanderCycle {
@@ -191,10 +196,8 @@ interface NpcRuntimeState {
   frozenX: number;
   frozenY: number;
   frozenFacing: 1 | -1;
-  easeStartTime: number;
-  easeDuration: number;
-  easeStartX: number;
-  easeStartY: number;
+  freezeStartTime: number;
+  totalPausedMs: number;
 }
 
 interface NpcRenderState {
@@ -997,6 +1000,7 @@ export class GameEngine {
     this.remotePlayers.clear();
     this.npcWanderCycles.clear();
     this.npcRuntime.clear();
+    this.npcPoseOverride.clear();
     if (this.emoteTimeout !== null) clearTimeout(this.emoteTimeout);
     if (this.chatTimeout !== null) clearTimeout(this.chatTimeout);
     cancelAnimationFrame(this.animId);
@@ -2733,7 +2737,7 @@ export class GameEngine {
       };
     }
 
-    const cycleTime = clockNow % cycle.totalCycleMs;
+    const cycleTime = ((clockNow % cycle.totalCycleMs) + cycle.totalCycleMs) % cycle.totalCycleMs;
     const seg = findWanderSegment(cycle.segments, cycleTime);
     const elapsedInSeg = cycleTime - seg.startTime;
 
@@ -2753,8 +2757,8 @@ export class GameEngine {
       const x = Math.round(seg.startX + (seg.targetX - seg.startX) * progress);
       const y = Math.round(seg.startY + (seg.targetY - seg.startY) * progress);
       const travelled = Math.hypot(x - seg.startX, y - seg.startY);
-      const action = overridePose || npcWalkFrame(travelled, this.actorScale);
-      const bob = overridePose ? 0 : npcStepBob(travelled, this.actorScale);
+      const action = npcWalkFrame(travelled, this.actorScale);
+      const bob = npcStepBob(travelled, this.actorScale);
       return { x, y, facing: seg.facing, action, bob };
     } else {
       // Paused: settle in the side pose first, then the idle pose; blink sometimes
@@ -2769,7 +2773,7 @@ export class GameEngine {
     }
   }
 
-  /** Compute full render state (wander, dialog freeze, or ease). */
+  /** Compute full render state (wander or dialog freeze). */
   private getNpcRenderState(npc: NpcDef, perfTime: number): NpcRenderState {
     if (!npc.wander) {
       return {
@@ -2797,32 +2801,14 @@ export class GameEngine {
         x: rt.frozenX,
         y: rt.frozenY,
         facing: rt.frozenFacing,
-        action: overridePose || 'idle',
+        action: overridePose || 'talk',
+        bob: 0,
       };
     }
 
-    // 2. Easing back to scheduled position after dialog closes (600ms)
-    if (rt && rt.easeStartTime > 0) {
-      const elapsedEase = perfTime - rt.easeStartTime;
-      if (elapsedEase < rt.easeDuration) {
-        const t = Math.min(1, Math.max(0, elapsedEase / rt.easeDuration));
-        const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-        const sched = this.getScheduledNpcState(npc, Date.now(), perfTime);
-        const curX = Math.round((1 - ease) * rt.easeStartX + ease * sched.x);
-        const curY = Math.round((1 - ease) * rt.easeStartY + ease * sched.y);
-        const facing: 1 | -1 = sched.x >= curX ? 1 : -1;
-        const travelled = Math.hypot(curX - rt.easeStartX, curY - rt.easeStartY);
-        const walking = !overridePose && travelled >= 2;
-        const action = overridePose || (walking ? npcWalkFrame(travelled, this.actorScale) : 'side_idle');
-        const bob = walking ? npcStepBob(travelled, this.actorScale) : 0;
-        return { x: curX, y: curY, facing, action, bob };
-      } else {
-        rt.easeStartTime = 0;
-      }
-    }
-
-    // 3. Normal scheduled position
-    return this.getScheduledNpcState(npc, Date.now(), perfTime);
+    // 2. Normal scheduled position (wander clock offset by accumulated paused time)
+    const effectiveNow = Date.now() - (rt?.totalPausedMs ?? 0);
+    return this.getScheduledNpcState(npc, effectiveNow, perfTime);
   }
 
   private getNpcCurrentState(npc: NpcDef): NpcRenderState {
@@ -3069,30 +3055,40 @@ export class GameEngine {
   /** Freeze local movement (called when dialog opens). */
   public setDialogFrozen(frozen: boolean, npcId?: string) {
     this.dialogFrozen = frozen;
-    const targetNpcId = frozen && npcId ? npcId : this.dialogNpcId;
-    this.dialogNpcId = frozen && npcId ? npcId : null;
+    const targetNpcId = npcId ?? this.dialogNpcId;
+    this.dialogNpcId = frozen ? (npcId ?? this.dialogNpcId) : null;
 
     if (frozen) {
       // Stop any current movement
       this.clickTarget = null;
       this.isMoving = false;
 
-      if (npcId && this.room.npcs) {
-        const npc = this.room.npcs.find(n => n.id === npcId);
+      if (targetNpcId && this.room.npcs) {
+        const npc = this.room.npcs.find(n => n.id === targetNpcId);
         if (npc) {
           if (npc.wander) {
             const currentPos = this.getNpcCurrentState(npc);
             const facing: 1 | -1 = this.localPlayer.x > currentPos.x ? 1 : -1;
-            this.npcRuntime.set(npcId, {
-              frozen: true,
-              frozenX: currentPos.x,
-              frozenY: currentPos.y,
-              frozenFacing: facing,
-              easeStartTime: 0,
-              easeDuration: 0,
-              easeStartX: 0,
-              easeStartY: 0,
-            });
+            let rt = this.npcRuntime.get(targetNpcId);
+            if (!rt) {
+              rt = {
+                frozen: true,
+                frozenX: currentPos.x,
+                frozenY: currentPos.y,
+                frozenFacing: facing,
+                freezeStartTime: Date.now(),
+                totalPausedMs: 0,
+              };
+              this.npcRuntime.set(targetNpcId, rt);
+            } else {
+              rt.frozen = true;
+              rt.frozenX = currentPos.x;
+              rt.frozenY = currentPos.y;
+              rt.frozenFacing = facing;
+              if (rt.freezeStartTime === 0) {
+                rt.freezeStartTime = Date.now();
+              }
+            }
 
             // Player moves to standAt relative to the NPC's CURRENT position
             if (npc.standAt) {
@@ -3110,15 +3106,43 @@ export class GameEngine {
       this.localPlayer.currentAction = 'talk';
       this.broadcastState();
     } else {
-      // Unfreeze: ease NPC back (600ms) to scheduled position
-      if (targetNpcId) {
-        const rt = this.npcRuntime.get(targetNpcId);
-        if (rt && rt.frozen) {
+      for (const [id, rt] of this.npcRuntime) {
+        if (rt.frozen) {
           rt.frozen = false;
-          rt.easeStartTime = performance.now();
-          rt.easeDuration = 600;
-          rt.easeStartX = rt.frozenX;
-          rt.easeStartY = rt.frozenY;
+          this.npcPoseOverride.delete(id);
+
+          // Finalize paused time
+          if (rt.freezeStartTime > 0) {
+            const pausedDuration = Date.now() - rt.freezeStartTime;
+            rt.totalPausedMs += pausedDuration;
+            rt.freezeStartTime = 0;
+          }
+
+          // If NPC is wandering, ensure it immediately starts walking!
+          const npc = this.room.npcs?.find((n) => n.id === id);
+          if (npc?.wander) {
+            let cycle = this.npcWanderCycles.get(id);
+            if (!cycle) {
+              cycle = buildWanderCycle(npc, this.actorScale) ?? undefined;
+              if (cycle) this.npcWanderCycles.set(id, cycle);
+            }
+            if (cycle) {
+              const effectiveNow = Date.now() - rt.totalPausedMs;
+              const cycleTime = ((effectiveNow % cycle.totalCycleMs) + cycle.totalCycleMs) % cycle.totalCycleMs;
+              const seg = findWanderSegment(cycle.segments, cycleTime);
+              const elapsedInSeg = cycleTime - seg.startTime;
+
+              // If currently in pause/idle, advance cycle to start of next segment so NPC immediately walks!
+              if (elapsedInSeg >= seg.walkMs) {
+                const segIdx = cycle.segments.indexOf(seg);
+                const nextSeg = cycle.segments[(segIdx + 1) % cycle.segments.length];
+                const targetCycleTime = nextSeg.startTime;
+                const currentMod = ((effectiveNow % cycle.totalCycleMs) + cycle.totalCycleMs) % cycle.totalCycleMs;
+                const forwardMs = ((targetCycleTime - currentMod) % cycle.totalCycleMs + cycle.totalCycleMs) % cycle.totalCycleMs;
+                rt.totalPausedMs -= forwardMs;
+              }
+            }
+          }
         }
       }
       this.localPlayer.currentAction = 'idle';
@@ -3140,7 +3164,7 @@ export class GameEngine {
   /** Make the NPC face toward the local player. */
   public faceNpcTowardPlayer(npcId: string) {
     if (!this.room.npcs) return;
-    const npc = this.room.npcs.find(n => n.id === npcId);
+    const npc = this.room.npcs.find((n) => n.id === npcId);
     if (npc) {
       const rt = this.npcRuntime.get(npcId);
       if (rt && rt.frozen) {

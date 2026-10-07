@@ -127,7 +127,6 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   const closeDialog = useCallback(() => {
     const engine = engineRef.current;
     const npcId = dialogNpcId;
-    const closePose = dialogScript?.closePose ?? 'wai';
 
     setDialogOpen(false);
     setDialogNpcId(null);
@@ -136,11 +135,10 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     setDialogDpadNudge(null);
 
     if (engine) {
-      engine.setDialogFrozen(false);
-      if (npcId && closePose !== 'none') {
-        // Play the close pose ('wai' by default) for 1.5s then return to idle
-        engine.setNpcPose(npcId, closePose, 1500);
+      if (npcId) {
+        engine.clearNpcPose(npcId);
       }
+      engine.setDialogFrozen(false, npcId ?? undefined);
       // A story choice asked to travel (e.g. the yard gate → river mouth)
       const travelTo = takeStoryTravel();
       if (travelTo) void engine.changeRoom(travelTo);
@@ -149,11 +147,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       // A story choice asked to open a window (sell at Gu's scale, give Mother something)
       const panel = takeStoryPanel();
       if (panel) {
-        engine.setDialogFrozen(true);
+        engine.setDialogFrozen(true, npcId ?? undefined);
         setStoryPanel(panel);
       }
     }
-  }, [dialogNpcId, dialogScript]);
+  }, [dialogNpcId]);
 
   const closeStoryPanel = useCallback(() => {
     setStoryPanel(null);
@@ -170,8 +168,10 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   const handleDialogLineChange = useCallback((_lineIndex: number, pose?: string) => {
     const engine = engineRef.current;
     if (!engine || !dialogNpcId) return;
-    if (pose) {
+    if (pose && pose !== 'idle') {
       engine.setNpcPose(dialogNpcId, pose);
+    } else {
+      engine.clearNpcPose(dialogNpcId);
     }
   }, [dialogNpcId]);
 
@@ -308,13 +308,18 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
       if (e.key === 'Tab') {
         e.preventDefault();
-        handleToggleSceneBox();
+        if (!e.repeat) {
+          handleToggleSceneBox();
+        }
         return;
       }
 
       const key = e.key.toLowerCase();
       if (key === 'e' || key === 'o') {
         e.preventDefault();
+        if (e.repeat) return;
+        // DialogBox handles its own keyboard navigation (E/O/Enter/Space)
+        if (dialogOpen) return;
         handleCircleAction();
       }
     };
