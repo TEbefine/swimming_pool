@@ -60,6 +60,19 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 ## U-01 · UI and fonts
 - My handwriting font **TEERA Handwriting TH** (Thai + English) and the pixel font **Sabai Pixel / Pixelify Sans**. Docs: `docs/ui/*` (talk screen, handheld shell).
 
+## U-02 · START menu (Pokémon FireRed/LeafGreen style)
+- **Status:** Step 1 finished (shell, cursor memory, description box, input routing, mutual overlay exclusivity, EMOTE sub-screen, FISH BOOK, BAG, HELP, EXIT).
+- **Decisions:**
+  - Placed on the right side inside the game screen (~46% width), cream background `#FFF8EC` with 2px `#1E293B` border and inner highlight (dark mode uses `--gb-*` tokens).
+  - No backdrop blur for smooth iPhone 13 performance; subtle dimming layer.
+  - Labels in uppercase pixel font (minimum 16px to avoid iOS zoom).
+  - Description box at the bottom explaining active highlighted row.
+  - Controls: D-pad / WASD navigate cursor, ◯ / Enter / Z confirms, ✕ / Escape backs out. START button / KeyM toggles START menu.
+  - In multiplayer, local player stops walking, but the world keeps ticking (NPCs and players keep moving).
+  - Overlay exclusivity: START closes SceneBox; SELECT (SceneBox) closes START menu.
+- **Files:** `src/components/startMenu/` (`StartMenu.tsx`, `MenuList.tsx`, `EmoteScreen.tsx`, `useMenuStack.ts`, `menu.css`), `src/game/haptics.ts`, `src/game/audio.ts`, `src/game/Engine.ts`, `src/App.tsx`, `src/components/GameBoyMobile.tsx`.
+- **Next:** Step 2 — OPTION screen + VIBRATION setting.
+
 ## W-01 · World
 - Lumen Bay plan, Dalbit market art. Docs: `docs/world/*`.
 
@@ -75,3 +88,4 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-06 · Claude · C-LEG-01 finished (frame, inscription, living universe, carousel, gold foil, Birthday Alignment, quiet sky).
 - 2026-10-07 · Claude · Handoff file created. Next: ID-01 player identity.
 - 2026-10-07 · Antigravity · Moved handoff to repo root + docs/; ID-01 plan set to Spark + Vercel API routes (no Cloud Functions).
+- 2026-10-07 · Antigravity · U-02 Step 1 finished (START menu shell, cursor memory, description box, input router, overlay exclusivity, EMOTE screen). Branch: `feat/start-menu`.

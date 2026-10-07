@@ -357,6 +357,27 @@ export class SoundManager {
       osc.stop(t + 0.22);
     } catch {}
   }
+
+  // Soft cancel / back blip for menus
+  public playBack() {
+    if (!this.canPlay()) return;
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, t); // A4 (lower than cursor 880Hz)
+      gain.gain.setValueAtTime(0.04, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      this.trackSource(osc, gain);
+      osc.start(t);
+      osc.stop(t + 0.04);
+    } catch {}
+  }
 }
 
 export const sound = new SoundManager();

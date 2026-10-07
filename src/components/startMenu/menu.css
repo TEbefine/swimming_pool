@@ -1,0 +1,184 @@
+/* ========================================================================= */
+/* POKÉMON-STYLE START MENU (FireRed / LeafGreen feel)                       */
+/* ========================================================================= */
+
+.start-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  background-color: rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Right-side menu window */
+.start-menu-panel {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 46%;
+  min-width: 144px;
+  max-width: 220px;
+  background-color: #FFF8EC;
+  border: 2px solid #1E293B;
+  box-shadow: inset 0 0 0 1px #CBD5E1, 0 4px 12px rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  z-index: 36;
+}
+
+/* Dark mode panel tokens */
+@media (prefers-color-scheme: dark) {
+  .start-menu-panel {
+    background-color: var(--gb-bezel, #14161a);
+    border: 2px solid var(--gb-edge, #2d3139);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 4px 12px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Menu rows */
+.start-menu-row {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  border-radius: 2px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.start-menu-row.is-active {
+  background-color: rgba(30, 41, 59, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  .start-menu-row.is-active {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ▶ cursor */
+.start-menu-cursor {
+  width: 12px;
+  flex-shrink: 0;
+  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-size: 16px;
+  line-height: 1;
+  color: #1E293B;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .start-menu-cursor {
+    color: var(--gb-ink, #9aa5f2);
+  }
+}
+
+/* Row label */
+.start-menu-label {
+  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .start-menu-label {
+    color: var(--gb-bezel-text, #e6e8ee);
+  }
+}
+
+/* Description box across the bottom */
+.start-menu-descbox {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  min-height: 38px;
+  background-color: #FFF8EC;
+  border: 2px solid #5A3A22;
+  box-shadow: 0 2px 0 rgba(90, 58, 34, 0.2), inset 0 0 0 1px #CBD5E1;
+  border-radius: 4px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  z-index: 36;
+}
+
+@media (prefers-color-scheme: dark) {
+  .start-menu-descbox {
+    background-color: var(--gb-bezel, #14161a);
+    border: 2px solid var(--gb-edge, #2d3139);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  }
+}
+
+.start-menu-desc-text {
+  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-size: 16px;
+  line-height: 1.25;
+  color: #2D1A0E;
+  margin: 0;
+  padding: 0;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-color-scheme: dark) {
+  .start-menu-desc-text {
+    color: var(--gb-bezel-text, #e6e8ee);
+  }
+}
+
+/* Header inside sub-screens */
+.start-menu-header {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 2px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  margin-bottom: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .start-menu-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}
+
+.start-menu-header-title {
+  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #1E293B;
+  letter-spacing: 0.05em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .start-menu-header-title {
+    color: var(--gb-ink, #9aa5f2);
+  }
+}

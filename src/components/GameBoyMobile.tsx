@@ -1,9 +1,8 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { QualityButton } from './QualityButton';
-import { MusicButton } from './MusicButton';
 import type { PlayerState, FloatColor, ChatMessage } from '../game/types';
 import { Volume2, VolumeX, User, HelpCircle, X, Send } from 'lucide-react';
 import { sound } from '../game/audio';
+import { triggerHaptic } from '../game/haptics';
 
 interface GameBoyMobileProps {
   canvasRef: React.Ref<HTMLCanvasElement>;
@@ -26,6 +25,8 @@ interface GameBoyMobileProps {
   screenOverlay?: React.ReactNode;
   dialogOpen?: boolean;
   onToggleSceneBox?: () => void;
+  onToggleStartMenu?: () => void;
+  startMenuOpen?: boolean;
   statusLabel?: string;
   hideStatusBadge?: boolean;
 }
@@ -39,7 +40,7 @@ const DPAD_PATH =
 export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   canvasRef,
   playerState,
-  currentAction,
+  currentAction: _currentAction,
   playerName,
   floatColor,
   playerCount,
@@ -56,9 +57,12 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   screenOverlay,
   dialogOpen = false,
   onToggleSceneBox,
+  onToggleStartMenu,
+  startMenuOpen: _startMenuOpen = false,
   statusLabel = 'Sunny Poolside',
   hideStatusBadge = false,
 }) => {
+  const isWater = playerState === 'water';
   const [muted, setMuted] = useState(sound.isMuted());
   const [activeDir, setActiveDir] = useState<{ up: boolean; down: boolean; left: boolean; right: boolean }>({
     up: false,
@@ -66,7 +70,6 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     left: false,
     right: false
   });
-  const [showEmoteMenu, setShowEmoteMenu] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatText, setChatText] = useState('');
   const [showChatHistory, setShowChatHistory] = useState(false);
@@ -122,17 +125,6 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   const handleToggleMute = () => {
     const isNowMuted = sound.toggleMute();
     setMuted(isNowMuted);
-  };
-
-  // Helper for subtle vibration
-  const triggerHaptic = (ms: number = 10) => {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(ms);
-      }
-    } catch {
-      // Ignore vibration errors
-    }
   };
 
   // Minimal D-Pad Touch & Drag calculations
@@ -233,47 +225,29 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     onTriggerEmote('wave');
   };
 
-  // Top: △ (Triangle) -> Chat Modal (was Emotes Menu)
+  // Top: △ (Triangle) -> Chat Modal
   const handlePressTriangle = () => {
     triggerHaptic(15);
     setShowChatModal((prev) => !prev);
-    setShowEmoteMenu(false);
   };
 
-  // SELECT button -> SceneBox (was Chat)
+  // SELECT button -> SceneBox
   const handlePressSelect = () => {
     triggerHaptic(15);
     setShowChatModal(false);
-    setShowEmoteMenu(false);
     if (onToggleSceneBox) {
       onToggleSceneBox();
     }
   };
 
-  // START / PAUSE button (Emotes menu)
+  // START button -> Pokémon-style START menu
   const handlePressStart = () => {
     triggerHaptic(15);
-    setShowEmoteMenu((prev) => !prev);
     setShowChatModal(false);
+    if (onToggleStartMenu) {
+      onToggleStartMenu();
+    }
   };
-
-  const isWater = playerState === 'water';
-
-  const emotesList = isWater ? [
-    { id: 'wave', label: 'Wave', emoji: '👋' },
-    { id: 'relax', label: 'Relax Float', emoji: '🎵' },
-    { id: 'happy', label: 'Happy Splash', emoji: '✨' },
-    { id: 'surprise', label: 'Surprise', emoji: '❗' },
-    { id: 'talk', label: 'Chat Pose', emoji: '💬' }
-  ] : [
-    { id: 'wave', label: 'Wave', emoji: '👋' },
-    { id: 'sit', label: 'Sit Down', emoji: '🧘' },
-    { id: 'lie', label: 'Lie Down', emoji: '🛌' },
-    { id: 'surprise', label: 'Surprise', emoji: '❗' },
-    { id: 'jump', label: 'Jump', emoji: '⭐' },
-    { id: 'happy', label: 'Happy', emoji: '😄' },
-    { id: 'thinking', label: 'Thinking', emoji: '❓' }
-  ];
 
   const quickPhrases = [
     "Come in the pool! 🏊",
@@ -729,60 +703,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* MOBILE POPUPS: EMOTE MENU (START / △) & CHAT DRAWER (SELECT) */}
-      {/* ========================================================================= */}
-
-      {/* EMOTE MENU (Triggered by START button or △ button) */}
-      {showEmoteMenu && (
-        <div className="game-overlay-backdrop absolute inset-0 z-50 bg-black/75 flex flex-col justify-end p-4 animate-fade-in backdrop-blur-xs">
-          <div className="bg-[#1e293b] border-2 border-amber-400 rounded-lg p-3 text-white shadow-2xl">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700">
-              <span className="text-[16px] font-bold text-amber-300 font-pixel uppercase">
-                {isWater ? '🏊 Water Emotes' : '🏖️ Land Emotes'}
-              </span>
-              <button
-                onClick={() => setShowEmoteMenu(false)}
-                className="p-1 text-slate-400 hover:text-white"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              {emotesList.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    triggerHaptic(12);
-                    onTriggerEmote(item.id);
-                    setShowEmoteMenu(false);
-                  }}
-                  className={`pixel-btn text-[16px] py-2 px-2.5 flex items-center justify-start gap-2 ${
-                    currentAction === item.id ? 'pixel-btn-accent' : ''
-                  }`}
-                >
-                  <span className="text-[16px]">{item.emoji}</span>
-                  <span className="font-semibold truncate">{item.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => {
-                triggerHaptic(15);
-                onToggleState();
-                setShowEmoteMenu(false);
-              }}
-              className="w-full pixel-btn pixel-btn-primary py-2 text-[16px] font-bold justify-center"
-            >
-              {isWater ? '🏖️ Step Out to Land (◯)' : '🏊 Dive into Pool (◯)'}
-            </button>
-            <QualityButton variant="menu" />
-            <MusicButton variant="menu" />
-          </div>
-        </div>
-      )}
+      {/* MOBILE POPUPS: CHAT DRAWER (△ / SELECT) */}
 
       {/* CHAT POPUP (Triggered by SELECT button) */}
       {showChatModal && (

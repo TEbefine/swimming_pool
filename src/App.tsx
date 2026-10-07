@@ -12,6 +12,7 @@ import { NameModal } from './components/NameModal';
 import { HelpModal } from './components/HelpModal';
 import { DialogBox } from './components/DialogBox';
 import { SceneBox } from './components/SceneBox';
+import { StartMenu } from './components/startMenu/StartMenu';
 import { StoryHud } from './components/StoryHud';
 import { FishingHud } from './components/FishingHud';
 import { FishBook } from './components/FishBook';
@@ -89,6 +90,19 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   const [sceneBoxConfirmTrigger, setSceneBoxConfirmTrigger] = useState<number>(0);
 
   // =========================================================================
+  // START MENU STATE (Pokémon FireRed / LeafGreen style)
+  // =========================================================================
+  const [startMenuOpen, setStartMenuOpen] = useState(false);
+  const [startMenuDpadNudge, setStartMenuDpadNudge] = useState<{ dx: number; dy: number; timestamp: number } | null>(null);
+  const [startMenuConfirmTrigger, setStartMenuConfirmTrigger] = useState<number>(0);
+  const [startMenuCancelTrigger, setStartMenuCancelTrigger] = useState<number>(0);
+
+  // Synchronize menuFrozen with engine: local player stops walking, but the world does NOT pause.
+  useEffect(() => {
+    engineRef.current?.setMenuFrozen(startMenuOpen);
+  }, [startMenuOpen]);
+
+  // =========================================================================
   // DIALOG STATE
   // =========================================================================
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,7 +123,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     const engine = engineRef.current;
     if (!engine) return;
 
-    // Reset triggers on open
+    // Reset triggers on open; ensure other overlays are closed
+    setStartMenuOpen(false);
+    setSceneBoxOpen(false);
     setDialogConfirmTrigger(0);
     setDialogDpadNudge(null);
     setDialogSessionId((s) => s + 1);
@@ -189,9 +205,33 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
   const handleToggleSceneBox = useCallback(() => {
     setSceneBoxOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        // SELECT closes START menu if open. Never two overlays at once.
+        setStartMenuOpen(false);
+        setStartMenuConfirmTrigger(0);
+        setStartMenuCancelTrigger(0);
+        setStartMenuDpadNudge(null);
+      }
       setSceneBoxConfirmTrigger(0);
       setSceneBoxDpadNudge(null);
-      return !prev;
+      return next;
+    });
+  }, []);
+
+  const handleToggleStartMenu = useCallback(() => {
+    setStartMenuOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        // START closes SceneBox if open. Never two overlays at once.
+        setSceneBoxOpen(false);
+        setSceneBoxConfirmTrigger(0);
+        setSceneBoxDpadNudge(null);
+      }
+      setStartMenuConfirmTrigger(0);
+      setStartMenuCancelTrigger(0);
+      setStartMenuDpadNudge(null);
+      return next;
     });
   }, []);
 
@@ -201,6 +241,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   const closeFishing = useCallback(() => stopFishing(), []);
 
   const handleCircleAction = useCallback(() => {
+    // When START menu is open → ◯ confirms current item
+    if (startMenuOpen) {
+      setStartMenuConfirmTrigger((prev) => prev + 1);
+      return;
+    }
     // A story window is open → use its buttons (tap / click)
     if (storyPanel) return;
     // Fishing → ◯ casts / strikes / lifts the net
@@ -231,12 +276,17 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       // Fallback: toggleWaterLand
       engine.toggleWaterLand();
     }
-  }, [sceneBoxOpen, dialogOpen, fishingOpen, storyPanel]);
+  }, [startMenuOpen, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel]);
 
   // =========================================================================
   // ✕ BUTTON — jump / splash, cancel SceneBox, or advances dialog
   // =========================================================================
   const handleCrossAction = useCallback(() => {
+    // When START menu is open → ✕ cancels / goes back one level
+    if (startMenuOpen) {
+      setStartMenuCancelTrigger((prev) => prev + 1);
+      return;
+    }
     // A story window is open → ✕ closes it
     if (storyPanel) {
       closeStoryPanel();
@@ -269,7 +319,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     } else {
       engine.triggerEmote('jump');
     }
-  }, [sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel]);
+  }, [startMenuOpen, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel]);
 
   // =========================================================================
   // KEYBOARD: Tab for SceneBox, E and O for ◯, Escape for ✕
@@ -297,6 +347,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           closeDialog();
           return;
         }
+        if (startMenuOpen) {
+          e.preventDefault();
+          setStartMenuOpen(false);
+          return;
+        }
         if (sceneBoxOpen) {
           e.preventDefault();
           setSceneBoxOpen(false);
@@ -310,6 +365,15 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
         e.preventDefault();
         if (!e.repeat) {
           handleToggleSceneBox();
+        }
+        return;
+      }
+
+      // START Menu keyboard hotkey: KeyM ('M' for Menu), KeyP, or `
+      if (e.code === 'KeyM' || e.code === 'KeyP' || e.code === 'Backquote') {
+        e.preventDefault();
+        if (!e.repeat) {
+          handleToggleStartMenu();
         }
         return;
       }
@@ -333,7 +397,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       window.removeEventListener('keydown', handler);
       window.removeEventListener('keyup', up);
     };
-  }, [handleCircleAction, handleToggleSceneBox, dialogOpen, sceneBoxOpen, closeDialog, fishingOpen]);
+  }, [handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, startMenuOpen, closeDialog, fishingOpen]);
 
   // =========================================================================
   // ENGINE SETUP
@@ -654,10 +718,17 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
         <TradePanel panel={storyPanel} compact={effectiveIsMobile} onClose={closeStoryPanel} onGive={handleGive} />
       )}
     </>
+  ) : (!storyActive && bagOpen && !dialogOpen) ? (
+    <StoryHud bagOpen={bagOpen} onToggleBag={toggleBag} compact={effectiveIsMobile} />
+  ) : null;
+
+  // Standalone fish book overlay when opened via START menu outside free-fishing rooms
+  const standaloneFishBook = (!freeFishingRoom && fishBookOpen && !fishingOpen) ? (
+    <FishBook open={fishBookOpen} onToggle={() => setFishBookOpen(false)} compact={effectiveIsMobile} />
   ) : null;
 
   // =========================================================================
-  // OVERLAY ELEMENTS (DialogBox & SceneBox)
+  // OVERLAY ELEMENTS (DialogBox & SceneBox & StartMenu)
   // =========================================================================
   const dialogBoxElement = (dialogOpen && dialogScript && dialogNpcId) ? (
     <DialogBox
@@ -687,6 +758,36 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       confirmTrigger={sceneBoxConfirmTrigger}
     />
   ) : null;
+
+  const startMenuElement = (
+    <StartMenu
+      isOpen={startMenuOpen}
+      playerName={playerName}
+      playerState={playerState}
+      onClose={() => setStartMenuOpen(false)}
+      onOpenFishBook={() => {
+        setFishBookOpen(true);
+        setStartMenuOpen(false);
+      }}
+      onOpenBag={() => {
+        setBagOpen(true);
+        setStartMenuOpen(false);
+      }}
+      onOpenNameModal={() => {
+        setNameModalOpen(true);
+        setStartMenuOpen(false);
+      }}
+      onOpenHelpModal={() => {
+        setHelpModalOpen(true);
+        setStartMenuOpen(false);
+      }}
+      onTriggerEmote={handleTriggerEmote}
+      onToggleState={handleCircleAction}
+      directionNudge={startMenuDpadNudge}
+      confirmTrigger={startMenuConfirmTrigger}
+      cancelTrigger={startMenuCancelTrigger}
+    />
+  );
 
   // Canvas blur class for world focus effect
   const canvasBlurClass = dialogOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
@@ -718,11 +819,17 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           playerCount={playerCount}
           chatLog={visibleChatLog}
           statusLabel={currentRoom.name}
-          hideStatusBadge={dialogOpen}
+          hideStatusBadge={dialogOpen || startMenuOpen}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
             if (fishingOpen) {
               // no walking while the line is out
+            } else if (startMenuOpen) {
+              // START menu is open: D-pad navigates menu ONLY. Player stops walking.
+              // Multiplayer note: world does NOT pause, NPCs and other players keep moving.
+              if (Math.abs(dy) > 0.4 || Math.abs(dx) > 0.4) {
+                setStartMenuDpadNudge({ dx, dy, timestamp: Date.now() });
+              }
             } else if (sceneBoxOpen) {
               if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
                 setSceneBoxDpadNudge({ dx, dy, timestamp: Date.now() });
@@ -744,12 +851,16 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           onOpenNameModal={() => setNameModalOpen(true)}
           onOpenHelpModal={() => setHelpModalOpen(true)}
           onToggleSceneBox={handleToggleSceneBox}
+          onToggleStartMenu={handleToggleStartMenu}
+          startMenuOpen={startMenuOpen}
           screenOverlay={loadingElement ?? (
             <>
               {storyHudElement}
               {fishingElement}
+              {standaloneFishBook}
               {dialogBoxElement}
               {sceneBoxElement}
+              {startMenuElement}
             </>
           )}
         />
@@ -788,6 +899,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
             {/* Fishing panel (Dalbit river mouth) */}
             {fishingElement}
+            {standaloneFishBook}
 
             {/* Desktop dialog overlay (above canvas, below scanlines) */}
             {dialogBoxElement && (
@@ -800,6 +912,13 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
             {sceneBoxElement && (
               <div className="absolute inset-0 z-[6]">
                 {sceneBoxElement}
+              </div>
+            )}
+
+            {/* Desktop StartMenu overlay */}
+            {startMenuOpen && (
+              <div className="absolute inset-0 z-[7]">
+                {startMenuElement}
               </div>
             )}
 

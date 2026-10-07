@@ -375,6 +375,7 @@ export class GameEngine {
   // Dialog state: movement freeze + NPC pose override
   private dialogFrozen: boolean = false;
   private dialogNpcId: string | null = null;
+  private menuFrozen: boolean = false;
   private npcPoseOverride: Map<string, { pose: string; until: number }> = new Map();
 
   // Debug overlay (F3)
@@ -1033,6 +1034,12 @@ export class GameEngine {
   private handleKeyDown = (e: KeyboardEvent) => {
     // If typing inside an input element, do not capture movement
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
+      return;
+    }
+
+    // When a menu (e.g. START menu) is open, inputs route to the menu only.
+    // Multiplayer note: The world does NOT pause: other players and NPCs keep moving.
+    if (this.menuFrozen) {
       return;
     }
 
@@ -1769,8 +1776,9 @@ export class GameEngine {
   }
 
   private updateLocalPlayer(dt: number) {
-    // If seated, dialog frozen, or fading out, don't process movement
-    if (this.seatedIndex >= 0 || this.dialogFrozen || this.fadeDirection === 'out') return;
+    // If seated, dialog frozen, menu open, or fading out, don't process movement
+    // Multiplayer note: The world does NOT pause: other players and NPCs keep moving.
+    if (this.seatedIndex >= 0 || this.dialogFrozen || this.menuFrozen || this.fadeDirection === 'out') return;
 
     let dx = 0;
     let dy = 0;
@@ -3183,6 +3191,23 @@ export class GameEngine {
   /** Whether dialog is currently open (movement frozen). */
   public isDialogOpen(): boolean {
     return this.dialogFrozen;
+  }
+
+  /**
+   * Freeze local player movement while any menu (e.g. START menu) is open.
+   * Multiplayer note: The world does NOT pause: other players and NPCs keep moving.
+   */
+  public setMenuFrozen(frozen: boolean) {
+    this.menuFrozen = frozen;
+    if (frozen) {
+      this.clickTarget = null;
+      this.virtualDpad = { dx: 0, dy: 0 };
+      this.isMoving = false;
+    }
+  }
+
+  public isMenuFrozen(): boolean {
+    return this.menuFrozen;
   }
 
   /** Get an NPC definition by id from the current room. */
