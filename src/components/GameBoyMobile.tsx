@@ -1,9 +1,11 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { QualityButton } from './QualityButton';
 import { MusicButton } from './MusicButton';
 import type { PlayerState, FloatColor, ChatMessage } from '../game/types';
 import { Volume2, VolumeX, User, HelpCircle, X, Send } from 'lucide-react';
 import { sound } from '../game/audio';
+import { directionForPress, KEY_INPUTS } from '../identity/policy';
+import type { ComboInput } from '../identity/policy';
 
 interface GameBoyMobileProps {
   canvasRef: React.Ref<HTMLCanvasElement>;
@@ -28,6 +30,12 @@ interface GameBoyMobileProps {
   onToggleSceneBox?: () => void;
   statusLabel?: string;
   hideStatusBadge?: boolean;
+  identityControls?: {
+    onInput: (input: ComboInput) => void;
+    onDelete: () => void;
+    onConfirm: () => void;
+    disabled: boolean;
+  };
 }
 
 /** One-piece D-pad cross: rounded outer tips, softly filleted inner corners (100×100 box). */
@@ -58,6 +66,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   onToggleSceneBox,
   statusLabel = 'Sunny Poolside',
   hideStatusBadge = false,
+  identityControls,
 }) => {
   const [muted, setMuted] = useState(sound.isMuted());
   const [activeDir, setActiveDir] = useState<{ up: boolean; down: boolean; left: boolean; right: boolean }>({
@@ -75,6 +84,30 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   const dpadBoundsRef = useRef<DOMRect | null>(null);
   const isDraggingDpad = useRef(false);
   const controllerRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!identityControls) return;
+    const keydown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.isComposing) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const input = KEY_INPUTS[event.code];
+      if (!input && event.code !== 'Backspace' && event.code !== 'Enter') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (event.repeat || identityControls.disabled) return;
+      if (input) identityControls.onInput(input);
+      else if (event.code === 'Backspace') identityControls.onDelete();
+      else identityControls.onConfirm();
+    };
+    window.addEventListener('keydown', keydown, true);
+    return () => window.removeEventListener('keydown', keydown, true);
+  }, [identityControls]);
+
+  const identityPress = (input: ComboInput) => {
+    if (!identityControls) return false;
+    if (!identityControls.disabled) identityControls.onInput(input);
+    return true;
+  };
 
   // iPhone: a long press on the controller must never open the text magnifier (loupe), the
   // copy/select callout or zoom. CSS user-select isn't enough on iOS Safari, so the touch itself is
@@ -184,6 +217,13 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
   const handleDpadPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
+    if (identityControls) {
+      if (!e.isPrimary || identityControls.disabled) return;
+      const bounds = e.currentTarget.getBoundingClientRect();
+      const input = directionForPress(e.clientX - bounds.left - bounds.width / 2, e.clientY - bounds.top - bounds.height / 2);
+      if (input) identityControls.onInput(input);
+      return;
+    }
     isDraggingDpad.current = true;
     dpadBoundsRef.current = dpadRef.current?.getBoundingClientRect() ?? null;
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -217,24 +257,28 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   // 4 Minimal Buttons Actions
   // Bottom: ✕ (Cross) -> Primary Action (Jump / Splash)
   const handlePressCross = () => {
+    if (identityPress('cross')) return;
     triggerHaptic(18);
     onActionA();
   };
 
   // Right: ◯ (Circle) -> Dive / Step Out (Water ⇄ Land)
   const handlePressCircle = () => {
+    if (identityPress('circle')) return;
     triggerHaptic(18);
     onToggleState();
   };
 
   // Left: ▢ (Square) -> Quick Wave Emote
   const handlePressSquare = () => {
+    if (identityPress('square')) return;
     triggerHaptic(15);
     onTriggerEmote('wave');
   };
 
   // Top: △ (Triangle) -> Chat Modal (was Emotes Menu)
   const handlePressTriangle = () => {
+    if (identityPress('triangle')) return;
     triggerHaptic(15);
     setShowChatModal((prev) => !prev);
     setShowEmoteMenu(false);
@@ -242,6 +286,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
   // SELECT button -> SceneBox (was Chat)
   const handlePressSelect = () => {
+    if (identityControls) { if (!identityControls.disabled) identityControls.onDelete(); return; }
     triggerHaptic(15);
     setShowChatModal(false);
     setShowEmoteMenu(false);
@@ -252,6 +297,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
   // START / PAUSE button (Emotes menu)
   const handlePressStart = () => {
+    if (identityControls) { if (!identityControls.disabled) identityControls.onConfirm(); return; }
     triggerHaptic(15);
     setShowEmoteMenu((prev) => !prev);
     setShowChatModal(false);
@@ -313,7 +359,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     <div
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
-      className="relative w-full h-[100dvh] max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none gameboy-body border-x-4 border-t-4 border-b-8 border-[var(--gb-edge)] shadow-2xl"
+      className={`relative w-full h-[100dvh] max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none gameboy-body border-x-4 border-t-4 border-b-8 border-[var(--gb-edge)] shadow-2xl ${identityControls ? 'identity-shell' : ''}`}
       style={{
         WebkitTouchCallout: 'none',
         WebkitUserSelect: 'none',
@@ -327,7 +373,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9e9e94] dark:bg-[#e0705c] dark:shadow-[0_0_4px_#e0705c]"></span>
           <span>ON ▶</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" style={identityControls ? { visibility: 'hidden' } : undefined}>
           <button
             onClick={handleToggleMute}
             className="text-[16px] hover:text-[var(--gb-ridge-strong)] transition-colors cursor-pointer"
@@ -588,7 +634,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     {...press(handlePressTriangle)}
                     onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
-                    title="Triangle: Emotes"
+                    title={identityControls ? 'Triangle (T)' : 'Triangle: Emotes'}
                     style={{
                       WebkitTouchCallout: 'none',
                       WebkitUserSelect: 'none',
@@ -609,7 +655,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     {...press(handlePressSquare)}
                     onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
-                    title="Square: Wave"
+                    title={identityControls ? 'Square (Q)' : 'Square: Wave'}
                     style={{
                       WebkitTouchCallout: 'none',
                       WebkitUserSelect: 'none',
@@ -631,7 +677,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                       e.preventDefault();
                       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
                       handlePressCircle();
-                      onCircleHold?.(true);
+                      if (!identityControls) onCircleHold?.(true);
                     }}
                     onPointerUp={() => onCircleHold?.(false)}
                     onPointerCancel={() => onCircleHold?.(false)}
@@ -639,7 +685,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     onClick={(e) => { if (e.detail === 0) handlePressCircle(); }}
                     onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
-                    title="Circle: Pool / Land"
+                    title={identityControls ? 'Circle (O)' : 'Circle: Pool / Land'}
                     style={{
                       WebkitTouchCallout: 'none',
                       WebkitUserSelect: 'none',
@@ -660,7 +706,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     {...press(handlePressCross)}
                     onContextMenu={(e) => e.preventDefault()}
                     className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
-                    title="Cross: Jump / Splash"
+                    title={identityControls ? 'Cross (X)' : 'Cross: Jump / Splash'}
                     style={{
                       WebkitTouchCallout: 'none',
                       WebkitUserSelect: 'none',
@@ -685,8 +731,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               The button is a 40×32 touch target; the visible circle sits inside it. */}
           <div className="absolute left-1/2 -translate-x-1/2 -top-8 flex items-start gap-4">
             {[
-              { label: 'Select', fn: handlePressSelect, title: 'Select (Scene)' },
-              { label: 'Start', fn: handlePressStart, title: 'Start (Emotes Menu)' },
+              { label: 'Select', fn: handlePressSelect, title: identityControls ? 'Delete last press' : 'Select (Scene)' },
+              { label: 'Start', fn: handlePressStart, title: identityControls ? 'Confirm code' : 'Start (Emotes Menu)' },
             ].map((key) => (
               <div key={key.label} className="flex flex-col items-center">
                 <button

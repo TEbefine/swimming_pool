@@ -414,6 +414,7 @@ export class GameEngine {
   private shadowCache = new Map<string, HTMLCanvasElement>();
   private chatTimeout: number | null = null;
   private running: boolean = false;
+  private identityPaused = false;
 
   // Fade transition state
   private fadeAlpha: number = 0;
@@ -487,6 +488,7 @@ export class GameEngine {
   }
 
   private markInput = () => {
+    if (this.identityPaused) return;
     const now = performance.now();
     this.lastInputTime = now;
     this.lastActiveTime = now;
@@ -967,7 +969,7 @@ export class GameEngine {
     this.wakeTimer = null;
     if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
     this.heartbeatId = null;
-    if (document.hidden || !this.running) return;
+    if (document.hidden || !this.running || this.identityPaused) return;
     this.startHeartbeat();
     // Never replay time spent in the background or create multiple frame loops.
     this.frameBudget.reset(performance.now());
@@ -1027,6 +1029,7 @@ export class GameEngine {
   }
 
   private handleKeyDown = (e: KeyboardEvent) => {
+    if (this.identityPaused) return;
     // If typing inside an input element, do not capture movement
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
       return;
@@ -1065,6 +1068,7 @@ export class GameEngine {
   };
 
   private handlePointerDown = (e: PointerEvent) => {
+    if (this.identityPaused) return;
     if (!this.touchMoveEnabled) return;
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.canvas.width / rect.width;
@@ -1555,14 +1559,14 @@ export class GameEngine {
     this.frameBudget.reset(performance.now());
     this.throttle.reset(performance.now());
     this.lastActiveTime = this.lastInputTime = performance.now();
-    if (!document.hidden) this.animId = requestAnimationFrame(this.gameLoop);
-    if (!document.hidden) this.startHeartbeat();
+    if (!document.hidden && !this.identityPaused) this.animId = requestAnimationFrame(this.gameLoop);
+    if (!document.hidden && !this.identityPaused) this.startHeartbeat();
   }
 
   private startHeartbeat() {
     if (this.heartbeatId !== null) clearInterval(this.heartbeatId);
     this.heartbeatId = window.setInterval(() => {
-      if (this.running && !document.hidden) this.broadcastState();
+      if (this.running && !document.hidden && !this.identityPaused) this.broadcastState();
     }, 1500);
   }
 
@@ -1590,12 +1594,12 @@ export class GameEngine {
   /** Ask for the next frame. Below the display rate, sleep on a timer instead of waking the
    *  page on every vsync just to skip it (60–120 wake-ups/sec → 10–30). */
   private scheduleNext(fps: number) {
-    if (!this.running || document.hidden || this.destroyed) return;
+    if (!this.running || document.hidden || this.destroyed || this.identityPaused) return;
     const wait = this.frameBudget.due - performance.now() - 4;
     if (fps < 50 && wait > 8) {
       this.wakeTimer = window.setTimeout(() => {
         this.wakeTimer = null;
-        if (this.running && !document.hidden && !this.destroyed) this.animId = requestAnimationFrame(this.gameLoop);
+        if (this.running && !document.hidden && !this.destroyed && !this.identityPaused) this.animId = requestAnimationFrame(this.gameLoop);
       }, wait);
     } else {
       this.animId = requestAnimationFrame(this.gameLoop);
@@ -1632,7 +1636,7 @@ export class GameEngine {
   }
 
   private gameLoop = (time: number) => {
-    if (!this.running || document.hidden) return;
+    if (!this.running || document.hidden || this.identityPaused) return;
     const fps = this.targetFps(time);
     const dt = this.frameBudget.advance(time, fps);
     if (dt === null || !this.isAssetsLoaded) {
@@ -3065,6 +3069,12 @@ export class GameEngine {
   // =========================================================================
   // DIALOG / NPC POSE PUBLIC API
   // =========================================================================
+
+  /** Suspend gameplay while the local identity overlay is open, preserving room state. */
+  public setIdentityPaused(paused: boolean) {
+    this.identityPaused = paused;
+    this.handleVisibilityChange();
+  }
 
   /** Freeze local movement (called when dialog opens). */
   public setDialogFrozen(frozen: boolean, npcId?: string) {

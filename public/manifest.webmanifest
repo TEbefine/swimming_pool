@@ -1,0 +1,10 @@
+{
+  "id": "/",
+  "name": "Lumen Bay",
+  "short_name": "Lumen Bay",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#16171b",
+  "theme_color": "#d4d4cf"
+}

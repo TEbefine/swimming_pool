@@ -2,7 +2,7 @@
 
 Any AI working on this repo: read this whole file before doing anything. Every topic has an **ID**. Each ID stores its items: status, decisions, files and what's next. When you finish work, update the blocks you touched and add one line to the **Log** at the bottom. Never delete a rejected idea: move it to "Rejected" with the reason, so nobody repeats it.
 
-Last updated: 2026-10-07 (handoff from Claude to ChatGPT)
+Last updated: 2026-10-08 (ID-01a local identity implementation; review and physical iPhone test pending)
 
 ---
 
@@ -23,13 +23,18 @@ Last updated: 2026-10-07 (handoff from Claude to ChatGPT)
 - **Story (spirit NPC):** first story "Dalbit": the heir Kang Yunseul (real name Wol Hwi), a fictional world only *inspired* by Korea. Systems: fishing (wait → strike → reel), Pokémon-style battles, items/bag, gifts and relationships.
 - Detailed design docs live in `docs/` (cards, characters, world, ui, audio, tech). Read the doc for an ID before changing it.
 
-## ID-01 · Player identity (12-word wallet): NEXT TO BUILD
-- Every player gets an auto-created wallet on first visit (12-word recovery phrase + a 6-digit PIN to confirm). For now: wallet ID + login only, on the **Polygon testnet (Amoy)**. Real purchases maybe later.
-- **Priority:** store each player ID's items correctly, fairly, and hard to cheat. Players must feel their items are truly theirs. Trading between players is NOT a priority yet.
-- The idea is borrowed from how Chronolox auto-creates wallets.
-- Status: not started. Build prompt: see `docs/ai/PROMPT_player_id.md`.
-- Where it runs: wallet + PIN + private key on the player's device only · `/api/nonce`, `/api/login`, `/api/items` as Vercel API routes with firebase-admin · Firebase Auth + Firestore on the free Spark plan (no Cloud Functions) · wsServer.js unchanged for now, token check later (step e).
-- Work rule: one step = one branch = one AI builds, another AI reviews, Teera tests the Vercel preview on iPhone, then merges.
+## ID-01 · Player identity (12-word wallet): STEP (a) IN REVIEW
+- Approved plan: `docs/ai/ID-01-plan.md` supersedes the original prompt's PIN, server-stored nonce, session and save-model details. Original brief: `docs/ai/PROMPT_player_id.md`.
+- Branch: **id-01a-wallet**, based on main. Local wallet + mandatory written backup and three-word check; exactly **7 controller presses from 8 inputs** instead of a six-digit PIN. Dot-only entry, no press feedback; desktop arrows + T/O/X/Q.
+- Device vault encrypts BOTH the 12 words and private key using PBKDF2-HMAC-SHA-256 (600,000 iterations; random 16-byte salt) + AES-256-GCM (fresh 12-byte IV, 128-bit tag). Secrets never intentionally enter networking, logs or plaintext persistent storage. Short combos remain vulnerable to offline guessing.
+- Missing vault is restore-first, never silently creates a replacement. Teera approved local 12-word recovery in (a); server-data recovery remains (d). Request persistent storage and suggest Add to Home Screen; written backup remains required.
+- Fresh code is required for revealing words or changing the code. (a) uses a public local preview receipt for 48-hour convenience, NOT server authentication. (b) will use Firebase browserLocalPersistence and server-verified wallet sign-in age, without extending it on token refresh/visits.
+- (b) plan: stateless HMAC challenge at `/api/nonce` (zero Firestore writes); `/api/login` verifies first, then create-only used-nonce marker, then Firebase custom token. Both routes require per-IP limiting; serverless/shared-limiter limits must be explicit. Amoy 80002; no money or trading yet.
+- (c) plan: Dalbit end-of-day validated save + local draft; Lumen Bay only community knowledge/fortune memory. Lumen Bay fish are released after NPC finish and recorded as Fish Book knowledge, never inventory fish. Cards save immediately. Catalogue/quantity/action-rate validation; append-only API logs and owner-read/no-client-write rules. Old local saves may reset. Reward validation does not block (a)/(b).
+- Firebase Spark + Vercel API routes, no Cloud Functions. Service account/HMAC secret remain server-only. `server/wsServer.js` unchanged; token checks later in (e).
+- Main files: `src/identity/*`, controller identity mode in `GameBoyMobile.tsx`, app entry/profile integration, Home Screen manifest. Verification and phone checklist: `docs/ai/ID-01-review.md`.
+- Next: independent review and physical iPhone 13 unlock timing/10-minute performance check; Teera approval before merge or step (b). One step = one branch = one AI builds, another reviews, Teera tests the preview, then merges.
+- Rejected/superseded: numeric PIN → controller combo; Firestore nonce issuance → stateless challenge; memory-only Firebase auth → persistent auth + step-up; discarded phrase → encrypted phrase for gated reveal; silent identity regeneration → restore-first.
 
 ## C-01 · Card system "Memory Disk"
 - Cards are items in the bag (`kind: 'card'`). Tap the icon to view the full card. Trade it away and you can't view it anymore.
@@ -75,3 +80,4 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-06 · Claude · C-LEG-01 finished (frame, inscription, living universe, carousel, gold foil, Birthday Alignment, quiet sky).
 - 2026-10-07 · Claude · Handoff file created. Next: ID-01 player identity.
 - 2026-10-07 · Antigravity · Moved handoff to repo root + docs/; ID-01 plan set to Spark + Vercel API routes (no Cloud Functions).
+- 2026-10-08 · Codex · ID-01a: saved amended plan and implemented local encrypted wallet, controller combo, required backup, restore and step-up screens on id-01a-wallet; backend stages deferred; reviewer/iPhone verification pending.

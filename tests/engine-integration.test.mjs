@@ -222,6 +222,29 @@ test('destroy cancels loading without late asset mutations or new requests', asy
   assert.equal(env.frames.size, 0);
 });
 
+test('identity screens suspend game frames and heartbeats without losing the loaded room', async (t) => {
+  const env = environment(t);
+  const engine = env.engine();
+  await engine.loadAssets();
+  engine.start();
+  env.frame();
+  const sprites = engine.sprites.size;
+  engine.setIdentityPaused(true);
+  assert.equal(env.frames.size, 0);
+  assert.equal(env.intervals.size, 0);
+  env.visible(false);
+  env.visible(true);
+  engine.markInput();
+  assert.equal(env.frames.size, 0);
+  assert.equal(env.intervals.size, 0);
+  assert.equal(engine.sprites.size, sprites);
+  engine.setIdentityPaused(false);
+  engine.setIdentityPaused(false);
+  assert.equal(env.frames.size, 1);
+  assert.equal(env.intervals.size, 1);
+  engine.destroy();
+});
+
 test('missing optional and scaled manifests preserve playable fallback art', async (t) => {
   const env = environment(t, { missingManifests: [
     '/sprites/land_2_0x/manifest.json', '/sprites/outfits/cafe/manifest.json',
