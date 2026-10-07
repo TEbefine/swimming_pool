@@ -73,6 +73,18 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - **Files:** `src/components/startMenu/` (`StartMenu.tsx`, `MenuList.tsx`, `EmoteScreen.tsx`, `useMenuStack.ts`, `menu.css`), `src/game/haptics.ts`, `src/game/audio.ts`, `src/game/Engine.ts`, `src/App.tsx`, `src/components/GameBoyMobile.tsx`.
 - **Next:** Step 2 — OPTION screen + VIBRATION setting.
 
+## U-03 · Bag (Pokémon Black/White & ORAS style)
+- **Status:** Step 1 finished (fullscreen bag layout inside handheld shell, centered arcade cabinet window on desktop, top pocket bar with inline pixel SVGs & dot pagination, carried coins display, item list with ▶ cursor and count, auto-scroll to keep cursor visible, mother's empty notice, CLOSE BAG terminal row, per-pocket cursor memory, bottom description box with 48px pixel icon & metadata infoline, open/close routing from START / B / HUD, dev sandbox "+ Fill Bag" button).
+- **Decisions:**
+  - One source of truth for pockets: `pocketOf(id)` and `POCKETS` (`items`, `fish`, `cards`, `key`) in `src/game/story/items.ts`.
+  - Full screen coverage on mobile over the game screen (HUD is hidden underneath, Coins counter is displayed in the pocket bar). Centered 420px panel on desktop with backdrop dimming.
+  - Pockets remember their row cursor position across pocket switching.
+  - Controls: ←/→ change pocket, ↑/↓ navigate items, ◯ confirms, ✕ backs out.
+  - Back navigation routing: opened from START → ✕ reopens START menu on BAG row. Opened from B or HUD button → ✕ closes bag.
+  - All inventory changes will flow through `src/game/story/bagActions.ts` (prepared for ID-01 server authority).
+- **Files:** `src/game/story/items.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `bag.css`), `src/components/StoryHud.tsx`, `src/dev/storyTest.tsx`, `src/App.tsx`.
+- **Next:** Step 2 — Action menu (EAT, CHECK, CANCEL) + `bagActions.ts`.
+
 ## W-01 · World
 - Lumen Bay plan, Dalbit market art. Docs: `docs/world/*`.
 
@@ -89,3 +101,4 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-07 · Claude · Handoff file created. Next: ID-01 player identity.
 - 2026-10-07 · Antigravity · Moved handoff to repo root + docs/; ID-01 plan set to Spark + Vercel API routes (no Cloud Functions).
 - 2026-10-07 · Antigravity · U-02 Step 1 finished (START menu shell, cursor memory, description box, input router, overlay exclusivity, EMOTE screen). Branch: `feat/start-menu`.
+- 2026-10-08 · Antigravity · U-03 Step 1 finished (Bag screen shell, pocket bar, item list, description box, input router, cursor memory per pocket, ?test=story fill tool). Branch: `feat/bag`.

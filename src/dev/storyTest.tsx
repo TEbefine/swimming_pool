@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import type { Root } from 'react-dom/client';
 import type { GameEngine } from '../game/Engine';
 import { getStory, resetStory, updateStory, type StoryState } from '../game/story/storyStore';
+import { ITEM_IDS, type ItemId } from '../game/story/items';
 
 type AppComponent = React.FC<{ devOverlay?: React.ReactNode; onEngineReady?: (e: GameEngine) => void }>;
 
@@ -55,6 +56,22 @@ const StoryTestChip: React.FC = () => {
               {j.label}
             </button>
           ))}
+          <button
+            type="button"
+            className="text-left px-1 rounded-sm bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-bold"
+            onClick={() => {
+              updateStory((st) => {
+                const sampleBag: Partial<Record<ItemId, number>> = {};
+                for (const id of ITEM_IDS) {
+                  sampleBag[id] = 3;
+                }
+                return { ...st, bag: { ...st.bag, ...sampleBag } };
+              });
+              setOpen(false);
+            }}
+          >
+            + Fill Bag (All Items)
+          </button>
           <span className="opacity-70 pt-1">step: {s.step} · day {s.day}</span>
           <span className="opacity-70">ledger: {s.ledger.length} echoes</span>
         </div>

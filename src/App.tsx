@@ -13,6 +13,7 @@ import { HelpModal } from './components/HelpModal';
 import { DialogBox } from './components/DialogBox';
 import { SceneBox } from './components/SceneBox';
 import { StartMenu } from './components/startMenu/StartMenu';
+import { BagScreen } from './components/bag/BagScreen';
 import { StoryHud } from './components/StoryHud';
 import { FishingHud } from './components/FishingHud';
 import { FishBook } from './components/FishBook';
@@ -97,10 +98,37 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   const [startMenuConfirmTrigger, setStartMenuConfirmTrigger] = useState<number>(0);
   const [startMenuCancelTrigger, setStartMenuCancelTrigger] = useState<number>(0);
 
+  // =========================================================================
+  // BAG STATE (Pokémon Black/White & ORAS style)
+  // =========================================================================
+  const [bagOpen, setBagOpen] = useState(false);
+  const [bagOpenedFrom, setBagOpenedFrom] = useState<'start' | 'b' | 'hud'>('hud');
+  const [bagDpadNudge, setBagDpadNudge] = useState<{ dx: number; dy: number; timestamp: number } | null>(null);
+  const [bagConfirmTrigger, setBagConfirmTrigger] = useState<number>(0);
+  const [bagCancelTrigger, setBagCancelTrigger] = useState<number>(0);
+
   // Synchronize menuFrozen with engine: local player stops walking, but the world does NOT pause.
   useEffect(() => {
-    engineRef.current?.setMenuFrozen(startMenuOpen);
-  }, [startMenuOpen]);
+    engineRef.current?.setMenuFrozen(startMenuOpen || bagOpen);
+  }, [startMenuOpen, bagOpen]);
+
+  const openBag = useCallback((source: 'start' | 'b' | 'hud') => {
+    setBagOpenedFrom(source);
+    setBagOpen(true);
+    setStartMenuOpen(false);
+    setSceneBoxOpen(false);
+    setBagConfirmTrigger(0);
+    setBagCancelTrigger(0);
+    setBagDpadNudge(null);
+  }, []);
+
+  const handleBagBack = useCallback(() => {
+    setBagOpen(false);
+    if (bagOpenedFrom === 'start') {
+      // Re-open START menu with cursor on BAG
+      setStartMenuOpen(true);
+    }
+  }, [bagOpenedFrom]);
 
   // =========================================================================
   // DIALOG STATE
@@ -220,6 +248,10 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   }, []);
 
   const handleToggleStartMenu = useCallback(() => {
+    if (bagOpen) {
+      setBagOpen(false);
+      return;
+    }
     setStartMenuOpen((prev) => {
       const next = !prev;
       if (next) {
@@ -233,7 +265,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       setStartMenuDpadNudge(null);
       return next;
     });
-  }, []);
+  }, [bagOpen]);
 
   // =========================================================================
   // ◯ BUTTON / E KEY / O KEY — unified interact handler
@@ -241,6 +273,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   const closeFishing = useCallback(() => stopFishing(), []);
 
   const handleCircleAction = useCallback(() => {
+    // When Bag is open → ◯ confirms current item or CLOSE BAG
+    if (bagOpen) {
+      setBagConfirmTrigger((prev) => prev + 1);
+      return;
+    }
     // When START menu is open → ◯ confirms current item
     if (startMenuOpen) {
       setStartMenuConfirmTrigger((prev) => prev + 1);
@@ -276,12 +313,17 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       // Fallback: toggleWaterLand
       engine.toggleWaterLand();
     }
-  }, [startMenuOpen, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel]);
+  }, [bagOpen, startMenuOpen, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel]);
 
   // =========================================================================
   // ✕ BUTTON — jump / splash, cancel SceneBox, or advances dialog
   // =========================================================================
   const handleCrossAction = useCallback(() => {
+    // When Bag is open → ✕ cancels / goes back
+    if (bagOpen) {
+      setBagCancelTrigger((prev) => prev + 1);
+      return;
+    }
     // When START menu is open → ✕ cancels / goes back one level
     if (startMenuOpen) {
       setStartMenuCancelTrigger((prev) => prev + 1);
@@ -319,7 +361,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     } else {
       engine.triggerEmote('jump');
     }
-  }, [startMenuOpen, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel]);
+  }, [bagOpen, startMenuOpen, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel]);
 
   // =========================================================================
   // KEYBOARD: Tab for SceneBox, E and O for ◯, Escape for ✕
@@ -347,6 +389,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           closeDialog();
           return;
         }
+        if (bagOpen) {
+          e.preventDefault();
+          handleBagBack();
+          return;
+        }
         if (startMenuOpen) {
           e.preventDefault();
           setStartMenuOpen(false);
@@ -359,6 +406,17 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           setSceneBoxDpadNudge(null);
           return;
         }
+      }
+
+      // BAG keyboard hotkey: KeyB ('B' toggles the bag)
+      if ((e.code === 'KeyB' || e.key.toLowerCase() === 'b') && !dialogOpen) {
+        e.preventDefault();
+        if (bagOpen) {
+          handleBagBack();
+        } else {
+          openBag('b');
+        }
+        return;
       }
 
       if (e.key === 'Tab') {
@@ -397,7 +455,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       window.removeEventListener('keydown', handler);
       window.removeEventListener('keyup', up);
     };
-  }, [handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, startMenuOpen, closeDialog, fishingOpen]);
+  }, [handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, startMenuOpen, bagOpen, openBag, handleBagBack, closeDialog, fishingOpen]);
 
   // =========================================================================
   // ENGINE SETUP
@@ -655,7 +713,6 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   useEffect(() => {
     if (isStoryRoom(currentRoom.roomId)) onStoryRoomEnter(currentRoom.roomId);
   }, [currentRoom.roomId]);
-  const [bagOpen, setBagOpen] = useState(false);
   // Free Fishing room: the Fish Book (key B or the chip)
   const freeFishingRoom = !!currentRoom.freeFishing;
   const [fishBookOpen, setFishBookOpen] = useState(false);
@@ -664,10 +721,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || dialogOpen || fishingOpen) return;
-      if (e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        setFishBookOpen((o) => !o);
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         setFishBookOpen(false);
       }
     };
@@ -677,21 +731,6 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   useEffect(() => {
     if (fishingOpen || !freeFishingRoom) setFishBookOpen(false);
   }, [fishingOpen, freeFishingRoom]);
-  const toggleBag = useCallback(() => setBagOpen((o) => !o), []);
-
-  useEffect(() => {
-    if (!storyActive) return;
-    const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || dialogOpen || fishingOpen) return;
-      if (e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        toggleBag();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [storyActive, dialogOpen, fishingOpen, toggleBag]);
 
   // Close the bag when fishing starts; stop fishing if we leave the story room
   useEffect(() => {
@@ -711,15 +750,20 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     </>
   ) : devOverlay ?? null;
 
-  const storyHudElement = (storyActive && !dialogOpen) ? (
+  const storyHudElement = (storyActive && !dialogOpen && !bagOpen) ? (
     <>
-      <StoryHud bagOpen={bagOpen} onToggleBag={toggleBag} compact={effectiveIsMobile} />
+      <StoryHud
+        bagOpen={bagOpen}
+        onToggleBag={() => {
+          if (bagOpen) handleBagBack();
+          else openBag('hud');
+        }}
+        compact={effectiveIsMobile}
+      />
       {storyPanel && (
         <TradePanel panel={storyPanel} compact={effectiveIsMobile} onClose={closeStoryPanel} onGive={handleGive} />
       )}
     </>
-  ) : (!storyActive && bagOpen && !dialogOpen) ? (
-    <StoryHud bagOpen={bagOpen} onToggleBag={toggleBag} compact={effectiveIsMobile} />
   ) : null;
 
   // Standalone fish book overlay when opened via START menu outside free-fishing rooms
@@ -770,8 +814,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
         setStartMenuOpen(false);
       }}
       onOpenBag={() => {
-        setBagOpen(true);
-        setStartMenuOpen(false);
+        openBag('start');
       }}
       onOpenNameModal={() => {
         setNameModalOpen(true);
@@ -788,6 +831,17 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       cancelTrigger={startMenuCancelTrigger}
     />
   );
+
+  const bagElement = bagOpen ? (
+    <BagScreen
+      isOpen={bagOpen}
+      onClose={() => setBagOpen(false)}
+      onBack={handleBagBack}
+      directionNudge={bagDpadNudge}
+      confirmTrigger={bagConfirmTrigger}
+      cancelTrigger={bagCancelTrigger}
+    />
+  ) : null;
 
   // Canvas blur class for world focus effect
   const canvasBlurClass = dialogOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
@@ -819,11 +873,16 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           playerCount={playerCount}
           chatLog={visibleChatLog}
           statusLabel={currentRoom.name}
-          hideStatusBadge={dialogOpen || startMenuOpen}
+          hideStatusBadge={dialogOpen || startMenuOpen || bagOpen}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
             if (fishingOpen) {
               // no walking while the line is out
+            } else if (bagOpen) {
+              // BAG is open: D-pad navigates pocket & item list. Player stops walking.
+              if (Math.abs(dy) > 0.4 || Math.abs(dx) > 0.4) {
+                setBagDpadNudge({ dx, dy, timestamp: Date.now() });
+              }
             } else if (startMenuOpen) {
               // START menu is open: D-pad navigates menu ONLY. Player stops walking.
               // Multiplayer note: world does NOT pause, NPCs and other players keep moving.
@@ -861,6 +920,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
               {dialogBoxElement}
               {sceneBoxElement}
               {startMenuElement}
+              {bagElement}
             </>
           )}
         />
@@ -919,6 +979,21 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
             {startMenuOpen && (
               <div className="absolute inset-0 z-[7]">
                 {startMenuElement}
+              </div>
+            )}
+
+            {/* Desktop Bag overlay */}
+            {bagOpen && (
+              <div
+                className="absolute inset-0 z-[8] flex items-center justify-center bg-black/40"
+                onClick={handleBagBack}
+              >
+                <div
+                  className="relative w-full max-w-[420px] h-full max-h-[520px]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {bagElement}
+                </div>
               </div>
             )}
 

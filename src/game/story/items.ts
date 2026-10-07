@@ -22,7 +22,7 @@ export const ITEM_IDS = [
 
 export type ItemId = (typeof ITEM_IDS)[number];
 
-export type ItemKind = 'fish' | 'dried' | 'food' | 'tool' | 'junk' | 'goods';
+export type ItemKind = 'fish' | 'dried' | 'food' | 'tool' | 'junk' | 'goods' | 'card';
 
 /** Who buys fish in the Prologue. Gu always buys (cheap); the inn pays more but only a few, before noon. */
 export type Buyer = 'gu' | 'inn';
@@ -213,4 +213,30 @@ export function withArticle(id: ItemId): string {
 /** True for any id we know (old saves, dev tools). */
 export function isItemId(id: string): id is ItemId {
   return (ITEM_IDS as readonly string[]).includes(id);
+}
+
+// ---- bag pockets (one source of truth) --------------------------------------
+
+export type PocketId = 'items' | 'fish' | 'cards' | 'key';
+
+export interface PocketDef {
+  id: PocketId;
+  label: string;
+}
+
+export const POCKETS: readonly PocketDef[] = [
+  { id: 'items', label: 'ITEMS' },
+  { id: 'fish', label: 'FISH' },
+  { id: 'cards', label: 'CARDS' },
+  { id: 'key', label: 'KEY ITEMS' },
+] as const;
+
+/** Determine which pocket an item belongs to based on kind and key flag. */
+export function pocketOf(id: ItemId): PocketId {
+  const item = ITEMS[id];
+  if (!item) return 'items';
+  if (item.key) return 'key';
+  if (item.kind === 'fish' || item.kind === 'dried') return 'fish';
+  if (item.kind === 'card') return 'cards';
+  return 'items';
 }
