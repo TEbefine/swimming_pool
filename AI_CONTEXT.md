@@ -28,6 +28,8 @@ Last updated: 2026-10-07 (handoff from Claude to ChatGPT)
 - **Priority:** store each player ID's items correctly, fairly, and hard to cheat. Players must feel their items are truly theirs. Trading between players is NOT a priority yet.
 - The idea is borrowed from how Chronolox auto-creates wallets.
 - Status: not started. Build prompt: see `docs/ai/PROMPT_player_id.md`.
+- Where it runs: wallet + PIN + private key on the player's device only · `/api/nonce`, `/api/login`, `/api/items` as Vercel API routes with firebase-admin · Firebase Auth + Firestore on the free Spark plan (no Cloud Functions) · wsServer.js unchanged for now, token check later (step e).
+- Work rule: one step = one branch = one AI builds, another AI reviews, Teera tests the Vercel preview on iPhone, then merges.
 
 ## C-01 · Card system "Memory Disk"
 - Cards are items in the bag (`kind: 'card'`). Tap the icon to view the full card. Trade it away and you can't view it anymore.
@@ -72,3 +74,4 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 ## Log
 - 2026-10-06 · Claude · C-LEG-01 finished (frame, inscription, living universe, carousel, gold foil, Birthday Alignment, quiet sky).
 - 2026-10-07 · Claude · Handoff file created. Next: ID-01 player identity.
+- 2026-10-07 · Antigravity · Moved handoff to repo root + docs/; ID-01 plan set to Spark + Vercel API routes (no Cloud Functions).
