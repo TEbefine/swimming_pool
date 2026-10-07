@@ -1,0 +1,428 @@
+<meta charset="utf-8">
+<title>Creator Orbit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;600&display=swap">
+<style>
+/* Layout: one Legend disk card on a night table, with a small orbit clock beside it (stacks on phones). Single dark look by choice. */
+@font-face{font-family:"Chakra Plate";src:url(data:font/woff2;base64,__CHAKRA__) format("woff2");font-weight:600;font-display:block}
+@font-face{font-family:"Jost Plate";src:url(data:font/woff2;base64,__JOST__) format("woff2");font-weight:600;font-style:italic;font-display:block}
+@font-face{font-family:"Pixelify Plate";src:url(data:font/woff2;base64,__PIXELIFY__) format("woff2");font-weight:600;font-display:block}
+@font-face{font-family:"Cinzel Plate";src:url(data:font/woff2;base64,__CINZEL__) format("woff2");font-weight:600;font-display:block}
+@font-face{font-family:"TEERA Handwriting TH";src:url(data:font/woff2;base64,__TEERA__) format("woff2");font-display:block}
+:root{
+  --night:#0b0f19; --night-2:#151b2b; --ink:#e7ebf5; --muted:#8b95ab; --line:#252d40;
+  --gold:#d9b35c; --paper:#f6f1e4; --rule:#c9d3e3; --pen:#1f2c66; --pen-soft:#33427f; --type-spirit:#857c99;
+  --hand:"TEERA Handwriting TH","Segoe Print","Bradley Hand",cursive;
+  --pixel:"Pixelify Sans","TEERA Handwriting TH",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{min-height:100%}
+body{background:radial-gradient(120% 80% at 50% 0%,var(--night-2),var(--night) 70%);color:var(--ink);font-family:var(--pixel);margin:0;padding-inline:16px;padding-block:28px;box-sizing:border-box;overflow-x:hidden}
+.table{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:32px;max-width:900px;margin:0 auto}
+.slot{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(100%,430px)}
+.tier{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.stage{perspective:1200px;width:100%}
+.card{position:relative;width:100%;aspect-ratio:1086/1448;max-width:100%;container-type:inline-size;transform-style:preserve-3d;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .25s ease-out;touch-action:none;user-select:none;-webkit-user-select:none;filter:drop-shadow(0 18px 28px rgba(0,0,0,.55))}
+.card.live{transition:none}
+.win{position:absolute;left:9.67%;top:10.01%;width:84.07%;height:77.83%;overflow:hidden;border-radius:1.6%;isolation:isolate;z-index:0;
+  background:#000}
+#sky{position:absolute;left:0;top:0;transform:translate3d(var(--sx,0),var(--sy,0),0)}
+#sky>img{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tw{position:absolute;width:var(--s);height:var(--s);margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,255,255,.95) 0,rgba(214,228,255,.55) 18%,rgba(170,195,255,.12) 42%,rgba(170,195,255,0) 62%);opacity:.18}
+.tw.big::before,.tw.big::after{content:"";position:absolute;left:50%;top:50%;width:260%;height:1px;transform:translate(-50%,-50%);
+  background:linear-gradient(90deg,rgba(220,232,255,0),rgba(235,242,255,.85) 50%,rgba(220,232,255,0))}
+.tw.big::after{transform:translate(-50%,-50%) rotate(90deg)}
+@media (prefers-reduced-motion:no-preference){.tw{animation:twinkle var(--d) ease-in-out var(--dl) infinite}}
+@keyframes twinkle{0%,100%{opacity:.12;transform:scale(.55)}45%{opacity:.95;transform:scale(1)}60%{opacity:.6;transform:scale(.85)}}
+.pool{position:absolute;left:50%;width:24%;height:3%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(230,214,170,.16),rgba(230,214,170,0));pointer-events:none}
+.creator{position:absolute;z-index:580;pointer-events:none}
+.core{position:absolute;z-index:580;pointer-events:none;mix-blend-mode:screen}
+.planet{position:absolute;left:0;top:0;width:100px;height:100px;border-radius:50%;will-change:transform;pointer-events:none}
+.planet img{width:100%;height:100%;display:block;border-radius:50%}
+/* Legend gold foil on the planets only (the Rare card's holo, in gold): a band that sweeps as the planet travels and the card tilts */
+.foil{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:.8;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  background:linear-gradient(115deg,transparent 26%,rgba(255,190,70,.70) 38%,rgba(255,242,195,.95) 47%,rgba(255,176,55,.65) 56%,transparent 70%);background-size:260% 100%;background-position:var(--fx,50%) 0}
+.foil::after{content:"";position:absolute;inset:0;mix-blend-mode:screen;background:linear-gradient(115deg,transparent 44%,rgba(255,232,160,.42) 47.5%,rgba(255,250,225,.55) 48.5%,transparent 52%);background-size:260% 100%;background-position:var(--fx,50%) 0}
+.spark{position:absolute;z-index:2000;width:2.2cqw;height:2.2cqw;margin:-1.1cqw 0 0 -1.1cqw;border-radius:50%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(255,244,214,.95),rgba(255,214,140,.35) 45%,rgba(255,214,140,0));opacity:var(--sp,.55);transform:scale(var(--ss,1));transition:opacity .6s,transform .6s}
+@media (prefers-reduced-motion:no-preference){.spark{animation:breathe 4.5s ease-in-out infinite}}
+@keyframes breathe{50%{filter:brightness(1.35)}}
+.glint{position:absolute;inset:0;z-index:2001;pointer-events:none;mix-blend-mode:soft-light;background:linear-gradient(110deg,rgba(255,214,130,0) 36%,rgba(255,214,130,.42) 48%,rgba(255,242,205,.28) 52%,rgba(255,214,130,0) 64%);background-size:260% 100%;background-position:var(--gp,50%) 0;transition:background-position .4s ease-out}
+.story{position:absolute;z-index:2002;left:0;right:0;bottom:0;padding:7cqw 5.5cqw 5cqw;background:linear-gradient(to top,rgba(8,12,24,.94) 58%,rgba(8,12,24,0));color:#eef3ff;font-size:3.3cqw;line-height:1.45;opacity:var(--open,0);transform:translateY(calc((1 - var(--open,0)) * 6%));pointer-events:none}
+.story p{margin:0}
+.story .file{display:block;color:#e8cf8f;font-size:2.6cqw;margin-bottom:1.6cqw;letter-spacing:.06em}
+.recess{position:absolute;left:26.6%;top:1.2%;width:47%;height:8.9%;border-radius:1.2cqw;background:linear-gradient(#0a0805,#211a0f);box-shadow:inset 0 .6cqw 1.2cqw rgba(0,0,0,.75)}
+.frame{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.win::after{content:"";position:absolute;inset:0;z-index:2003;pointer-events:none;border-radius:inherit;box-shadow:inset 0 .7cqw 1.1cqw rgba(0,0,0,.55),inset 0 -.2cqw .5cqw rgba(0,0,0,.35)}
+.glmat{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none}
+.card.gl .glmat{display:block}
+.card.gl #frameImg,.card.gl #shutImg{visibility:hidden}
+.card.gl .label{opacity:0}
+.shutter{position:absolute;left:26.43%;top:.97%;width:47.33%;height:15.19%;transform:translateX(calc(var(--slide,0) * 1%));cursor:grab;touch-action:none;border:0;padding:0;background:none}
+.shutter:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:4px}
+.shutter img{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.film{position:absolute;left:66.1%;top:22%;width:20.3%;height:67.3%;border-radius:1cqw;background:repeating-radial-gradient(circle at -40% 320%,rgba(255,255,255,.08) 0 1px,transparent 1px 3px),linear-gradient(135deg,#140d03,#7a5a1e 50%,#f6e2a6 55%,#140d03);background-position:0 0,var(--fx,50%) 0;background-size:auto,220% 100%}
+.label{position:absolute;left:9.67%;top:88.81%;width:84.07%;height:7.18%;background:var(--paper);border-radius:.7cqw;box-shadow:0 .4cqw .8cqw rgba(0,0,0,.25);overflow:hidden}
+.strip{position:absolute;left:0;right:0;top:0;height:21.2%;overflow:hidden;background:linear-gradient(180deg,color-mix(in srgb,var(--type-spirit) 72%,#fff),color-mix(in srgb,var(--type-spirit) 90%,#fff))}
+.strip::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,rgba(255,215,140,0) 10%,rgba(255,215,140,.7) 45%,rgba(255,245,210,.55) 55%,rgba(255,215,140,0) 90%);background-size:220% 100%;background-position:var(--gp,50%) 0;mix-blend-mode:soft-light;transition:background-position .4s ease-out}
+.rule{position:absolute;left:2%;right:2%;height:max(1px,.18cqw);background:var(--rule)}
+.l1{top:61.5%}.l2{top:92.3%}
+.line{position:absolute;left:2.4%;right:2.4%;bottom:38.5%;white-space:nowrap;color:var(--pen);font-family:var(--hand);line-height:1;transform:rotate(-.2deg);transform-origin:left bottom}
+.line .t{font-size:4.1cqw;-webkit-text-stroke:.12cqw currentColor}
+.line .s{font-size:3.3cqw;color:var(--pen-soft)}
+
+/* orbit clock panel */
+.clock{width:min(100%,360px);display:flex;flex-direction:column;gap:18px;padding-top:30px}
+.clock h2{margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.now{font-size:28px;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.now small{display:block;font-size:12px;color:var(--muted);letter-spacing:.06em;margin-top:4px}
+.speed{display:flex;flex-wrap:wrap;gap:8px}
+.speed button{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer}
+.speed button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.speed button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.finish{display:flex;flex-wrap:wrap;gap:8px}
+.finish button{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 12px 6px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.finish button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.finish button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.sw{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.map{display:flex;gap:16px;align-items:center}
+#map{width:150px;height:150px;flex:none}
+.map p{margin:0;font-size:12px;line-height:1.5;color:var(--muted);min-width:0}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.list li{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;font-size:13px}
+.dot{width:12px;height:12px;border-radius:50%}
+.list .per{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px}
+.list .nm small{display:block;color:var(--muted);font-size:11px}
+.note{font-size:12px;line-height:1.55;color:var(--muted);margin:0;max-width:44ch}
+@media (prefers-reduced-motion:reduce){.card{transition:none}}
+</style>
+
+<div class="table">
+  <section class="slot">
+    <span class="tier">Legend &middot; Creator &middot; 1 of 1</span>
+    <div class="stage"><div class="card" id="card" aria-label="Legend card: The Creator">
+      <div class="win" id="win">
+        <div id="sky"><img alt="" src="data:image/webp;base64,__SKY__"></div>
+        <div class="pool" id="pool" hidden></div>
+        <img class="creator" id="creator" alt="" src="data:image/webp;base64,__CREATOR__">
+        <canvas class="core" id="core" aria-hidden="true"></canvas>
+        <div class="spark" id="spark"></div>
+        <div class="glint"></div>
+        <div class="story" aria-live="polite"><span class="file">A:\&gt; TYPE CREATOR.SAV</span>
+          <p>On Earth, creators make music, dance, knowledge and healing. This one makes ways between worlds. Inside the cloak there is no body &mdash; only worlds, waiting. If you have imagination, if you want to learn, if you feel lost, or if your soul wants to grow &mdash; take the hand.</p></div>
+      </div>
+      <div class="recess" aria-hidden="true"></div>
+      <img class="frame" id="frameImg" alt="">
+      <canvas class="frame glmat" id="glF" aria-hidden="true"></canvas>
+      <button class="shutter" id="shutter" aria-label="Slide the shutter to read the story" aria-expanded="false"><span class="film" id="film"></span><img id="shutImg" alt=""><canvas class="glmat" id="glS" aria-hidden="true"></canvas></button>
+      <div class="label"><div class="strip"></div><div class="rule l1"></div><div class="rule l2"></div>
+        <div class="line"><span class="t">Every dreamer needs a way in.</span></div></div>
+    </div></div>
+  </section>
+
+  <aside class="clock" aria-label="Orbit clock">
+    <div><h2>Real time on the card</h2>
+      <div class="now" id="now">--:--:--<small id="date">Bangkok time</small></div></div>
+    <div class="speed" role="group" aria-label="Preview speed">
+      <button type="button" id="sp1" data-k="1" aria-pressed="true">Live</button>
+      <button type="button" id="sp60" data-k="3600" aria-pressed="false">1 s = 1 h</button>
+      <button type="button" id="sp3600" data-k="86400" aria-pressed="false">1 s = 1 day</button>
+    </div>
+    <div><h2>Birthday alignment</h2>
+      <p class="note" id="bdayTxt" style="margin-top:8px">Every year at sunrise on 21 February (Bangkok) all six worlds come home to one composition.</p>
+      <div class="finish" style="margin-top:10px"><button type="button" id="bdayGo" aria-pressed="false">See the alignment</button></div></div>
+    <div class="map"><canvas id="map" width="300" height="300" aria-label="Orbits seen from above"></canvas>
+      <p>Seen from above. Six loops around the Creator: in front (near the gold camera mark) each world travels left to right, behind him it returns right to left. Every place comes from the clock, so everyone sees the same sky at the same moment.</p></div>
+    <ul class="list" id="list"></ul>
+    <p class="note">All six planets are final. The sky is quiet on purpose: come back tomorrow, next week, next month — something will have moved.</p>
+  </aside>
+</div>
+
+<script>
+(()=>{
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EPOCH=Date.UTC(2026,9,5,17,0,0); // 2026-10-06 00:00 Asia/Bangkok
+const MIN=60e3,HOUR=36e5,DAY=864e5,WEEK=7*DAY,MOON=29.53*DAY,YEAR=365.25*DAY;
+// world units: Creator height = 1; Z is up; Creator stands at the origin
+const PLANETS=[
+ {name:'Wonder',sub:'blooming forests · final',src:'__P1__',color:'#f0a99a',period:YEAR/12,label:'1 loop ≈ 1 month',r:1.0,z:0.52,inc:-58,node:-48,d:0.62,phase:0},
+ {name:'Missing someone',sub:'one light in the ocean · final',src:'__P2__',color:'#7fa8e8',period:YEAR/6,label:'1 loop ≈ 2 months',r:1.22,z:0.48,inc:-47,node:-36,d:0.8,phase:.3},
+ {name:'Understanding',sub:'Yunseul · dawn between day and night · final',src:'__P3__',color:'#9cc4d8',period:YEAR/4,label:'1 loop ≈ 1 season',r:0.86,z:0.55,inc:-70,node:-60,d:0.46,phase:.62},
+ {name:'Courage',sub:'rivers of light from one heart · final',src:'__P4__',color:'#e2c27a',period:YEAR/3,label:'1 loop ≈ 4 months',r:1.38,z:0.46,inc:-43,node:-42,d:0.92,phase:.15},
+ {name:'Healing',sub:'rivers that heal · final',src:'__P5__',color:'#7fd6a0',period:YEAR/2,label:'1 loop ≈ 6 months',r:0.95,z:0.5,inc:-58,node:-54,d:0.56,phase:.45},
+ {name:'Dream',sub:'silk clouds, ice ring, a whale · final',src:'__P6__',color:'#c8b6f0',period:YEAR,label:'1 loop = 1 year',r:1.15,z:0.47,inc:-45,node:-30,d:0.84,phase:.7,ring:true},
+];
+const fmtP=p=>p<HOUR?(p/MIN)+' min':p<DAY?(p/HOUR)+' hour':p<WEEK?(p/DAY)+' day':p<28*DAY?(p/WEEK)+' week':p<300*DAY?(p/DAY).toFixed(1)+' days (moon)':'1 year';
+const card=document.getElementById('card'),win=document.getElementById('win'),creator=document.getElementById('creator'),
+  spark=document.getElementById('spark'),pool=document.getElementById('pool'),sky=document.getElementById('sky'),
+  film=document.getElementById('film'),list=document.getElementById('list'),mapC=document.getElementById('map');
+const els=PLANETS.map(p=>{const d=document.createElement('div');d.className='planet';const im=new Image();im.alt='';im.src='data:image/webp;base64,'+p.src;if(p.ring)im.style.borderRadius='0';d.appendChild(im);const fo=document.createElement('span');fo.className='foil';fo.style.webkitMaskImage=fo.style.maskImage='url("'+im.src+'")';d.appendChild(fo);d._foil=fo;win.insertBefore(d,spark);
+  const li=document.createElement('li');li.innerHTML='<span class="dot" style="background:'+p.color+'"></span><span class="nm">'+p.name+'<small>'+p.sub+'</small></span><span class="per">'+p.label+'</span>';list.appendChild(li);return d;});
+
+// Creator crop geometry (fractions of the cut-out image 790x1380)
+// ---- crystal energy core inside the empty cloak: the value is inside
+const coreC=document.getElementById('core'),cctx=coreC.getContext('2d');
+const CORE={w:446,h:967,x:232,y:252};                     // heart height inside the hood opening (cut-out px)
+const coreMask=new Image(),coreSpill=new Image();let coreReady=0,coreOff=null,coreSp=null;
+coreMask.onload=coreSpill.onload=()=>{if(++coreReady===2){coreSize(coreC.clientWidth||1,coreC.clientHeight||1);}};
+coreMask.src='data:image/png;base64,__INMASK__';coreSpill.src='data:image/png;base64,__SPILL__';
+function coreSize(w,h){const d=Math.min(devicePixelRatio||1,2.5);coreC.width=Math.max(1,Math.round(w*d));coreC.height=Math.max(1,Math.round(h*d));
+  if(coreReady<2)return;coreOff=document.createElement('canvas');coreOff.width=coreC.width;coreOff.height=coreC.height;
+  coreSp=document.createElement('canvas');coreSp.width=coreC.width;coreSp.height=coreC.height;const sx=coreSp.getContext('2d');
+  sx.drawImage(coreSpill,0,0,coreSp.width,coreSp.height);sx.globalCompositeOperation='source-in';sx.fillStyle='rgb(170,140,255)';sx.fillRect(0,0,coreSp.width,coreSp.height);drawCore(performance.now());}
+// the universe inside stays (the art); code adds its power: breathing light, swirling nebula glow, twinkling stars, rising light
+// light sprite: tiny hot core + soft gaussian-like halo (three colour temperatures)
+const LSPR=[[255,250,240],[200,220,255],[230,200,255]].map(c=>{const cv=document.createElement('canvas');cv.width=cv.height=64;const x=cv.getContext('2d');
+  const g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.06,'rgba(255,255,255,.95)');
+  g.addColorStop(.14,'rgba('+c+',.55)');g.addColorStop(.35,'rgba('+c+',.16)');g.addColorStop(.7,'rgba('+c+',.04)');g.addColorStop(1,'rgba('+c+',0)');
+  x.fillStyle=g;x.fillRect(0,0,64,64);return cv;});
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+const LIGHTS=Array.from({length:240},(_,i)=>{const near=rnd();return {x:186+rnd()*90,y:80+rnd()*515,
+  r:.6+Math.pow(near,2.5)*2.6,a:.7+near*.3,c:rnd()<.5?0:(rnd()<.6?1:2),ph:rnd()*6.28,sp:.6+rnd()*2.4,dsp:.05+rnd()*.15,amp:1+near*4,rise:rnd()<.3?1+rnd()*3:0,spike:false};});
+LIGHTS.sort((a,b)=>a.r-b.r);LIGHTS.slice(-5).forEach(L=>L.spike=true);
+const STARS=Array.from({length:46},()=>({x:188+rnd()*86,y:84+rnd()*500,s:.6+rnd()*1.3,ph:rnd()*6.28,sp:.8+rnd()*2.2,blue:rnd()<.45}));
+[0,1,2,3].forEach(i=>{STARS[i].s=2.2;STARS[i].big=true;});
+// many small crystals of light floating in the inner universe (x,y in cut-out px; s = size; near ones bigger and brighter)
+const CRYS=[[226,140,1.0],[248,188,.75],[212,214,.6],[238,250,1.25],[220,292,.7],[252,318,.55],[230,360,.9],[218,420,.5],[240,468,.75],[228,530,.55],
+  [205,165,.45],[258,235,.45],[210,380,.4],[246,410,.4]].map(([x,y,s],i)=>({x,y,s,ph:i*1.7,sp:.35+(i%5)*.12,dr:(i%2?1:-1)}));
+const PARTS=Array.from({length:12},(_,i)=>({ph:(i*0.618)%1,sp:.04+((i*37)%10)/200,dx:((i*53)%21-10),sz:.8+((i*29)%10)/10}));
+function drawCore(now){if(!coreOff)return;const t=reduce?0:now/1000,W=coreOff.width,H=coreOff.height,k=W/CORE.w,cx=CORE.x*k,cy=CORE.y*k;
+  const o=coreOff.getContext('2d'),pulse=.80+.20*Math.sin(t*1.1);
+  o.globalCompositeOperation='source-over';o.clearRect(0,0,W,H);o.globalCompositeOperation='lighter';
+  // breathing heart of the universe
+  let g=o.createRadialGradient(cx,cy,0,cx,cy,230*k);g.addColorStop(0,'rgba(190,160,255,'+(.42*pulse)+')');g.addColorStop(.35,'rgba(110,90,230,'+(.22*pulse)+')');g.addColorStop(1,'rgba(0,0,0,0)');
+  o.fillStyle=g;o.fillRect(0,0,W,H);
+  // slow swirling nebula light
+  for(let i=0;i<3;i++){const a=t*.09*(i%2?-1:1)+i*2.1,col=['255,120,220','90,200,255','170,130,255'][i];o.save();o.translate(cx,cy+(i-1)*70*k);o.rotate(a);o.scale(1,.38);
+    const rg=o.createRadialGradient(40*k,0,0,40*k,0,120*k);rg.addColorStop(0,'rgba('+col+','+(.20*pulse)+')');rg.addColorStop(1,'rgba('+col+',0)');
+    o.fillStyle=rg;o.beginPath();o.arc(40*k,0,120*k,0,7);o.fill();o.restore();}
+  // many, many lights: real-looking points (bright core + soft halo), twinkling and drifting at different depths
+  LIGHTS.forEach(L=>{const tw=.35+.65*Math.pow(.5+.5*Math.sin(t*L.sp+L.ph),2.2),
+      x=(L.x+Math.sin(t*L.dsp+L.ph)*L.amp)*k,y=(L.y+Math.cos(t*L.dsp*.8+L.ph)*L.amp-((t*L.rise)%40))*k,r=L.r*k;
+    o.globalAlpha=Math.min(1,tw*L.a*1.25);o.drawImage(LSPR[L.c],x-r*4,y-r*4,r*8,r*8);
+    if(L.spike){o.globalAlpha=tw*.55;o.strokeStyle='rgba(235,240,255,1)';o.lineWidth=.6*k;const S=r*7*tw;o.beginPath();o.moveTo(x-S,y);o.lineTo(x+S,y);o.moveTo(x,y-S);o.lineTo(x,y+S);o.stroke();}});
+  o.globalAlpha=1;
+  // light rising out of the cloak like power
+  PARTS.forEach(p=>{const f=(t*p.sp+p.ph)%1,y=cy+300*k-f*560*k,x=cx+(p.dx+Math.sin(t*.6+p.ph*9)*8)*k,al=Math.sin(f*Math.PI)*.7;
+    o.fillStyle='rgba(210,190,255,'+al+')';o.beginPath();o.arc(x,y,p.sz*k*1.5,0,7);o.fill();});
+  o.globalCompositeOperation='destination-in';o.drawImage(coreMask,0,0,W,H);
+  cctx.clearRect(0,0,W,H);cctx.drawImage(coreOff,0,0);
+  cctx.globalAlpha=.55*pulse;cctx.drawImage(coreSp,0,0);cctx.globalAlpha=1;}
+const IMG={w:595,h:1290,top:11/1290,feet:1278/1290,axis:247/595,fx:577/595,fy:494/1290};
+let W=0,H=0,figH=0,Tx=0,Ty=0,finger={x:0,y:0};
+function layout(){
+  W=win.offsetWidth;H=win.offsetHeight;
+  figH=.065*H;const feetY=.55*H,ax=.5*W;           // the Creator is tiny (~5% of the card): one human beside real worlds
+  const ih=figH/(IMG.feet-IMG.top),iw=ih*IMG.w/IMG.h,left=ax-IMG.axis*iw,top=feetY-IMG.feet*ih;
+  Object.assign(creator.style,{width:iw+'px',height:ih+'px',left:left+'px',top:top+'px'});
+  Object.assign(coreC.style,{width:iw+'px',height:ih+'px',left:left+'px',top:top+'px'});coreSize(iw,ih);
+  Object.assign(pool.style,{top:(feetY-.015*H)+'px'});
+  finger={x:left+IMG.fx*iw,y:top+IMG.fy*ih};
+  const sp=Math.max(5,figH*.22);Object.assign(spark.style,{width:sp+'px',height:sp+'px',margin:(-sp/2)+'px 0 0 '+(-sp/2)+'px'});
+  spark.style.left=finger.x+'px';spark.style.top=finger.y+'px';
+  Tx=ax;Ty=feetY-.5*figH;
+  layoutSky();
+}
+// sky photo covers the window; twinkles sit on its real stars
+const SKY={w:1086,h:1448,stars:[{"x": 74.95, "y": 9.67}, {"x": 66.02, "y": 62.98}, {"x": 18.23, "y": 34.67}, {"x": 20.63, "y": 83.77}, {"x": 11.05, "y": 79.9}, {"x": 21.36, "y": 44.68}, {"x": 11.23, "y": 22.93}, {"x": 77.16, "y": 99.93}, {"x": 81.86, "y": 25.76}, {"x": 7.37, "y": 4.9}, {"x": 44.01, "y": 9.39}, {"x": 14.0, "y": 7.8}, {"x": 34.81, "y": 16.09}, {"x": 0.0, "y": 63.19}]};
+SKY.stars.forEach((s,i)=>{const d=document.createElement('span');d.className='tw'+(i<3?' big':'');
+  const sz=(i<3?3.6:i<7?2.4:1.7);d.style.setProperty('--s',sz+'cqw');
+  d.style.setProperty('--d',(4.5+((i*37)%50)/10)+'s');d.style.setProperty('--dl',(-((i*53)%70)/10)+'s');
+  d.style.left=s.x+'%';d.style.top=s.y+'%';sky.appendChild(d);});
+function layoutSky(){const pad=1.04,k=Math.max(W/SKY.w,H/SKY.h)*pad,sw=SKY.w*k,sh=SKY.h*k;
+  Object.assign(sky.style,{width:sw+'px',height:sh+'px',left:((W-sw)/2)+'px',top:((H-sh)/2)+'px'});}
+// camera
+const D=4.2,BASE_AZ=45,BASE_EL=13;let tiltX=0,tiltY=0;
+const rad=a=>a*Math.PI/180;
+function camera(){
+  const az=rad(BASE_AZ+tiltX*12),el=rad(BASE_EL+tiltY*-6),T=[0,0,.5];
+  const C=[T[0]+D*Math.cos(el)*Math.cos(az),T[1]+D*Math.cos(el)*Math.sin(az),T[2]+D*Math.sin(el)];
+  const f=[(T[0]-C[0])/D,(T[1]-C[1])/D,(T[2]-C[2])/D];
+  let r=[f[1]*1-f[2]*0,f[2]*0-f[0]*1,0];const rl=Math.hypot(r[0],r[1],r[2]);r=r.map(v=>v/rl);
+  const u=[r[1]*f[2]-r[2]*f[1],r[2]*f[0]-r[0]*f[2],r[0]*f[1]-r[1]*f[0]];
+  return {C,f,r,u,az};
+}
+function worldPos(p,t){
+  const th=2*Math.PI*(((t-EPOCH)/p.period+p.phase)%1);
+  let x=p.r*Math.cos(th),y=p.r*Math.sin(th),z=0;
+  const i=rad(p.inc);[y,z]=[y*Math.cos(i),y*Math.sin(i)];
+  const n=rad(p.node),xx=x*Math.cos(n)-y*Math.sin(n),yy=x*Math.sin(n)+y*Math.cos(n);
+  return [xx,yy,z+p.z];
+}
+// time with preview speed
+let speed=1,simAnchor=Date.now(),realAnchor=performance.now();
+const simNow=()=>simAnchor+(performance.now()-realAnchor)*speed;
+document.querySelectorAll('.speed button').forEach(b=>b.addEventListener('click',()=>{
+  simAnchor=simNow();realAnchor=performance.now();speed=+b.dataset.k;
+  document.querySelectorAll('.speed button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));}));
+const tf=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+const df=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',weekday:'short',day:'numeric',month:'short',year:'numeric'});
+const nowEl=document.getElementById('now');
+// ---- layered carousel (Teera, 2026-10-06): 13 depth layers = 6 in front + the Creator (7) + 6 behind.
+// Planets never change size. In front they travel straight left -> right, then come back behind right -> left.
+// Layers pair up as one loop: 1<->13, 2<->12 ... 6<->8. Each planet owns one pair and one lane (height).
+// Slow planets get lanes above or below the Creator so they never cover him for days.
+const LANES=[ // same order as PLANETS · size = diameter as a fraction of the window height
+  // two masses of worlds (above / below) and a thin corridor of space where the tiny Creator floats; only fast Wonder crosses it
+  {pair:4,y:.51,size:.30},   // Wonder · 2 min — the only one that crosses the corridor
+  {pair:3,y:.80,size:.46},   // Missing someone · 1 hour — lower mass
+  {pair:5,y:.30,size:.28},   // Understanding · 1 day — upper mass
+  {pair:1,y:1.0,size:.70},   // Courage · 1 week — giant, rising from the bottom edge
+  {pair:2,y:.22,size:.40},   // Healing · 1 moon — upper mass
+  {pair:6,y:.06,size:.62}];  // Dream · 1 year — giant, across the top
+// narrow stadium track: straight front pass L->R, a short smooth turn at the right edge (swings behind), straight back pass R->L,
+// short turn at the left edge (swings to the front). Centres stay inside the window, so no planet ever fully leaves the frame.
+const TRACK={inset:.06,turn:.14};                 // fractions of the window width
+function track(f){                                 // f = loop fraction 0..1 -> {u: -1..1 across, depth: +1 front .. -1 back}
+  const r=TRACK.turn,L=(1-2*TRACK.inset)-2*r,P=2*L+2*Math.PI*r;let d=f*P;
+  if(d<L)return {x:TRACK.inset+r+d,depth:1};
+  d-=L;if(d<Math.PI*r){const a=d/r;return {x:1-TRACK.inset-r+r*Math.sin(a),depth:Math.cos(a)};}
+  d-=Math.PI*r;if(d<L)return {x:1-TRACK.inset-r-d,depth:-1};
+  d-=L;const a=d/r;return {x:TRACK.inset+r-r*Math.sin(a),depth:-Math.cos(a)};}
+// ---- Birthday Alignment: every year at sunrise on 21 Feb (Bangkok) all six worlds arrive home together.
+// Each planet makes a whole number of loops between one birthday sunrise and the next (≈ its nominal period),
+// so the composition repeats exactly once a year.
+const BDAY={m:2,d:21,lat:13.7563,lon:100.5018,tz:7};
+function sunriseLocal(y,m,d,lat,lon,tz){ // NOAA sunrise; UTC ms of sunrise on the LOCAL date y-m-d
+  const rad=Math.PI/180,N=Math.round((Date.UTC(y,m-1,d)-Date.UTC(y,0,0))/864e5),lngHour=lon/15,t=N+((6-lngHour)/24);
+  const M=0.9856*t-3.289;let L=M+1.916*Math.sin(M*rad)+0.020*Math.sin(2*M*rad)+282.634;L=((L%360)+360)%360;
+  let RA=Math.atan(0.91764*Math.tan(L*rad))/rad;RA=((RA%360)+360)%360;RA=(RA+(Math.floor(L/90)*90-Math.floor(RA/90)*90))/15;
+  const sinDec=0.39782*Math.sin(L*rad),cosDec=Math.cos(Math.asin(sinDec));
+  const cosH=(Math.cos(90.833*rad)-sinDec*Math.sin(lat*rad))/(cosDec*Math.cos(lat*rad));
+  const Hh=(360-Math.acos(cosH)/rad)/15,T=Hh+RA-0.06571*t-6.622;const UT=(((T-lngHour)%24)+24)%24;
+  const localMid=Date.UTC(y,m-1,d)-tz*3600e3;let s=Date.UTC(y,m-1,d)+UT*3600e3;
+  while(s<localMid)s+=864e5;while(s>=localMid+864e5)s-=864e5;return s;}
+const bdaySun=y=>sunriseLocal(y,BDAY.m,BDAY.d,BDAY.lat,BDAY.lon,BDAY.tz);
+let ancCache=null;
+function anchors(t){if(ancCache&&t>=ancCache.A&&t<ancCache.B)return ancCache;
+  const y=new Date(t+BDAY.tz*3600e3).getUTCFullYear();let A=bdaySun(y),B;
+  if(t<A){B=A;A=bdaySun(y-1);}else B=bdaySun(y+1);ancCache={A,B};return ancCache;}
+// the designed "home" composition (x as a fraction of the window width, front or behind the Creator)
+function phaseFor(X,front){const r=TRACK.turn,x0=TRACK.inset+r,x1=1-TRACK.inset-r,L=x1-x0,P=2*L+2*Math.PI*r;
+  X=Math.min(x1,Math.max(x0,X));return front?(X-x0)/P:(L+Math.PI*r+(x1-X))/P;}
+const HOME=[phaseFor(.718,true),   // Wonder — waits just at the Creator's fingertip (almost touching)
+            phaseFor(.27,true),    // Missing someone — lower left
+            phaseFor(.80,true),    // Understanding (dawn) — upper right, at sunrise
+            phaseFor(.64,true),    // Courage — rising bottom centre-right
+            phaseFor(.22,false),   // Healing — behind, upper left
+            phaseFor(.48,true)];   // Dream — crowning the top
+function planetPhase(p,k,t){const {A,B}=anchors(t),u=(t-A)/(B-A),N=Math.max(1,Math.round((B-A)/p.period));
+  const f=N*u+HOME[k];return f-Math.floor(f);}
+function loopPos(p,k,t){const L=LANES[k],size=L.size*H;
+  const f=planetPhase(p,k,t),tr=track(f),front=tr.depth>=0;
+  const layer=front?L.pair:14-L.pair,par=tr.depth*(7-L.pair)/6;
+  const x=tr.x*W+tiltX*10*par,y=L.y*H+tiltY*6*par;
+  return {x,y,size,front,layer,f,depth:tr.depth};}
+function render(){
+  const t=simNow();let near=0;
+  PLANETS.forEach((p,k)=>{const q=loopPos(p,k,t),e=els[k];
+    e.style.width=e.style.height=q.size+'px';
+    e.style.transform='translate3d('+(q.x-q.size/2)+'px,'+(q.y-q.size/2)+'px,0)';
+    e.style.zIndex=q.front?580+(7-q.layer)*10:580-(q.layer-7)*10;   // layer 1 = 640 ... Creator 580 ... layer 13 = 520
+    e.style.filter='brightness('+(.92+.12*q.depth).toFixed(3)+') drop-shadow(0 0 '+(q.size*.08).toFixed(1)+'px '+p.color+'66)';
+    e._foil.style.setProperty('--fx',(50-(q.x/W-.5)*140-tiltX*45).toFixed(1)+'%');   // gold sweeps as it moves
+    const dd=Math.hypot(q.x-finger.x,q.y-finger.y);if(q.front&&dd<q.size*1.1)near=Math.max(near,1-dd/(q.size*1.1));
+  });
+  spark.style.setProperty('--sp',(.5+near*.5).toFixed(2));spark.style.setProperty('--ss',(1+near*.8).toFixed(2));
+  nowEl.firstChild.nodeValue=tf.format(t);document.getElementById('date').textContent=df.format(t)+' · Bangkok';
+  drawMap(t);
+}
+// map seen from above: six nested loops around the Creator; the camera (gold) is at the bottom
+function drawMap(t){
+  const c=mapC.getContext('2d'),s=mapC.width,m=s/2,x0=s*.12,ww=s*.76;c.clearRect(0,0,s,s);
+  // the window's visible width
+  c.strokeStyle='rgba(217,179,92,.35)';c.lineWidth=1.5;c.setLineDash([3,5]);c.beginPath();c.moveTo(x0,s*.03);c.lineTo(x0,s*.93);c.moveTo(x0+ww,s*.03);c.lineTo(x0+ww,s*.93);c.stroke();c.setLineDash([]);
+  const hdOf=pair=>s*(.06+.062*(7-pair));
+  PLANETS.forEach((p,k)=>{const hd=hdOf(LANES[k].pair);c.strokeStyle='rgba(139,149,171,.32)';c.lineWidth=2;c.beginPath();
+    for(let i=0;i<=120;i++){const tr=track(i/120);const X=x0+tr.x*ww,Y=m+tr.depth*hd;c[i?'lineTo':'moveTo'](X,Y);}c.stroke();});
+  c.strokeStyle='#d9b35c';c.lineWidth=3;c.beginPath();c.moveTo(m-s*.06,s*.97);c.lineTo(m+s*.06,s*.97);c.stroke();
+  c.fillStyle='#e7ebf5';c.beginPath();c.arc(m,m,5,0,7);c.fill();
+  PLANETS.forEach((p,k)=>{const hd=hdOf(LANES[k].pair),f=planetPhase(p,k,t),tr=track(f);
+    c.fillStyle=p.color;c.globalAlpha=tr.depth>=0?1:.6;c.beginPath();c.arc(x0+tr.x*ww,m+tr.depth*hd,3+LANES[k].size*14,0,7);c.fill();c.globalAlpha=1;});
+}
+// card tilt (also turns the camera a little)
+let touched=false,dragging=false;
+function setTilt(nx,ny){tiltX=nx;tiltY=ny;card.style.setProperty('--ry',(nx*6).toFixed(2)+'deg');card.style.setProperty('--rx',(-ny*5).toFixed(2)+'deg');
+  card.style.setProperty('--gp',(50+nx*40).toFixed(1)+'%');film.style.setProperty('--fx',(50+nx*40).toFixed(1)+'%');
+  sky.style.setProperty('--sx',(-nx*6).toFixed(1)+'px');sky.style.setProperty('--sy',(-ny*5).toFixed(1)+'px');}
+function fromEvent(e){const r=card.getBoundingClientRect();return[Math.max(-1,Math.min(1,((e.clientX-r.left)/r.width)*2-1)),Math.max(-1,Math.min(1,((e.clientY-r.top)/r.height)*2-1))];}
+card.addEventListener('pointerdown',e=>{if(e.target.closest('.shutter'))return;dragging=true;touched=true;card.classList.add('live');card.setPointerCapture(e.pointerId);setTilt(...fromEvent(e));});
+card.addEventListener('pointermove',e=>{if(e.target.closest('.shutter')&&!dragging)return;if(dragging||e.pointerType==='mouse'){touched=true;card.classList.add('live');setTilt(...fromEvent(e));}});
+const settle=()=>{dragging=false;card.classList.remove('live');setTilt(0,0);};
+card.addEventListener('pointerup',settle);card.addEventListener('pointercancel',settle);card.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')settle();});
+// shutter
+const shutter=document.getElementById('shutter'),story=card.querySelector('.story');const MAX=30;let slide=0,sx0=0,s0=0,moved=false,sdrag=false;
+function setSlide(v){slide=Math.max(0,Math.min(MAX,v));glDirty=true;shutter.style.setProperty('--slide',slide);const o=slide/MAX;story.style.setProperty('--open',o.toFixed(3));shutter.setAttribute('aria-expanded',o>.5?'true':'false');}
+function snap(open){shutter.style.transition='transform .28s ease-out';story.style.transition='opacity .28s, transform .28s';setSlide(open?MAX:0);setTimeout(()=>{shutter.style.transition='';story.style.transition='';},300);}
+shutter.addEventListener('pointerdown',e=>{e.stopPropagation();sdrag=true;moved=false;sx0=e.clientX;s0=slide;shutter.setPointerCapture(e.pointerId);});
+shutter.addEventListener('pointermove',e=>{if(!sdrag)return;const d=(e.clientX-sx0)/shutter.getBoundingClientRect().width*100;if(Math.abs(d)>2)moved=true;setSlide(s0+d);});
+shutter.addEventListener('pointerup',()=>{if(!sdrag)return;sdrag=false;if(!moved)snap(slide<MAX/2);else snap(slide>MAX*.4);});
+shutter.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){snap(true);e.preventDefault();}if(e.key==='ArrowLeft'||e.key==='Escape'){snap(false);e.preventDefault();}});
+shutter.addEventListener('click',e=>{if(e.detail===0)snap(slide<MAX/2);});
+__GLMAT__
+// frame material: WebGL when available, static Space Gray images otherwise
+const frameImg=document.getElementById('frameImg'),shutImg=document.getElementById('shutImg');
+frameImg.src='data:image/webp;base64,__F_FB__';shutImg.src='data:image/webp;base64,__S_FB__';
+const GEM=[.62,.53,.84];                  // spirit type -> amethyst
+const GOLD=[1.0,.70,.30],GOLD_POL=[1.0,.85,.58],CHAMP=[1.0,.82,.60],CHAMP_POL=[1.0,.89,.72];
+const MATS={gold:{mat:0,metal:GOLD,pol:GOLD_POL},blackgold:{mat:1,metal:GOLD,pol:GOLD_POL},champagne:{mat:2,metal:CHAMP,pol:CHAMP_POL,face:[.88,.74,.56]}};let matKey='blackgold',glOK=false,glDirty=true,gtx=0,gty=0;
+let GF=null,GS=null;
+const INS={plate:0,frost:1,inlay:2,light:3,stamp:4,gb:5,gbpixel:6,etch:7};let insMode=INS[new URLSearchParams(location.search).get('ins')]??7;
+const SHUTS={black:{metal:[.10,.10,.11],pol:[1.0,.85,.58]},gold:{metal:[1.0,.70,.30],pol:[1.0,.85,.58]}};let shutKey=new URLSearchParams(location.search).get('shutter')==='gold'?'gold':'black';
+const COOL={clean:0,energy:1,armor:2};let coolKey=new URLSearchParams(location.search).get('style')||'clean';if(!(coolKey in COOL))coolKey='clean';   // LOCKED: clean
+try{GF=glCreate(document.getElementById('glF'));GS=glCreate(document.getElementById('glS'));}catch(err){GF=GS=null;}
+if(GF&&GS){const W='data:image/webp;base64,';
+  Promise.all([glTex(GF,W+'__FRAME_N__',0),glTex(GF,W+'__FRAME_M__',1),glTex(GF,W+'__SKY__',2),glTex(GF,W+'__SKYB__',3),
+    glTex(GS,W+'__SHUT_N__',0),glTex(GS,W+'__SHUT_M__',1),
+    buildArmor(card.querySelector('.line').textContent.trim(),COOL[coolKey]===2).then(cv=>glCanvasTex(GF,cv,4))
+  ]).then(()=>{glOK=true;card.classList.add('gl');glDirty=true;glTick();}).catch(()=>{});}
+let idleK=1,glLast=0;
+function glTick(){if(!glOK)return;const now=performance.now();
+  // when nobody touches the card, the studio light drifts slowly so the metal never looks printed
+  idleK+=((reduce||card.classList.contains('live'))?0:1-idleK)*.03;if(reduce||card.classList.contains('live'))idleK*=.9;
+  const tx=tiltX+idleK*.30*Math.sin(now/4200),ty=tiltY+idleK*.16*Math.sin(now/6100+1.3);
+  const ex=tx-gtx,ey=ty-gty;
+  if(Math.abs(ex)>1e-4||Math.abs(ey)>1e-4){gtx+=ex*.16;gty+=ey*.16;glDirty=true;}
+  if(COOL[coolKey]>0&&!reduce)glDirty=true;
+  if(!glDirty||(now-glLast<30&&idleK>.5&&!card.classList.contains('live')))return;glDirty=false;glLast=now;const F=MATS[matKey];
+  glDraw(GF,{tx:gtx,ty:gty,texW:814,texH:1086,rect:[0,0,1,1],shut:false,mat:F.mat,metal:F.metal,pol:F.pol,face:F.face,label:true,gem:GEM,ins:8,split:true,cool:COOL[coolKey],time:now/1000,lrect:ARMOR_RECT});
+  glDraw(GS,{tx:gtx,ty:gty,texW:385,texH:165,rect:[.2643+slide/100*.4733,.0097,.4733,.1519],shut:true,mat:0,metal:SHUTS[shutKey].metal,pol:SHUTS[shutKey].pol});}
+function setFinish(k){if(!(k in MATS))k='blackgold';matKey=k;card.dataset.finish=k;glDirty=true;glTick();
+  document.querySelectorAll('.finish button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.f===k?'true':'false'));}
+document.querySelectorAll('.finish button').forEach(b=>b.addEventListener('click',()=>setFinish(b.dataset.f)));
+setFinish('blackgold');
+document.querySelectorAll('.cool button').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.c===coolKey?'true':'false');
+  b.addEventListener('click',()=>{coolKey=b.dataset.c;document.querySelectorAll('.cool button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));
+    if(GF&&glOK)buildArmor(card.querySelector('.line').textContent.trim(),COOL[coolKey]===2).then(cv=>{glCanvasTex(GF,cv,4);glDirty=true;glTick();});});});
+document.querySelectorAll('.shut button').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.s===shutKey?'true':'false');
+  b.addEventListener('click',()=>{shutKey=b.dataset.s;document.querySelectorAll('.shut button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));glDirty=true;glTick();});});
+function setInscription(k){if(!(k in INS))return;insMode=INS[k];
+  document.querySelectorAll('.ins button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.i===k?'true':'false'));
+  if(GF&&glOK)buildInscription(card.querySelector('.line').textContent.trim(),insMode).then(cv=>{glCanvasTex(GF,cv,4);glDirty=true;glTick();});}
+document.querySelectorAll('.ins button').forEach(b=>{b.setAttribute('aria-pressed',INS[b.dataset.i]===insMode?'true':'false');b.addEventListener('click',()=>setInscription(b.dataset.i));});
+addEventListener('resize',()=>{glDirty=true;});
+// birthday alignment: preview button + next date
+const bdayGo=document.getElementById('bdayGo'),bdayTxt=document.getElementById('bdayTxt');
+const bdf=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+function nextAlign(){const now=Date.now(),y=new Date(now+BDAY.tz*3600e3).getUTCFullYear();let a=bdaySun(y);if(a<=now)a=bdaySun(y+1);return a;}
+function bdayInfo(){const a=nextAlign(),days=Math.ceil((a-Date.now())/864e5);
+  bdayTxt.textContent='The worlds move slowly: you notice it day to day, never while you watch. Every year at sunrise on 21 February (Bangkok) all six come home to one composition. Next: '+bdf.format(a)+' · in '+days+' days.';}
+bdayInfo();
+bdayGo.addEventListener('click',()=>{const on=bdayGo.getAttribute('aria-pressed')!=='true';
+  if(on){simAnchor=nextAlign();realAnchor=performance.now();speed=0;bdayGo.textContent='Back to now';
+    document.querySelectorAll('.speed button').forEach(x=>x.setAttribute('aria-pressed','false'));}
+  else{simAnchor=Date.now();realAnchor=performance.now();speed=1;bdayGo.textContent='See the alignment';
+    document.querySelectorAll('.speed button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.k==='1'?'true':'false'));}
+  bdayGo.setAttribute('aria-pressed',on?'true':'false');render();});
+document.querySelectorAll('.speed button').forEach(b=>b.addEventListener('click',()=>{bdayGo.setAttribute('aria-pressed','false');bdayGo.textContent='See the alignment';}));
+// label fit
+const line=card.querySelector('.line');
+function fit(){const t=line.querySelector('.t');t.style.fontSize='';let k=1;const bt=parseFloat(getComputedStyle(t).fontSize);while(line.scrollWidth>line.clientWidth&&k>.6){k-=.04;t.style.fontSize=bt*k+'px';}}
+// loop: smooth when motion is allowed, once a second otherwise; pause when hidden
+let last=0,lastCore=0;function loop(ts){if(!document.hidden){if(!reduce||ts-last>1000){render();last=ts;}glTick();if(!reduce&&ts-lastCore>33){drawCore(ts);lastCore=ts;}}requestAnimationFrame(loop);}
+addEventListener('resize',()=>{layout();fit();render();});
+(document.fonts?document.fonts.ready:Promise.resolve()).then(fit);
+layout();render();requestAnimationFrame(loop);
+})();
+</script>
