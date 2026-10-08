@@ -26,7 +26,12 @@ assert.deepEqual(regionConfig.regions, ['sin1']);
 assert.deepEqual(regionConfig.functions['api/*.ts'].regions, ['sin1']);
 const childProgram = `
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { generateKeyPairSync, sign, verify } from 'node:crypto';
+assert.equal(process.features.require_module, false, 'Smoke must disable CommonJS require(ESM), as in the failing runtime');
+assert.equal(process.env.VERCEL, '1');
 const module = await import(process.argv[1]);
+assert.equal(process.env.VERCEL, '1');
 assert.equal(typeof module.default, 'function');
 assert.deepEqual(module.config.regions, ['sin1']);
 const headers = {};
@@ -37,6 +42,19 @@ assert.deepEqual(JSON.parse(res.body), { error: 'Use POST to sign in.' });
 assert.equal(headers['Cache-Control'], 'no-store');
 assert.equal(headers['Allow'], 'POST');
 assert.equal(headers['X-Lumen-Function-Region'], 'sin1');
+if (process.argv[1].endsWith('/api/login.js')) {
+  // Use the actual traced Admin -> jwks-rsa -> jose chain, with generated keys and no network.
+  const apiRequire = createRequire(process.argv[1]);
+  const adminRequire = createRequire(apiRequire.resolve('firebase-admin/auth'));
+  const jwksClient = adminRequire('jwks-rsa');
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'local-smoke', use: 'sig', alg: 'RS256' };
+  const client = jwksClient({ jwksUri: 'https://example.invalid', cache: false, rateLimit: false,
+    getKeysInterceptor: async () => [jwk] });
+  const key = await client.getSigningKey('local-smoke');
+  const message = Buffer.from('test-only signing key');
+  assert.equal(verify('RSA-SHA256', message, key.getPublicKey(), sign('RSA-SHA256', message, privateKey)), true);
+}
 `;
 try {
   for (const entrypoint of ['api/nonce.ts', 'api/login.ts']) {
@@ -63,18 +81,20 @@ try {
     const source = await readFile(emitted, 'utf8');
     assert.ok(!/from\s+['"][^'"]+\.ts['"]/.test(source), 'Emitted handler must not import TypeScript source');
     // Fresh Node process, isolated traced output, no source-resolution hook or Firebase credentials.
-    const env = { ...process.env, VERCEL_REGION: 'sin1' };
-    delete env.FIREBASE_SERVICE_ACCOUNT; delete env.NONCE_SECRET; delete env.NODE_OPTIONS;
-    const smoke = spawnSync(process.execPath, ['--input-type=module', '-e', childProgram, emitted], { env, encoding: 'utf8', timeout: 30_000 });
+    const env = { ...process.env, VERCEL: '1', VERCEL_REGION: 'sin1' };
+    delete env.FIREBASE_SERVICE_ACCOUNT; delete env.NONCE_SECRET; delete env.NODE_OPTIONS; delete env.GOOGLE_APPLICATION_CREDENTIALS;
+    const nodeArgs = ['--no-experimental-require-module', '--input-type=module', '-e', childProgram, emitted];
+    const smoke = spawnSync(process.execPath, nodeArgs, { env, encoding: 'utf8', timeout: 30_000 });
     assert.equal(smoke.status, 0, `${entrypoint}: compiled import/GET failed\n${smoke.stderr}`);
+    assert.match(smoke.stdout, /identity-api status=405 region=sin1/);
     if (entrypoint === 'api/nonce.ts') {
       const broken = source.replace(/(from\s+['"][^'"]+)\.js(['"])/, '$1.ts$2');
       assert.notEqual(broken, source, 'negative fixture must reproduce a .ts runtime import');
       await writeFile(emitted, broken);
-      const failure = spawnSync(process.execPath, ['--input-type=module', '-e', childProgram, emitted], { env, encoding: 'utf8', timeout: 30_000 });
+      const failure = spawnSync(process.execPath, nodeArgs, { env, encoding: 'utf8', timeout: 30_000 });
       assert.notEqual(failure.status, 0, 'compiled smoke must reject the original broken import');
       assert.match(failure.stderr, /ERR_MODULE_NOT_FOUND/);
     }
-    console.log(`PASS: Vercel-built ${entrypoint.replace(/\.ts$/, '.js')} imports and GET returns 405 JSON; emitted region sin1.`);
+    console.log(`PASS: Vercel-built ${entrypoint.replace(/\.ts$/, '.js')} imports with require(ESM) disabled and GET returns 405 JSON; emitted region sin1${entrypoint === 'api/login.ts' ? '; Admin/JWKS RSA key verification passes' : ''}.`);
   }
 } finally { await rm(temporary, { recursive: true, force: true }); }

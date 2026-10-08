@@ -67,6 +67,11 @@ export function reply(res: Response, status: number, data: unknown) {
   if (process.env.VERCEL_REGION) res.setHeader('X-Lumen-Function-Region', process.env.VERCEL_REGION);
   if (status === 429) res.setHeader('Retry-After', '60');
   if (status === 405) res.setHeader('Allow', 'POST');
+  // Deployment proof only: fixed status and platform region, never request data or credentials.
+  const region = process.env.VERCEL_REGION;
+  if (status === 405 && process.env.VERCEL === '1' && region && /^[a-z]{3}\d$/.test(region)) {
+    console.info(`identity-api status=405 region=${region}`);
+  }
   res.end(JSON.stringify(data));
 }
 export function fail(res: Response, err: unknown) {
