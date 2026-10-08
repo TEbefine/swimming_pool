@@ -4,6 +4,8 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
+  // Vercel's trusted build environment, not a URL/hostname or editable VITE_* override.
+  define: { 'import.meta.env.IDENTITY_PREVIEW': JSON.stringify(process.env.VERCEL_ENV === 'preview') },
   plugins: [
     react(),
     tailwindcss(),

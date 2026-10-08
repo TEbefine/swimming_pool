@@ -59,6 +59,11 @@ const post: Post = async (path, body, signal) => {
     if (response.status === 401 && body.idToken !== undefined) return null;
     if (!response.ok) throw new Error(response.status === 429 ? 'Too many sign-in attempts. Please wait a minute.' : 'Online sign-in is unavailable. Please retry.');
     return await response.json();
+  } catch (err) {
+    if (signal?.aborted) throw err; // Lifecycle cancellation is handled by the gate's operation ticket.
+    if (controller.signal.aborted) throw new Error('Online sign-in timed out. Please check your connection and retry.');
+    if (err instanceof TypeError) throw new Error('Could not reach online sign-in. Please check your connection and retry.');
+    throw err;
   } finally { clearTimeout(timer); signal?.removeEventListener('abort', cancel); }
 };
 export const authSession = createAuthSession({

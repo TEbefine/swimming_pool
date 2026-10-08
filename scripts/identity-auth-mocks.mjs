@@ -7,6 +7,7 @@ export async function mockIdentityAuth(context, origin) {
   const used = new Set(), custom = new Map(), ids = new Map(), refresh = new Map();
   let expired = false;
   const signedLogins = [];
+  const apiRequests = [];
   const jwt = claims => {
     const now = Math.floor(Date.now() / 1000);
     const payload = { ...claims, sub: claims.uid, user_id: claims.uid, iat: now, exp: now + 3600, auth_time: now,
@@ -32,6 +33,8 @@ export async function mockIdentityAuth(context, origin) {
   await context.route('**/api/login', route => endpoint(login, route));
   async function endpoint(handler, route) {
     const req = route.request();
+    apiRequests.push({ path: new URL(req.url()).pathname, method: req.method(),
+      kind: req.postDataJSON()?.idToken ? 'session' : 'signature' });
     const request = { method: req.method(), headers: { ...req.headers(), origin }, body: req.postDataJSON(), socket: { remoteAddress: '127.0.0.1' } };
     const headers = {};
     const res = { statusCode: 0, setHeader(key, value) { headers[key] = value; }, end(value) { this.body = value; } };
@@ -60,5 +63,5 @@ export async function mockIdentityAuth(context, origin) {
     return route.fulfill({ json: { access_token: jwt(claims), id_token: jwt(claims), refresh_token: data.get('refresh_token'),
       expires_in: '3600', token_type: 'Bearer', user_id: claims.uid, project_id: 'lumen-bay' } });
   });
-  return { expire: () => { expired = true; }, signedLogins };
+  return { expire: () => { expired = true; }, signedLogins, apiRequests };
 }

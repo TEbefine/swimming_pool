@@ -13,6 +13,7 @@ type Stage = 'loading' | 'welcome' | 'backup' | 'check' | 'create-code' | 'confi
 type Purpose = 'enter' | 'reveal' | 'change';
 const noop = () => {};
 const cryptoModule = () => import('./vault');
+const INPUT_SYMBOLS: Record<ComboInput, string> = { up: '↑', down: '↓', left: '←', right: '→', triangle: '△', circle: '○', cross: '✕', square: '▢' };
 
 
 function IdentityButton({ children, onClick, disabled, secondary }: { children: ReactNode; onClick: () => void; disabled: boolean; secondary: boolean }) {
@@ -44,6 +45,7 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const screenRef = useRef<HTMLDivElement>(null);
   const perf = new URLSearchParams(location.search).has('perf');
+  const debugCombo = import.meta.env.IDENTITY_PREVIEW === true && new URLSearchParams(location.search).get('debugcombo') === '1';
 
   const clearSensitive = useCallback(() => {
     loginRequest.current?.abort();
@@ -262,6 +264,9 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
             <div className="identity-dots" role="status" aria-label={`${combo.length} of 7 presses entered`}>
               {Array.from({ length: 7 }, (_, i) => <span className={i < combo.length ? 'filled' : ''} key={i} />)}
             </div>
+            {debugCombo && <p className="identity-combo-debug" data-testid="combo-debug">
+              Preview input trace: <span>{combo.map(input => INPUT_SYMBOLS[input]).join(' ') || '—'}</span>
+            </p>}
             {<IdentityButton onClick={confirmCombo} disabled={busy || (combo.length !== 7)} secondary={false}>{busy ? 'Opening your identity…' : stage === 'create-code' ? 'Use this code' : 'Confirm'}</IdentityButton>}
             {<IdentityButton onClick={() => setCombo(previous => previous.slice(0, -1))} disabled={busy || (combo.length === 0)} secondary={true}>{'Delete last press'}</IdentityButton>}
             <p className="identity-keyboard">Keyboard: arrows · T △ · O ◯ · X ✕ · Q ▢<br />SELECT / Backspace = delete · START / Enter = confirm</p>
