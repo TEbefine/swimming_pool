@@ -1,7 +1,8 @@
+import '../tests/register-api-ts.mjs';
 // Playwright-only test backend. All Firebase REST calls are intercepted; no real credentials.
 import { randomUUID } from 'node:crypto';
-import { createNonceHandler, createLoginHandler } from '../server/identity/handlers.ts';
-import { IpLimiter } from '../server/identity/http.ts';
+const { createNonceHandler, createLoginHandler } = await import('../server/identity/handlers.ts');
+const { IpLimiter } = await import('../server/identity/http.ts');
 export async function mockIdentityAuth(context, origin) {
   const used = new Set(), custom = new Map(), ids = new Map(), refresh = new Map();
   let expired = false;

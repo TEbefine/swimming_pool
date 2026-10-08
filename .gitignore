@@ -50,3 +50,6 @@ service-account*.json
 firebase-debug.log*
 firestore-debug.log*
 .firebase/
+
+# Vercel local build metadata
+.vercel/

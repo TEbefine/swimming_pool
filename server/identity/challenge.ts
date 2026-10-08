@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { getAddress, verifyMessage } from 'viem';
 import { createSiweMessage } from 'viem/siwe';
-import { LOGIN_STATEMENT } from '../../src/identity/loginMessage.ts';
+import { LOGIN_STATEMENT } from '../../src/identity/loginMessage.js';
 
 export const CHAIN_ID = 80002;
 export const CHALLENGE_MS = 5 * 60 * 1000;

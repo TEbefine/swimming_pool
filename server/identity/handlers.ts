@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { canonicalAddress, issueChallenge, LoginError, nonceSecret, readChallenge, validSessionClaims, verifyWallet } from './challenge.ts';
-import { allowedOrigin, clientIp, fail, IpLimiter, readBody, reply } from './http.ts';
-import type { Request, Response } from './http.ts';
+import { canonicalAddress, issueChallenge, LoginError, nonceSecret, readChallenge, validSessionClaims, verifyWallet } from './challenge.js';
+import { allowedOrigin, clientIp, fail, IpLimiter, readBody, reply } from './http.js';
+import type { Request, Response } from './http.js';
 interface Options { env: NodeJS.ProcessEnv; now?: () => number; limiter?: IpLimiter }
 export interface LoginServices {
   consumeNonce: (id: string, data: { expiresAt: number; usedAt: number }) => Promise<void>;

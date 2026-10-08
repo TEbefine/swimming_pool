@@ -1,10 +1,11 @@
+import './register-api-ts.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { privateKeyToAccount } from 'viem/accounts';
-import { createNonceHandler, createLoginHandler } from '../server/identity/handlers.ts';
-import { IpLimiter } from '../server/identity/http.ts';
-import { CHALLENGE_MS, SESSION_MS, readChallenge, siweMessage } from '../server/identity/challenge.ts';
+const { createNonceHandler, createLoginHandler } = await import('../server/identity/handlers.ts');
+const { IpLimiter } = await import('../server/identity/http.ts');
+const { CHALLENGE_MS, SESSION_MS, readChallenge, siweMessage } = await import('../server/identity/challenge.ts');
 
 // Generated-in-test keys and mock services only. No production credentials or Firebase network.
 const key = '0x' + '11'.repeat(32);

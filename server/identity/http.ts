@@ -1,6 +1,6 @@
 import { isIP } from 'node:net';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { LoginError } from './challenge.ts';
+import { LoginError } from './challenge.js';
 export interface Request extends IncomingMessage { body?: unknown }
 export type Response = ServerResponse;
 export function header(req: Request, key: string): string {
@@ -64,6 +64,7 @@ export function reply(res: Response, status: number, data: unknown) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  if (process.env.VERCEL_REGION) res.setHeader('X-Lumen-Function-Region', process.env.VERCEL_REGION);
   if (status === 429) res.setHeader('Retry-After', '60');
   if (status === 405) res.setHeader('Allow', 'POST');
   res.end(JSON.stringify(data));

@@ -1,8 +1,9 @@
+import './register-api-ts.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createAuthSession } from '../src/identity/authSession.ts';
-import { issueChallenge, SESSION_MS } from '../server/identity/challenge.ts';
+const { issueChallenge, SESSION_MS } = await import('../server/identity/challenge.ts');
 import { validateLoginMessage } from '../src/identity/loginMessage.ts';
 const wallet = privateKeyToAccount('0x' + '11'.repeat(32));
 const address = wallet.address.toLowerCase();
