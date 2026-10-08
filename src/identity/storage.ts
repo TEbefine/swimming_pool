@@ -1,7 +1,6 @@
 import type { Vault } from './vault.ts';
 export const DATABASE_NAME = 'lumen-bay-identity';
 const STORE = 'identity';
-export interface LocalReceipt { address: string; verifiedAt: number }
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') return reject(new Error('Device storage is unavailable. Enable website storage and try again.'));
@@ -17,19 +16,19 @@ function openDatabase(): Promise<IDBDatabase> {
     };
   });
 }
-export async function readIdentity(): Promise<{ vault: Vault | null; receipt: LocalReceipt | null }> {
+export async function readIdentity(): Promise<{ vault: Vault | null; sessionAddress: string | null }> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readonly');
     const store = tx.objectStore(STORE);
     const vault = store.get('vault');
-    const receipt = store.get('local-preview-receipt');
-    tx.oncomplete = () => { db.close(); resolve({ vault: vault.result ?? null, receipt: receipt.result ?? null }); };
+    const sessionAddress = store.get('firebase-session-address');
+    tx.oncomplete = () => { db.close(); resolve({ vault: vault.result ?? null, sessionAddress: sessionAddress.result ?? null }); };
     tx.onabort = () => { db.close(); reject(new Error('Your saved identity could not be read. Please retry.')); };
   });
 }
 /** One transaction, including compare-before-write: concurrent tabs cannot overwrite each other. */
-export async function saveIdentity(vault: Vault, expected: Vault | null, verifiedAt = Date.now()): Promise<void> {
+export async function saveIdentity(vault: Vault, expected: Vault | null): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
@@ -39,13 +38,30 @@ export async function saveIdentity(vault: Vault, expected: Vault | null, verifie
     read.onsuccess = () => {
       if (JSON.stringify(read.result ?? null) !== JSON.stringify(expected)) { conflict = true; tx.abort(); return; }
       store.put(vault, 'vault');
-      store.put({ address: vault.address, verifiedAt }, 'local-preview-receipt');
+      store.delete('local-preview-receipt');
+      if (expected?.address !== vault.address) store.delete('firebase-session-address');
     };
     tx.oncomplete = () => { db.close(); resolve(); };
     tx.onabort = () => {
       db.close();
       reject(new Error(conflict ? 'Your identity changed in another tab. Reload before continuing.' : 'The identity could not be saved. Keep your written backup and retry.'));
     };
+  });
+}
+/** Public load hint only; authentication always comes from Firebase + server verification. */
+export async function markFirebaseSession(address: string, expected: Vault): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    const read = store.get('vault');
+    read.onsuccess = () => {
+      if (JSON.stringify(read.result) !== JSON.stringify(expected) || expected.address !== address) { tx.abort(); return; }
+      store.put(address, 'firebase-session-address');
+      store.delete('local-preview-receipt');
+    };
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onabort = () => { db.close(); reject(new Error('Your identity changed in another tab. Reload before continuing.')); };
   });
 }
 export async function requestPersistence(): Promise<'granted' | 'not-granted' | 'unavailable'> {

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { GameBoyMobile } from '../components/GameBoyMobile';
-import { COMBO_LENGTH, needsStepUp } from './policy';
+import { COMBO_LENGTH } from './policy';
 import type { ComboInput } from './policy';
-import { readIdentity, requestPersistence, saveIdentity } from './storage';
-import type { LocalReceipt } from './storage';
+import { readIdentity, requestPersistence, saveIdentity, markFirebaseSession } from './storage';
+import { authSession } from './authSession';
+import type { Session } from './authSession';
 import type { Vault, WalletSecret } from './vault';
 import './identity.css';
 
@@ -34,7 +35,8 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
   const [persistence, setPersistence] = useState('');
   const secret = useRef<WalletSecret | null>(null);
   const firstCombo = useRef<ComboInput[]>([]);
-  const receipt = useRef<LocalReceipt | null>(null);
+  const session = useRef<Session | null>(null);
+  const loginRequest = useRef<AbortController | null>(null);
   const [purpose, setPurpose] = useState<Purpose>('enter');
   const changeCode = useRef(false);
   const epoch = useRef(0);
@@ -44,6 +46,8 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
   const perf = new URLSearchParams(location.search).has('perf');
 
   const clearSensitive = useCallback(() => {
+    loginRequest.current?.abort();
+    loginRequest.current = null;
     secret.current = null;
     firstCombo.current = [];
     setCombo([]); setPhrase(''); setAnswers(['', '', '']); setBackedUp(false);
@@ -67,12 +71,19 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
       const stored = await readIdentity();
       if (ticket !== epoch.current) return;
       // Keep even a damaged envelope as the expected value for explicit recovery.
-      setVault(stored.vault); receipt.current = stored.receipt;
+      setVault(stored.vault); session.current = null;
       if (!stored.vault) { setStage('welcome'); return; }
       const module: typeof import('./vault') = await cryptoModule();
       if (ticket !== epoch.current) return;
       module.validateVault(stored.vault);
-      const recent = stored.receipt?.address === stored.vault.address && !needsStepUp('enter', stored.receipt.verifiedAt);
+      if (stored.sessionAddress === stored.vault.address) {
+        const controller = new AbortController(); loginRequest.current = controller;
+        const verified = await authSession.resume(stored.vault.address, controller.signal);
+        if (ticket !== epoch.current) return;
+        session.current = verified;
+      }
+      if (ticket !== epoch.current) return;
+      const recent = session.current !== null;
       if (recent) {
         if (settings) setStage('settings');
         else { setEntered(true); setStage('closed'); }
@@ -87,7 +98,7 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
     queueMicrotask(() => { if (!disposed) void refresh(); });
     // These are secret/lifecycle refs, not DOM refs; clear their latest values at disposal.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    return () => { disposed = true; epoch.current++; secret.current = null; firstCombo.current = []; };
+    return () => { disposed = true; epoch.current++; loginRequest.current?.abort(); secret.current = null; firstCombo.current = []; };
   }, [refresh]);
 
   useEffect(() => {
@@ -109,8 +120,8 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
   useEffect(() => { screenRef.current?.scrollTo(0, 0); }, [stage]);
 
   useEffect(() => {
-    if (stage !== 'closed' || !receipt.current) return;
-    const remaining = receipt.current.verifiedAt + 48 * 60 * 60 * 1000 - Date.now();
+    if (stage !== 'closed' || !session.current) return;
+    const remaining = session.current.walletSignedInAt + 48 * 60 * 60 * 1000 - Date.now();
     const timer = setTimeout(() => void refresh(), Math.max(0, remaining));
     return () => clearTimeout(timer);
   }, [stage, refresh]);
@@ -151,9 +162,24 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
       void run(async ticket => {
         const module = await cryptoModule();
         if (ticket !== epoch.current || !secret.current) return;
-        const next = await module.encryptVault(secret.current, submitted);
+        const wallet = secret.current;
+        const next = await module.encryptVault(wallet, submitted);
         if (ticket !== epoch.current) return;
-        await saveIdentity(next, vault, changeCode.current ? receipt.current?.verifiedAt ?? 0 : Date.now());
+        await saveIdentity(next, vault);
+        if (ticket !== epoch.current) return;
+        setVault(next);
+        clearSensitive();
+        if (!changeCode.current) {
+          setPurpose('enter'); setStage('unlock');
+          const controller = new AbortController(); loginRequest.current = controller;
+          const { privateKeyToAccount } = await import('viem/accounts');
+          if (ticket !== epoch.current) return;
+          const account = privateKeyToAccount(wallet.privateKey as `0x${string}`);
+          const verified = await authSession.login(next.address, message => account.signMessage({ message }), controller.signal);
+          if (ticket !== epoch.current) return;
+          session.current = verified;
+          await markFirebaseSession(next.address, next);
+        }
         if (ticket !== epoch.current) return;
         setVault(next); clearSensitive();
         const result = await requestPersistence();
@@ -171,9 +197,15 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
         if (JSON.stringify(current.vault) !== JSON.stringify(vault)) throw new Error('Your identity changed in another tab. Reload before continuing.');
         setUnlockMs(result.elapsedMs);
         if (purpose === 'enter') {
-          const verifiedAt = Date.now();
-          await saveIdentity(vault, vault, verifiedAt); // replaced by signature login in (b)
-          if (ticket === epoch.current) { receipt.current = { address: vault.address, verifiedAt }; setStage('settings'); }
+          const controller = new AbortController(); loginRequest.current = controller;
+          const { privateKeyToAccount } = await import('viem/accounts');
+          if (ticket !== epoch.current) return;
+          const account = privateKeyToAccount(result.secret.privateKey as `0x${string}`);
+          const verified = await authSession.login(vault.address, message => account.signMessage({ message }), controller.signal);
+          if (ticket !== epoch.current) return;
+          session.current = verified;
+          await markFirebaseSession(vault.address, vault);
+          if (ticket === epoch.current) setStage('settings');
         } else if (purpose === 'reveal') { setPhrase(result.secret.mnemonic); setStage('reveal'); }
         else { secret.current = result.secret; changeCode.current = true; setStage('create-code'); }
       });
@@ -260,7 +292,7 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
             {<IdentityButton onClick={leave} disabled={busy || (false)} secondary={false}>{'Continue to Lumen Bay'}</IdentityButton>}
             {<IdentityButton onClick={() => stepUp('reveal')} disabled={busy || (false)} secondary={true}>{'Show my 12 words'}</IdentityButton>}
             {<IdentityButton onClick={() => stepUp('change')} disabled={busy || (false)} secondary={true}>{'Change my controller code'}</IdentityButton>}
-            <p className="identity-note">Local identity preview. Online sign-in and owned-item saves arrive in the next steps.</p>
+            <p className="identity-note">Signed in to Lumen Bay. Owned-item saves arrive in the next step.</p>
           </>}
           {stage === 'reveal' && <>
             <div className="identity-step">PRIVATE BACKUP</div><h1>Only for your eyes</h1><p>Anyone with these words can recover your identity. Keep them off chat and screenshots.</p>
@@ -268,7 +300,7 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
           </>}
           {stage === 'error' && <><h1>Your identity needs a moment</h1><p>We have not created or replaced anything.</p>{<IdentityButton onClick={() => void refresh()} disabled={busy || (false)} secondary={false}>{'Try reading storage again'}</IdentityButton>}{<IdentityButton onClick={startRestore} disabled={busy || (false)} secondary={true}>{'Restore with your 12 words'}</IdentityButton>}</>}
           {error && <p role="alert" className="identity-error">{error}</p>}
-          {busy && <p role="status">Working on this device…</p>}
+          {busy && <p role="status">Signing in securely…</p>}
           {perf && unlockMs !== null && <p className="identity-note" data-testid="unlock-time">Last local unlock: {unlockMs} ms · this device</p>}
           {!['welcome', 'loading', 'closed', 'saved', 'settings', 'error'].includes(stage) && <IdentityButton onClick={() => void refresh(entered)} disabled={busy || (false)} secondary={true}>{'Cancel'}</IdentityButton>}
         </section>}

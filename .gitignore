@@ -42,3 +42,11 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase private key files (never commit service-account credentials)
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+service-account*.json
+firebase-debug.log*
+firestore-debug.log*
+.firebase/

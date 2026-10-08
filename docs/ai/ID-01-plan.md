@@ -122,3 +122,7 @@ Tests by stage: known mnemonic/address vectors; same address after recovery; wro
 - Per-catch fish inventory writes → replaced by NPC-finished knowledge recording; fish are released.
 
 Vocabulary: **step-up authentication** means asking for fresh proof before a sensitive action; **idempotent** means retries cannot duplicate an outcome.
+
+## Step (b) implementation notes — 2026-10-08
+
+Branch `id-01b-login` targets `integrate/id-01a`. Review/config/rules-deploy instructions: [ID-01b-review.md](ID-01b-review.md). API session restoration verifies Firebase tokens without refreshing wallet-signature time. Auth is lazy after first unlock and is loaded on returning visits to restore the saved session. To honor the explicit one-write login scope, automatic nonce cleanup is deferred; expired markers can be removed manually only after expiry, with expiry checks still enforced. No rules deployment, items or WebSocket authentication is included.

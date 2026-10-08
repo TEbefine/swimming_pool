@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { IDBFactory } from 'fake-indexeddb';
 import { backupPositions, createSecret, restoreSecret, encryptVault, decryptVault, validateVault, ITERATIONS } from '../src/identity/vault.ts';
 import { COMBO_INPUTS, encodeCombo, needsStepUp, WALLET_SESSION_MS, directionForPress, KEY_INPUTS } from '../src/identity/policy.ts';
-import { readIdentity, saveIdentity, requestPersistence } from '../src/identity/storage.ts';
+import { readIdentity, saveIdentity, requestPersistence, markFirebaseSession } from '../src/identity/storage.ts';
 
 // Public BIP39 test vector, never use this wallet for real identities or assets.
 const mnemonic = 'test test test test test test test test test test test junk';
@@ -81,15 +81,17 @@ test('vault encrypts secrets with exact parameters, unique salt/IV, rejects wron
 test('IndexedDB absent/evicted state, atomic save and competing-tab protection', async () => {
   globalThis.indexedDB = new IDBFactory();
   const vault = await encryptVault(restoreSecret(mnemonic), combo);
-  assert.deepEqual(await readIdentity(), { vault: null, receipt: null });
-  await saveIdentity(vault, null, 123);
-  assert.deepEqual(await readIdentity(), { vault, receipt: { address: vault.address, verifiedAt: 123 } });
+  assert.deepEqual(await readIdentity(), { vault: null, sessionAddress: null });
+  await saveIdentity(vault, null);
+  assert.deepEqual(await readIdentity(), { vault, sessionAddress: null });
+  await markFirebaseSession(vault.address, vault);
+  assert.deepEqual(await readIdentity(), { vault, sessionAddress: vault.address });
   await assert.rejects(saveIdentity(vault, null));
   const next = await encryptVault(restoreSecret(mnemonic), alternate);
   const attempts = await Promise.allSettled([saveIdentity(next, vault), saveIdentity(vault, vault)]);
   assert.equal(attempts.filter(result => result.status === 'fulfilled').length, 1);
   globalThis.indexedDB = new IDBFactory(); // eviction looks exactly like a first visit
-  assert.deepEqual(await readIdentity(), { vault: null, receipt: null });
+  assert.deepEqual(await readIdentity(), { vault: null, sessionAddress: null });
   await assert.rejects(saveIdentity(next, vault)); // no resurrection from stale in-memory vault
   delete globalThis.indexedDB;
   await assert.rejects(readIdentity());
