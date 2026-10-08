@@ -68,3 +68,7 @@ Results: sample 1 **pending**, sample 2 **pending**, sample 3 **pending**; iOS/S
 Also check first-visit backup/code flow; START, bag and SceneBox freeze the character while other players/NPCs continue; code entry has no vibration, sound or pressed colour; reload within 48 hours skips the code; restore in another browser produces the same Player ID. Existing PR #3 remains the wallet review history. Backend identity stages remain deferred.
 
 Integration automated evidence (2026-10-08): `npm test` passed all 69 tests on Node 24.15.0; `npm run build` passed; `npm run lint` exited 0 with 30 existing warnings and zero errors. Production Chrome browser suite passed START → bag → SceneBox routing, the adapted START row 3 identity path and the wallet checks, including zero haptic/audio calls and zero WebSocket connections before entering the game. Protected vault/storage/policy files and dependency manifests match wallet commit `4efed78`; wsServer remains unchanged. Physical iPhone timing and live multiplayer behavior remain to be verified on the preview.
+
+## Step (b) follow-up
+
+Firebase login is implemented on `id-01b-login`, based on the integration branch, with its own [ID-01b review](ID-01b-review.md). The earlier local-preview-receipt description above is historical: this branch uses persistent Firebase credentials and server-verified wallet-signature age. Reveal/change encryption and physical-device timing boundaries are retained. Rules and real-project connectivity await Teera's deployment/preview test.

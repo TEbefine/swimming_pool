@@ -1,6 +1,7 @@
 // Optional production-browser check. See docs/ai/ID-01-review.md for invocation.
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import { mockIdentityAuth } from './identity-auth-mocks.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const url = process.env.IDENTITY_URL || 'http://127.0.0.1:4173/?perf=1';
 const output = process.env.IDENTITY_REVIEW_DIR || '/tmp/id01-review';
@@ -8,6 +9,7 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: 'light', serviceWorkers: 'block' });
+  const authMock = await mockIdentityAuth(context, new URL(url).origin);
   const page = await context.newPage();
   const requests = [];
   const errors = [];
@@ -26,18 +28,11 @@ try {
     r.onerror = () => reject(new Error('read failed'));
     r.onsuccess = () => {
       const db = r.result, tx = db.transaction('identity', 'readonly'), store = tx.objectStore('identity');
-      const v = store.get('vault'), s = store.get('local-preview-receipt');
-      tx.oncomplete = () => { db.close(); resolve({ vault: v.result ?? null, receipt: s.result ?? null }); };
+      const v = store.get('vault'), s = store.get('firebase-session-address');
+      tx.oncomplete = () => { db.close(); resolve({ vault: v.result ?? null, sessionAddress: s.result ?? null }); };
     };
   }));
-  const expire = () => page.evaluate(() => new Promise(resolve => {
-    const r = indexedDB.open('lumen-bay-identity', 1);
-    r.onsuccess = () => { const db = r.result, tx = db.transaction('identity', 'readwrite'), store = tx.objectStore('identity');
-      const read = store.get('local-preview-receipt');
-      read.onsuccess = () => store.put({ ...read.result, verifiedAt: Date.now() - 49 * 60 * 60 * 1000 }, 'local-preview-receipt');
-      tx.oncomplete = () => { db.close(); resolve(); };
-    };
-  }));
+  const expire = () => authMock.expire();
   await page.addInitScript(() => {
     window.identityFeedback = { haptics: 0, audio: 0 };
     navigator.vibrate = () => { window.identityFeedback.haptics++; return true; };
@@ -53,6 +48,7 @@ try {
   await visible(button('Restore with your 12 words'));
   assert.equal((await dbRead()).vault, null);
   await page.screenshot({ path: `${output}/identity-welcome.png` });
+  assert.ok(requests.every(request => !request.includes('firebaseAuth-') && !request.includes('identitytoolkit.googleapis.com')), 'Firebase must stay lazy before first unlock');
   await button('I’m new — create an identity').click();
   await visible(heading('Write these down'));
   const words = await page.locator('.identity-words li').evaluateAll(items => items.map(item => item.childNodes[item.childNodes.length - 1].textContent));
@@ -109,8 +105,11 @@ try {
   const initial = await dbRead();
   assert.ok(!JSON.stringify(initial).includes(words.join(' ')), 'phrase must not be plaintext in IndexedDB');
   assert.equal(initial.vault.iterations, 600000);
+  assert.equal(initial.sessionAddress, initial.vault.address);
+  const firstSignIns = authMock.signedLogins.length;
   await page.reload();
   await page.locator('.identity-cover').waitFor({ state: 'detached' });
+  assert.equal(authMock.signedLogins.length, firstSignIns, 'reload within 48 hours must not re-sign');
   await page.locator('.ls-ready').waitFor();
   await page.locator('.ls-ready').click();
   await page.locator('.ls-root').waitFor({ state: 'detached' });
@@ -145,10 +144,12 @@ try {
   await page.locator('.identity-words').waitFor({ state: 'detached' });
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { value: false, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
   await visible(heading('A place that’s yours'));
+  const beforeCodeChange = authMock.signedLogins.length;
   await button('Change my controller code').click();
   await enter(keys); await button('Confirm').click(); await visible(heading('Choose your secret code'));
   await enter(nextKeys); await button('Use this code').click(); await enter(nextKeys); await button('Confirm').click();
   await visible(heading('Ready for Lumen Bay'));
+  assert.equal(authMock.signedLogins.length, beforeCodeChange, 'code rotation must not refresh wallet login time');
   const changed = await dbRead();
   assert.equal(changed.vault.address, initial.vault.address);
   assert.notEqual(changed.vault.salt, initial.vault.salt);
@@ -178,7 +179,31 @@ try {
   assert.ok(!persistent.includes(words.join(' ')) && !persistent.toLowerCase().includes(testKey.toLowerCase()), 'secrets must not enter localStorage');
   assert.deepEqual(errors, []);
   console.log('PASS: eviction offers restore without generation, local recovery preserves Player ID, no phrase/key/vault in network or logs; no plaintext secrets in localStorage, no page errors.');
+  const lastVault = (await dbRead()).vault;
   await context.close();
+  const newDevice = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  const newAuthMock = await mockIdentityAuth(newDevice, new URL(url).origin);
+  const newPage = await newDevice.newPage();
+  await newPage.goto(url);
+  await newPage.getByRole('button', { name: 'Restore with your 12 words', exact: true }).waitFor();
+  await newPage.evaluate(vault => new Promise(resolve => {
+    const r = indexedDB.open('lumen-bay-identity', 1);
+    r.onsuccess = () => { const db = r.result, tx = db.transaction('identity', 'readwrite'), store = tx.objectStore('identity');
+      store.put(vault, 'vault'); store.put(vault.address, 'firebase-session-address');
+      store.put({ address: vault.address, verifiedAt: Date.now() }, 'local-preview-receipt');
+      tx.oncomplete = () => { db.close(); resolve(); };
+    };
+  }), lastVault);
+  await newPage.reload();
+  await newPage.getByRole('heading', { name: 'Welcome back', exact: true }).waitFor();
+  assert.equal(newAuthMock.signedLogins.length, 0, 'copied vault/markers never grant a Firebase session on a new device');
+  assert.equal(await newPage.locator('.ls-root').count(), 0);
+  for (const key of keys) await newPage.keyboard.press(key);
+  await newPage.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await newPage.getByRole('heading', { name: 'A place that’s yours', exact: true }).waitFor();
+  assert.equal(newAuthMock.signedLogins.length, 1, 'new device must re-sign after unlock');
+  await newDevice.close();
+  console.log('PASS: Firebase stays lazy before first unlock; reload does not re-sign; code change keeps wallet time; copied/legacy markers on a new device require a fresh wallet login.');
   // A browser storage error must not become a first-visit/new-wallet screen.
   const blocked = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   await blocked.addInitScript(() => { Object.defineProperty(window, 'indexedDB', { value: undefined }); });

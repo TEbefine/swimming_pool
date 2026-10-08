@@ -3,7 +3,7 @@ import type { PlayerState, FloatColor, ChatMessage } from '../game/types';
 import { Volume2, VolumeX, HelpCircle, X, Send } from 'lucide-react';
 import { sound } from '../game/audio';
 import { triggerHaptic } from '../game/haptics';
-import { directionForPress, KEY_INPUTS } from '../identity/policy';
+import { KEY_INPUTS } from '../identity/policy';
 import type { ComboInput } from '../identity/policy';
 
 interface GameBoyMobileProps {
@@ -46,6 +46,15 @@ const DPAD_PATH =
   'A7 7 0 0 1 60 100H40A7 7 0 0 1 33 93V71A4 4 0 0 0 29 67H7A7 7 0 0 1 0 60V40A7 7 0 0 1 7 33H29A4 4 0 0 0 33 29V7' +
   'A7 7 0 0 1 40 0Z';
 
+// Fixed arm targets share the artwork's coordinates, including the lower side wall.
+// The centre hub stays inert. Identity input never depends on the socket's box centre.
+const IDENTITY_DPAD_ARMS = [
+  ['up', 33, 0, 34, 33],
+  ['down', 33, 67, 34, 37],
+  ['left', 0, 33, 33, 38],
+  ['right', 67, 33, 33, 38],
+] as const;
+
 export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   canvasRef,
   playerState,
@@ -72,6 +81,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   identityControls,
 }) => {
   const isWater = playerState === 'water';
+  const faceButtonClass = `w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 ${identityControls ? '' : 'hover:text-white active:scale-95'} shadow-md`;
   const [muted, setMuted] = useState(sound.isMuted());
   const [activeDir, setActiveDir] = useState<{ up: boolean; down: boolean; left: boolean; right: boolean }>({
     up: false,
@@ -148,6 +158,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   const press = (fn: () => void) => ({
     onPointerDown: (e: React.PointerEvent) => {
       e.preventDefault();
+      if (identityControls && !e.isPrimary) return;
       fn();
     },
     onClick: (e: React.MouseEvent) => {
@@ -210,11 +221,23 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   const handleDpadPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     if (identityControls) {
+      e.stopPropagation();
       if (!e.isPrimary || identityControls.disabled) return;
-      const bounds = e.currentTarget.getBoundingClientRect();
-      const input = directionForPress(e.clientX - bounds.left - bounds.width / 2, e.clientY - bounds.top - bounds.height / 2);
-      if (input) identityControls.onInput(input);
-      return;
+      // Mobile hit testing can select a neighbouring button at fractional-pixel edges.
+      // Use the original touch point against each explicit arm rectangle, never an angle.
+      // WebKit may truncate touch coordinates to CSS pixels; use that pixel's centre.
+      const integerTouch = e.pointerType === 'touch' && Number.isInteger(e.clientX) && Number.isInteger(e.clientY);
+      const clientX = e.clientX + (integerTouch ? 0.5 : 0);
+      const clientY = e.clientY + (integerTouch ? 0.5 : 0);
+      for (const [input] of IDENTITY_DPAD_ARMS) {
+        const arm = dpadRef.current?.querySelector(`[data-identity-input="${input}"]`);
+        if (!arm) continue;
+        const bounds = arm.getBoundingClientRect();
+        if (clientX >= bounds.left && clientX < bounds.right && clientY >= bounds.top && clientY < bounds.bottom) {
+          identityControls.onInput(input); return;
+        }
+      }
+      return; // Hub and empty socket space are inert.
     }
     isDraggingDpad.current = true;
     dpadBoundsRef.current = dpadRef.current?.getBoundingClientRect() ?? null;
@@ -537,8 +560,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             >
               {/* Chunky one-piece cross (SVG): no text glyphs, so iOS never shows the text loupe on a hold.
                   Press feedback is only the arrow colour (Teera: the finger covers anything else). */}
-              <div className="pointer-events-none" style={{ width: 94, height: 98 }}>
-                <svg viewBox="0 0 100 104" width="94" height="98" aria-hidden="true" focusable="false">
+              <div className={identityControls ? 'relative' : 'pointer-events-none'} style={{ width: 94, height: 98 }}>
+                <svg className="pointer-events-none" data-testid="controller-dpad-art" viewBox="0 0 100 104" width="94" height="98" aria-hidden="true" focusable="false">
                   <defs>
                     <linearGradient id="gbDpadFace" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0" style={{ stopColor: 'var(--gb-cross-top)' }} />
@@ -576,6 +599,13 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     );
                   })}
                 </svg>
+                {identityControls && IDENTITY_DPAD_ARMS.map(([input, x, y, width, height]) => <button
+                    key={input} type="button" aria-label={`${input} direction`} className="identity-dpad-target"
+                    data-identity-input={input} style={{ left: `${x}%`, top: `${y / 104 * 100}%`, width: `${width}%`, height: `${height / 104 * 100}%` }}
+                    onClick={event => {
+                      if (event.detail === 0 && !identityControls.disabled) identityControls.onInput(input);
+                    }}
+                  />)}
               </div>
             </div>
           </div>
@@ -601,7 +631,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     type="button"
                     {...press(handlePressTriangle)}
                     onContextMenu={(e) => e.preventDefault()}
-                    className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
+                    className={faceButtonClass}
                     title={identityControls ? 'Triangle (T)' : 'Triangle: Chat'}
                     style={{
                       WebkitTouchCallout: 'none',
@@ -622,7 +652,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     type="button"
                     {...press(handlePressSquare)}
                     onContextMenu={(e) => e.preventDefault()}
-                    className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
+                    className={faceButtonClass}
                     title={identityControls ? 'Square (Q)' : 'Square: Wave'}
                     style={{
                       WebkitTouchCallout: 'none',
@@ -643,16 +673,17 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     type="button"
                     onPointerDown={(e) => {
                       e.preventDefault();
+                      if (identityControls && !e.isPrimary) return;
                       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
                       handlePressCircle();
                       if (!identityControls) onCircleHold?.(true);
                     }}
-                    onPointerUp={() => onCircleHold?.(false)}
-                    onPointerCancel={() => onCircleHold?.(false)}
-                    onLostPointerCapture={() => onCircleHold?.(false)}
+                    onPointerUp={() => { if (!identityControls) onCircleHold?.(false); }}
+                    onPointerCancel={() => { if (!identityControls) onCircleHold?.(false); }}
+                    onLostPointerCapture={() => { if (!identityControls) onCircleHold?.(false); }}
                     onClick={(e) => { if (e.detail === 0) handlePressCircle(); }}
                     onContextMenu={(e) => e.preventDefault()}
-                    className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
+                    className={faceButtonClass}
                     title={identityControls ? 'Circle (O)' : 'Circle: Pool / Land'}
                     style={{
                       WebkitTouchCallout: 'none',
@@ -673,7 +704,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                     type="button"
                     {...press(handlePressCross)}
                     onContextMenu={(e) => e.preventDefault()}
-                    className="w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 hover:text-white active:scale-95 shadow-md"
+                    className={faceButtonClass}
                     title={identityControls ? 'Cross (X)' : 'Cross: Jump / Splash'}
                     style={{
                       WebkitTouchCallout: 'none',

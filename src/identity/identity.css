@@ -20,6 +20,7 @@
 .identity-dots { display: flex; justify-content: center; gap: 12px; padding: 18px 0; }
 .identity-dots span { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid #afc1a1; }
 .identity-dots .filled { background: #dce9b4; }
+.identity-screen .identity-combo-debug { font: 12px/1.5 monospace; text-align: center; color: #ffe0ab; }
 .identity-screen .identity-note, .identity-keyboard { font-size: 12px; line-height: 1.5; }
 .identity-tip { border: 1px solid #6b846e; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
 .identity-address { overflow-wrap: anywhere; font: 13px/1.6 monospace; border: 1px solid #6b846e; padding: 12px; }
@@ -32,6 +33,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 .identity-shell .minimal-socket { -webkit-tap-highlight-color: transparent; }
+.identity-dpad-target, .identity-dpad-target:hover, .identity-dpad-target:active {
+  position: absolute; padding: 0; border: 0; background: transparent; outline: none; box-shadow: none;
+  transform: none; scale: none; transition: none; touch-action: none; -webkit-tap-highlight-color: transparent;
+}
 @media (min-width: 768px) {
   .identity-cover { display: grid; place-items: center; }
   .identity-shell { height: min(850px, 100dvh); border-radius: 12px 12px 48px 12px; }

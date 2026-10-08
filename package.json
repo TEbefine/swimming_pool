@@ -7,13 +7,18 @@
     "dev": "vite",
     "server": "node server/wsServer.js",
     "process-assets": ".venv/bin/python scripts/process_assets.py",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && npm run test:api && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.mjs scripts/test-ui-animation.mjs"
+    "test": "node --test tests/*.test.mjs scripts/test-ui-animation.mjs",
+    "test:rules": "firebase emulators:exec --project demo-lumen-bay --only firestore \"node --test tests/firestore-rules.emulator.mjs\"",
+    "test:api": "node scripts/test-api-build.mjs",
+    "test:controls": "node scripts/test-identity-controls.mjs"
   },
   "dependencies": {
     "@scure/bip39": "1.6.0",
+    "firebase": "^13.0.0",
+    "firebase-admin": "^14.5.0",
     "lucide-react": "^1.47.0",
     "preact": "^11.0.0",
     "react": "^19.2.8",
@@ -22,16 +27,30 @@
     "ws": "^8.21.3"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@types/ws": "^8.18.1",
+    "@vercel/build-utils": "14.20.0",
+    "@vercel/node": "23.0.0",
     "@vitejs/plugin-react": "^6.1.1",
     "fake-indexeddb": "6.2.5",
     "oxlint": "^1.81.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
+  },
+  "overrides": {
+    "jwks-rsa": {
+      "jose": "5.10.0"
+    },
+    "firebase": {
+      "@grpc/grpc-js": "1.14.5"
+    }
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

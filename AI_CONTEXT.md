@@ -2,7 +2,7 @@
 
 Any AI working on this repo: read this whole file before doing anything. Every topic has an **ID**. Each ID stores its items: status, decisions, files and what's next. When you finish work, update the blocks you touched and add one line to the **Log** at the bottom. Never delete a rejected idea: move it to "Rejected" with the reason, so nobody repeats it.
 
-Last updated: 2026-10-08 (wallet and START/bag integration)
+Last updated: 2026-10-08 (ID-01b Firebase login in review)
 
 ---
 
@@ -23,18 +23,21 @@ Last updated: 2026-10-08 (wallet and START/bag integration)
 - **Story (spirit NPC):** first story "Dalbit": the heir Kang Yunseul (real name Wol Hwi), a fictional world only *inspired* by Korea. Systems: fishing (wait → strike → reel), Pokémon-style battles, items/bag, gifts and relationships.
 - Detailed design docs live in `docs/` (cards, characters, world, ui, audio, tech). Read the doc for an ID before changing it.
 
-## ID-01 · Player identity (12-word wallet): STEP (a) APPROVED; INTEGRATION IN REVIEW
+## ID-01 · Player identity (12-word wallet): STEP (b) IN REVIEW; INTEGRATION PREVIEW PENDING
 - Approved plan: `docs/ai/ID-01-plan.md` supersedes the original prompt's PIN, server-stored nonce, session and save-model details. Original brief: `docs/ai/PROMPT_player_id.md`.
 - Branch: **id-01a-wallet**, based on main. Local wallet + mandatory written backup and three-word check; exactly **7 controller presses from 8 inputs** instead of a six-digit PIN. Dot-only entry, no press feedback; desktop arrows + T/O/X/Q.
 - Device vault encrypts BOTH the 12 words and private key using PBKDF2-HMAC-SHA-256 (600,000 iterations; random 16-byte salt) + AES-256-GCM (fresh 12-byte IV, 128-bit tag). Secrets never intentionally enter networking, logs or plaintext persistent storage. Short combos remain vulnerable to offline guessing.
 - Missing vault is restore-first, never silently creates a replacement. Teera approved local 12-word recovery in (a); server-data recovery remains (d). Request persistent storage and suggest Add to Home Screen; written backup remains required.
-- Fresh code is required for revealing words or changing the code. (a) uses a public local preview receipt for 48-hour convenience, NOT server authentication. (b) will use Firebase browserLocalPersistence and server-verified wallet sign-in age, without extending it on token refresh/visits.
-- (b) plan: stateless HMAC challenge at `/api/nonce` (zero Firestore writes); `/api/login` verifies first, then create-only used-nonce marker, then Firebase custom token. Both routes require per-IP limiting; serverless/shared-limiter limits must be explicit. Amoy 80002; no money or trading yet.
+- Fresh code is required for revealing words or changing the code. (b), branch `id-01b-login` from `integrate/id-01a`, replaces the local preview receipt with Firebase browserLocalPersistence and server-verified 48-hour wallet-signature age. Token refresh, visits and code changes do not extend it. Auth loads after the first unlock, and on returning visits to verify a saved session; public device markers grant no access.
+- (b) implemented: stateless HMAC challenge at `/api/nonce` (zero Firestore writes); `/api/login` verifies first, then create-only used-nonce marker, then Firebase custom token. Both routes have bounded per-instance IP limits (nonce 10/minute, login/session 5/minute); these are not a global quota. Signature login creates one replay marker; cleanup is manual to preserve one-write scope. Amoy 80002; no money or trading yet.
+- Protected-preview fix: same-origin API requests include the browser's Vercel authentication cookie via `credentials: 'same-origin'`. Non-API 401/403 responses explain that Vercel login is required, before the expired-session fallback; real API errors retain existing handling. Cookie-gated transport regression tests cover both routes and session checks.
 - (c) plan: Dalbit end-of-day validated save + local draft; Lumen Bay only community knowledge/fortune memory. Lumen Bay fish are released after NPC finish and recorded as Fish Book knowledge, never inventory fish. Cards save immediately. Catalogue/quantity/action-rate validation; append-only API logs and owner-read/no-client-write rules. Old local saves may reset. Reward validation does not block (a)/(b).
 - Firebase Spark + Vercel API routes, no Cloud Functions. Service account/HMAC secret remain server-only. `server/wsServer.js` unchanged; token checks later in (e).
 - Main files: `src/identity/*`, controller identity mode in `GameBoyMobile.tsx`, app entry/START row 3 integration, Home Screen manifest. Verification and phone checklist: `docs/ai/ID-01-review.md`.
 - Wallet review and initial iPhone 13 flow approved by Teera; exact physical unlock timing remains unmeasured. Integration branch: `integrate/id-01a`. START row 3 is the only profile/Player ID entry; one overlay pause API prioritizes identity, then menus/bag/SceneBox, then player input.
-- Next: integration preview and physical iPhone 13 unlock timing/10-minute performance check; Teera approval before merge or step (b). One step = one branch = one AI builds, another reviews, Teera tests the preview, then merges.
+- Identity D-pad uses four fixed arm hit areas and checks the original pointer against their rectangles, avoiding socket-centre angles and mobile target rounding. Face press effects are absent in identity mode. Teera's opt-in `?debugcombo=1` trace is compiled only for Vercel Preview; normal entry and production remain dots-only. Existing vaults are not rewritten; restore the written words to reset a previously misrecorded code.
+- Review: `docs/ai/ID-01b-review.md` documents routes, server-only secrets, empty env example, Config variables and undeployed owner-read/no-client-write Firestore rules. Functions explicitly request `sin1`; Vercel's saved project default was corrected from `iad1` to `sin1`, with live execution proof required for each new preview. Firebase project `lumen-bay` uses Spark and Bangkok Firestore. No item saves or WebSocket trust changes.
+- Next: combined integration/login preview, Teera-deployed rules and physical iPhone 13 unlock timing/10-minute performance check; Teera approval before merge or step (c). One step = one branch = one AI builds, another reviews, Teera tests the preview, then merges.
 - Rejected/superseded: numeric PIN → controller combo; Firestore nonce issuance → stateless challenge; memory-only Firebase auth → persistent auth + step-up; discarded phrase → encrypted phrase for gated reveal; silent identity regeneration → restore-first.
 
 ## C-01 · Card system "Memory Disk"
@@ -112,3 +115,8 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-08 · Codex · ID-01a: saved amended plan and implemented local encrypted wallet, controller combo, required backup, restore and step-up screens on id-01a-wallet; backend stages deferred; reviewer/iPhone verification pending.
 - 2026-10-08 · Antigravity · U-03 Step 1 finished (Bag screen shell, pocket bar, item list, description box, input router, cursor memory per pocket, ?test=story fill tool). Branch: `feat/bag`.
 - 2026-10-08 · Codex · Merged id-01a-wallet into integrate/id-01a from main; unified overlay pause/input routing, retained START/bag controls, removed duplicate profile entry points and documented pending physical unlock timing.
+- 2026-10-08 · Codex · ID-01b: built SIWE/HMAC Firebase login, atomic replay markers, bounded IP limits, persistent 48-hour sessions and undeployed owner-only rules on id-01b-login from integrate/id-01a; tested with mocks/demo emulator, real preview verification pending.
+- 2026-10-08 · Codex · ID-01b runtime fix: changed server ESM imports to .js, added Vercel API compiler/build-import smoke check and explicit sin1 function regions; post-deployment GET/region proof reported in the review packet.
+- 2026-10-08 · Codex · ID-01b Admin runtime fix: scoped jwks-rsa to CommonJS-compatible jose 5.10.0, tested both Vercel-built routes with require(ESM) disabled and generated RSA keys, and saved Singapore as the Vercel project default; new-preview GET/runtime-region evidence belongs in the PR review packet.
+- 2026-10-08 · Codex · ID-01b controller fix: replaced centre-angle identity input with explicit arm hit areas, removed face press effects, added Preview-only combo tracing and phone-size touch/restore/login/error checks; protected vault/crypto files unchanged and physical iPhone retest pending.
+- 2026-10-08 · Codex · ID-01b protected-preview fix: use same-origin credentials and distinguish Vercel protection from API/session errors; added a cookie-gated mock regression. Real iPhone/Mac login retest remains required after deployment.
