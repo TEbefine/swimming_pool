@@ -2,6 +2,16 @@
 
 Date: 2026-10-08 (Bangkok). Branch `id-01b-login`, based on `integrate/id-01a` (`c18305e`); draft PR targets that branch. Main and PR #4 remain unmerged.
 
+## Protected-preview cookie correction — 2026-10-08
+
+The shared client POST transport now uses `credentials: 'same-origin'` for `/api/nonce` and `/api/login`, including returning-session verification. The browser can therefore send its same-origin Vercel Authentication cookie; cookies are not enabled for cross-origin requests. Previously `omit` caused the protection layer to reject requests before either function ran.
+
+A 401/403 lacking our JSON `{error: string}` response now displays exactly: **This preview requires Vercel login. Open it while signed in to Vercel.** This check precedes the 401 expired-session fallback. Genuine API errors retain the generic sign-in error, API session 401 still requires unlock, and 429 retains its wait message. Non-auth server errors remain generic, including HTML 503 responses. No response details or cookies are displayed or logged.
+
+Validation: all **83 tests pass**; production build passes, including both Vercel-built API import/region checks; lint exits 0 with the existing 30 warnings. The transport regression models a browser cookie jar and a mock server rejecting requests without `_vercel_jwt`, exercises both endpoints and session checks, and rejects cross-origin cookie delivery. Temporarily reverting credentials to `omit` makes that regression fail; the correct source was restored. Separate cases cover HTML/plain/malformed/non-API JSON 401/403 and genuine API/server/rate-limit responses. No dependencies changed. Physical iPhone/Mac login and deployed function invocation remain Teera's post-deployment retest; no new physical unlock timing is claimed.
+
+Files for this correction: `src/identity/authSession.ts`, `tests/auth-session.test.mjs`, `AI_CONTEXT.md`, this review document. Words/private key remain in the encrypted device vault and transient local memory; the existing public-proof-only session test still passes. Vault, controller code, cryptographic parameters, server verification, Firestore rules and deployment settings are unchanged. After deployment, reload the existing branch preview while signed into Vercel, retry unlock/login, then reload to check code-free return. There is no need to clear device storage or create a replacement identity.
+
 ## Scope
 
 Step (b) only: SIWE/custom-token login, persistent Firebase browser session, 48-hour wallet-signature age, replay protection and basic IP limits. No item routes/saves, player-document creation, provider UI, rules deployment or trusted WebSocket wallet identity. Wallet encryption, KDF parameters and `vault.ts`/`policy.ts` are unchanged. `storage.ts` replaces the preview receipt with a public Firebase-load hint while retaining atomic vault writes.

@@ -47,7 +47,7 @@ export function createAuthSession({ loadAuth, post, origin, now = Date.now }: De
     },
   };
 }
-const post: Post = async (path, body, signal) => {
+export const post: Post = async (path, body, signal) => {
   const controller = new AbortController();
   const cancel = () => controller.abort();
   signal?.addEventListener('abort', cancel, { once: true });
@@ -55,8 +55,16 @@ const post: Post = async (path, body, signal) => {
   const timer = setTimeout(cancel, 20_000);
   try {
     const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      credentials: 'omit', cache: 'no-store', body: JSON.stringify(body), signal: controller.signal });
-    if (response.status === 401 && body.idToken !== undefined) return null;
+      credentials: 'same-origin', cache: 'no-store', body: JSON.stringify(body), signal: controller.signal });
+    if (response.status === 401 || response.status === 403) {
+      // Protected previews can reject the request before our JSON API runs.
+      const isJson = /^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '');
+      const error: unknown = isJson ? await response.json().catch(() => null) : null;
+      if (!error || typeof error !== 'object' || !('error' in error) || typeof error.error !== 'string') {
+        throw new Error('This preview requires Vercel login. Open it while signed in to Vercel.');
+      }
+      if (response.status === 401 && body.idToken !== undefined) return null;
+    }
     if (!response.ok) throw new Error(response.status === 429 ? 'Too many sign-in attempts. Please wait a minute.' : 'Online sign-in is unavailable. Please retry.');
     return await response.json();
   } catch (err) {
