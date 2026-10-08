@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, MessageSquare, HelpCircle, Palette, User, Gamepad2 } from 'lucide-react';
+import { Volume2, VolumeX, MessageSquare, HelpCircle, Palette, Gamepad2 } from 'lucide-react';
 import { sound } from '../game/audio';
 import { QualityButton } from './QualityButton';
 import { MusicButton } from './MusicButton';
@@ -22,10 +22,8 @@ interface HeaderBarProps {
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   roomName,
   playerCount,
-  playerName,
   floatColor,
   onOpenFloatPicker,
-  onOpenNameModal,
   onOpenHelpModal,
   onToggleChatLog,
   chatLogOpen,
@@ -69,15 +67,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </div>
         </div>
 
-        {/* Player Name Tag */}
-        <button
-          onClick={onOpenNameModal}
-          className="pixel-panel px-3 py-2 flex items-center gap-2 hover:border-sky-400 transition-colors pointer-events-auto"
-          title="Change Name"
-        >
-          <User size={13} className="text-sky-400" />
-          <span className="text-[16px] text-sky-200 font-semibold">{playerName}</span>
-        </button>
+
       </div>
 
       {/* Right: Actions and Settings */}

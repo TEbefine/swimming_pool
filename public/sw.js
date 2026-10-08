@@ -5,7 +5,7 @@
  *    (stale-while-revalidate), so new art still arrives on the next visit.
  *  - The page itself: network first, phone copy only when offline.
  *  Bump VERSION to throw every cached file away. */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CODE = `code-${VERSION}`;
 const ART = `art-${VERSION}`;
 const PAGES = `pages-${VERSION}`;

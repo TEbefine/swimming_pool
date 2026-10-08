@@ -30,13 +30,15 @@ import { music } from './game/audio/music';
 const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(['talk', 'sit', 'stand', 'read']);
 
 interface AppProps {
+  onOpenIdentity?: () => void;
+  identityPaused?: boolean;
   /** Dev/test only: extra UI drawn on the game screen (e.g. the ?test=fishing chip). */
   devOverlay?: React.ReactNode;
   /** Dev/test only: runs once the engine has started. */
   onEngineReady?: (engine: GameEngine) => void;
 }
 
-export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
+export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdentity, identityPaused = false }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -109,8 +111,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
   // Synchronize menuFrozen with engine: local player stops walking, but the world does NOT pause.
   useEffect(() => {
-    engineRef.current?.setMenuFrozen(startMenuOpen || bagOpen);
-  }, [startMenuOpen, bagOpen]);
+    engineRef.current?.setPause(identityPaused ? 'identity' : startMenuOpen || bagOpen || sceneBoxOpen ? 'input' : 'none');
+  }, [identityPaused, startMenuOpen, bagOpen, sceneBoxOpen]);
 
   const openBag = useCallback((source: 'start' | 'b' | 'hud') => {
     setBagOpenedFrom(source);
@@ -235,7 +237,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
     setSceneBoxOpen((prev) => {
       const next = !prev;
       if (next) {
-        // SELECT closes START menu if open. Never two overlays at once.
+        // SELECT closes START and bag. Never two overlays at once.
+        setBagOpen(false);
         setStartMenuOpen(false);
         setStartMenuConfirmTrigger(0);
         setStartMenuCancelTrigger(0);
@@ -368,6 +371,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   // =========================================================================
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (identityPaused) return;
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       // Fishing: E / O / Space = ◯ (holding lifts the net), Esc / X = stop
       if (fishingOpen) {
@@ -455,7 +459,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       window.removeEventListener('keydown', handler);
       window.removeEventListener('keyup', up);
     };
-  }, [handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, startMenuOpen, bagOpen, openBag, handleBagBack, closeDialog, fishingOpen]);
+  }, [identityPaused, handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, startMenuOpen, bagOpen, openBag, handleBagBack, closeDialog, fishingOpen]);
 
   // =========================================================================
   // ENGINE SETUP
@@ -493,6 +497,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
 
     const engine = new GameEngine(canvasRef.current, currentRoom, playerName, floatColor);
     engineRef.current = engine;
+    engine.setPause(identityPaused ? 'identity' : 'none');
     setLocalPlayerId(engine.localPlayer.id);
     engine.setTouchMoveEnabled(!effectiveIsMobile);
     engine.setCameraFollow(effectiveIsMobile);
@@ -630,7 +635,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
   // While the loading scene waits, the first tap / button / key enters the game.
   // Captured on window so that press is swallowed (it must not also open a menu or jump).
   useEffect(() => {
-    if (!loading || !assetsReady) return;
+    if (!loading || !assetsReady || identityPaused) return;
     let swallowUntil = 0;
     const block = (e: Event) => {
       e.stopPropagation();
@@ -677,7 +682,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
       window.removeEventListener('touchend', swallow, opts);
       window.removeEventListener('click', swallow, opts);
     };
-  }, [loading, assetsReady]);
+  }, [loading, assetsReady, identityPaused]);
 
   const handleSelectFloatColor = (color: FloatColor) => {
     setFloatColor(color);
@@ -904,7 +909,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           onToggleState={handleCircleAction}
           onCircleHold={fishingHold}
           onActionA={handleCrossAction}
-          onTriggerEmote={handleTriggerEmote}
+          onTriggerEmote={action => { if (!identityPaused && !startMenuOpen && !bagOpen && !sceneBoxOpen) handleTriggerEmote(action); }}
           onSendMessage={handleSendMessage}
           onOpenFloatPicker={() => setFloatModalOpen(true)}
           onOpenNameModal={() => setNameModalOpen(true)}
@@ -912,6 +917,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
           onToggleSceneBox={handleToggleSceneBox}
           onToggleStartMenu={handleToggleStartMenu}
           startMenuOpen={startMenuOpen}
+          playerInputBlocked={bagOpen || sceneBoxOpen || dialogOpen}
           screenOverlay={loadingElement ?? (
             <>
               {storyHudElement}
@@ -1003,7 +1009,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
                 <ActionBar
                   playerState={playerState}
                   currentAction={currentAction}
-                  onTriggerEmote={handleTriggerEmote}
+                  onTriggerEmote={action => { if (!identityPaused && !startMenuOpen && !bagOpen && !sceneBoxOpen) handleTriggerEmote(action); }}
                   onToggleState={() => engineRef.current?.toggleWaterLand()}
                 />
                 <ChatBar onSendMessage={handleSendMessage} />
@@ -1047,6 +1053,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
         onClose={() => setNameModalOpen(false)}
         currentName={playerName}
         onSaveName={handleSaveName}
+        onOpenIdentity={onOpenIdentity}
       />
 
       <HelpModal

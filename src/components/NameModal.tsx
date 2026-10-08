@@ -6,6 +6,7 @@ interface NameModalProps {
   onClose: () => void;
   currentName: string;
   onSaveName: (name: string) => void;
+  onOpenIdentity?: () => void;
 }
 
 export const NameModal: React.FC<NameModalProps> = ({
@@ -13,6 +14,7 @@ export const NameModal: React.FC<NameModalProps> = ({
   onClose,
   currentName,
   onSaveName,
+  onOpenIdentity,
 }) => {
   const [name, setName] = useState(currentName);
 
@@ -65,6 +67,8 @@ export const NameModal: React.FC<NameModalProps> = ({
             </button>
           </div>
         </form>
+        {onOpenIdentity && <button type="button" className="pixel-btn text-[16px]" style={{ marginTop: 16, width: '100%' }}
+          onClick={() => { onClose(); onOpenIdentity(); }}>Player ID &amp; recovery backup</button>}
       </div>
     </div>
   );

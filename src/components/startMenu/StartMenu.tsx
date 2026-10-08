@@ -51,7 +51,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({
   const rootItems: MenuItem[] = useMemo(() => [
     { id: 'fishbook', label: 'FISH BOOK', description: "Review the fish you've discovered." },
     { id: 'bag', label: 'BAG', description: "Check the items you're carrying." },
-    { id: 'trainer_card', label: playerName.toUpperCase(), description: 'Check your Trainer Card and stats.' },
+    { id: 'trainer_card', label: playerName.toUpperCase(), description: 'View your Player ID, recovery backup and nickname.' },
     { id: 'emote', label: 'EMOTE', description: 'Express yourself with fun poses.' },
     { id: 'option', label: 'OPTION', description: 'Adjust sound, vibration, and settings.' },
     { id: 'help', label: 'HELP', description: 'Read tips and game instructions.' },
