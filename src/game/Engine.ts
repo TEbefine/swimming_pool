@@ -17,6 +17,7 @@ import { rooms } from './rooms';
 import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
 import { MoversManager } from './world/movers';
 import { renderAmbient } from './world/ambient';
+import { drawFisherProps } from './world/bayLife';
 import { getTonightGenre } from './rooms/club';
 import { FrameBudget, LOW_POWER_QUERY, prefersLowPower } from './frameBudget';
 import { ImageLoader, releaseSprite, spriteReady, type Sprite } from './imageLoader';
@@ -2547,7 +2548,11 @@ export class GameEngine {
       drawFns.push({
         y: this.sortYFor(player),
         draw: () => {
+          // Quiet Bay: a bucket (+ cooler box, + lantern at night) next to anyone fishing; friends' lines
+          const fishing = !!this.room.fishing && capturedPlayer.currentAction.startsWith('fish_');
+          if (fishing) drawFisherProps(ctx, this.room.roomId, this.room.outfit, capturedPlayer, capturedX, capturedPlayer === this.localPlayer, 'under', time, sky.night);
           this.renderPlayerSprite(capturedPlayer, capturedDrawY, capturedSprite, capturedX, capturedAir);
+          if (fishing) drawFisherProps(ctx, this.room.roomId, this.room.outfit, capturedPlayer, capturedX, capturedPlayer === this.localPlayer, 'over', time, sky.night);
           // Defer nametag + bubble as overlays
           overlayFns.push(() => this.renderPlayerOverlay(capturedPlayer, capturedDrawY, capturedH, showTag));
         }

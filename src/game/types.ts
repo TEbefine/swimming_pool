@@ -115,6 +115,16 @@ export interface RoomDefinition {
   strictWalkable?: boolean;
   /** Free Fishing room (fun with friends, not the story): ◯ at the 'pier_end' spot starts fishing. */
   freeFishing?: boolean;
+  /** Fishing that FACES THE CAMERA from a long edge (Quiet Bay): stand anywhere along the edge, the
+   *  float lands in the water in front of you. Without this the old side-view pier spot is used. */
+  fishing?: {
+    /** feet y where you stand to fish, and how far left/right you can stand */
+    standY: number;
+    minX: number;
+    maxX: number;
+    /** where the float lands, near (power 0) → far (power 1): x offset from you, y on the screen */
+    water: { dx0: number; dx1: number; y0: number; y1: number; maxX: number };
+  };
   ladderTriggers?: LadderTrigger[];
   obstacles: Rect[];
   seats?: { x: number; y: number; facing: 1 | -1 }[];
@@ -123,7 +133,7 @@ export interface RoomDefinition {
   elements?: ElementDef[];
   actorScale?: number;
   /** What the player wears here: sprites in public/sprites/outfits/<outfit>/ ('swim' = the base swimsuit art). */
-  outfit: 'swim' | 'cafe' | 'pajamas' | 'town' | 'dalbit';
+  outfit: 'swim' | 'cafe' | 'pajamas' | 'town' | 'dalbit' | 'jinbei';
   exits?: {
     triggerBox: [number, number, number, number];
     targetRoom: string;

@@ -3,7 +3,8 @@ import { drawReelBar, REEL_BAR_H, REEL_BAR_W, useFishingView } from '../game/sto
 import type { FishingView } from '../game/story/fishingSession';
 import { startVisibleAnimation } from '../ui/visibleAnimation';
 
-// Fishing HUD: ONE short line at the bottom of the screen + a small catch card.
+// Fishing HUD: ONE short line at the bottom of the screen + a small catch card. In front-facing rooms
+// (Quiet Bay: you face the camera, the float is in the water at the bottom) both go to the TOP instead.
 // Everything else (rod, float, splash, reel bar, the fish held up) is drawn in the world
 // by game/story/fishingSession.ts. Buttons are the real controller: ◯ / E and ✕ / Esc.
 
@@ -76,7 +77,7 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
       {/* catch card */}
       {info && v.caught && over && (
         <div
-          className={`absolute left-1/2 -translate-x-1/2 ${compact ? 'bottom-7 w-[88%] p-1 gap-1.5' : 'bottom-[218px] w-[460px] p-2 gap-3'} ${PANEL} rounded-md flex items-center`}
+          className={`absolute left-1/2 -translate-x-1/2 ${compact ? `${v.front ? 'top-1' : 'bottom-7'} w-[88%] p-1 gap-1.5` : `${v.front ? 'top-[100px]' : 'bottom-[218px]'} w-[460px] p-2 gap-3`} ${PANEL} rounded-md flex items-center`}
           style={info.tier ? { boxShadow: `0 0 0 2px ${info.tierColor}, 0 2px 0 #4A2E1A` } : undefined}
         >
           <img
@@ -106,7 +107,7 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
 
       {/* one-line hint */}
       {line && (
-        <div className={`absolute left-1/2 -translate-x-1/2 ${compact ? 'bottom-1 max-w-[96%] px-2 py-0.5' : 'bottom-[172px] max-w-[80%] px-4 py-1.5'} ${PANEL} rounded-md ${text} text-center whitespace-nowrap overflow-hidden text-ellipsis`}>
+        <div className={`absolute left-1/2 -translate-x-1/2 ${compact ? `${v.front ? 'top-[46px]' : 'bottom-1'} max-w-[96%] px-2 py-0.5` : `${v.front ? 'top-[178px]' : 'bottom-[172px]'} max-w-[80%] px-4 py-1.5`} ${PANEL} rounded-md ${text} text-center whitespace-nowrap overflow-hidden text-ellipsis`}>
           {line}
         </div>
       )}

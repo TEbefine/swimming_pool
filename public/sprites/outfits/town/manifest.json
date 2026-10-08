@@ -78,5 +78,157 @@
     "width": 51,
     "height": 68,
     "path": "/sprites/outfits/town/jump.webp"
+  },
+  "fish_ready": {
+    "width": 104,
+    "height": 75,
+    "path": "/sprites/outfits/town/fish_ready.webp",
+    "tip": {
+      "x": 49.1,
+      "y": -2.2
+    }
+  },
+  "fish_windup": {
+    "width": 78,
+    "height": 81,
+    "path": "/sprites/outfits/town/fish_windup.webp",
+    "tip": {
+      "x": -35.2,
+      "y": -79.3
+    }
+  },
+  "fish_cast": {
+    "width": 114,
+    "height": 76,
+    "path": "/sprites/outfits/town/fish_cast.webp",
+    "tip": {
+      "x": 54.0,
+      "y": -6.4
+    }
+  },
+  "fish_follow": {
+    "width": 104,
+    "height": 80,
+    "path": "/sprites/outfits/town/fish_follow.webp",
+    "tip": {
+      "x": 47.8,
+      "y": 1.9
+    }
+  },
+  "fish_wait_a": {
+    "width": 98,
+    "height": 75,
+    "path": "/sprites/outfits/town/fish_wait_a.webp",
+    "tip": {
+      "x": 44.9,
+      "y": -4.0
+    }
+  },
+  "fish_wait_b": {
+    "width": 98,
+    "height": 75,
+    "path": "/sprites/outfits/town/fish_wait_b.webp",
+    "tip": {
+      "x": 45.2,
+      "y": -4.0
+    }
+  },
+  "fish_sit_a": {
+    "width": 108,
+    "height": 72,
+    "path": "/sprites/outfits/town/fish_sit_a.webp",
+    "tip": {
+      "x": 49.9,
+      "y": -1.7
+    }
+  },
+  "fish_sit_b": {
+    "width": 98,
+    "height": 74,
+    "path": "/sprites/outfits/town/fish_sit_b.webp",
+    "tip": {
+      "x": 44.7,
+      "y": 0.4
+    }
+  },
+  "fish_bite": {
+    "width": 108,
+    "height": 74,
+    "path": "/sprites/outfits/town/fish_bite.webp",
+    "tip": {
+      "x": 51.5,
+      "y": -2.4
+    }
+  },
+  "fish_strike": {
+    "width": 104,
+    "height": 74,
+    "path": "/sprites/outfits/town/fish_strike.webp",
+    "tip": {
+      "x": 47.7,
+      "y": -20.6
+    }
+  },
+  "fish_pull_a": {
+    "width": 120,
+    "height": 73,
+    "path": "/sprites/outfits/town/fish_pull_a.webp",
+    "tip": {
+      "x": 56.3,
+      "y": -49.9
+    }
+  },
+  "fish_pull_b": {
+    "width": 102,
+    "height": 73,
+    "path": "/sprites/outfits/town/fish_pull_b.webp",
+    "tip": {
+      "x": 46.7,
+      "y": -22.8
+    }
+  },
+  "fish_catch": {
+    "width": 74,
+    "height": 79,
+    "path": "/sprites/outfits/town/fish_catch.webp",
+    "tip": {
+      "x": 32.8,
+      "y": -77.3
+    },
+    "hand": {
+      "x": -19.0,
+      "y": -34.6
+    }
+  },
+  "fish_cheer": {
+    "width": 80,
+    "height": 73,
+    "path": "/sprites/outfits/town/fish_cheer.webp",
+    "tip": {
+      "x": 35.8,
+      "y": -71.4
+    },
+    "hand": {
+      "x": 0.6,
+      "y": -30.1
+    }
+  },
+  "fish_miss": {
+    "width": 80,
+    "height": 81,
+    "path": "/sprites/outfits/town/fish_miss.webp",
+    "tip": {
+      "x": 36.5,
+      "y": -78.2
+    }
+  },
+  "fish_shoulder": {
+    "width": 92,
+    "height": 73,
+    "path": "/sprites/outfits/town/fish_shoulder.webp",
+    "tip": {
+      "x": -42.2,
+      "y": -61.3
+    }
   }
 }

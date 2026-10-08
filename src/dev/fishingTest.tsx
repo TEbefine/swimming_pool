@@ -80,8 +80,9 @@ export function mountFishingTest(root: Root, App: AppComponent, which: 'story' |
 /** Put Yunseul on the pier, a few steps from the fishing spot. */
 function placePlayer(engine: GameEngine) {
   (window as unknown as { __eng: GameEngine }).__eng = engine; // test mode: handy in the browser console
-  engine.localPlayer.x = FISHING_SPOT.x - 36;
-  engine.localPlayer.y = FISHING_SPOT.y;
+  const fc = engine.getRoom().fishing; // front-facing rooms (Quiet Bay): stand on the front edge
+  engine.localPlayer.x = fc ? 420 : FISHING_SPOT.x - 36;
+  engine.localPlayer.y = fc ? fc.standY : FISHING_SPOT.y;
   engine.localPlayer.facing = 1;
 }
 

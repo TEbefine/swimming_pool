@@ -997,15 +997,18 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady }) => {
               </div>
             )}
 
-            {/* Action & Emotes Bar + Chat Bar — hidden while a dialogue or story window is open (they covered its text) */}
+            {/* Action & Emotes Bar + Chat Bar — hidden while a dialogue or story window is open (they covered its text).
+                The emote bar also hides while fishing: at Quiet Bay the float lands in the water right under it. */}
             {!dialogOpen && !storyPanel && (
               <>
-                <ActionBar
-                  playerState={playerState}
-                  currentAction={currentAction}
-                  onTriggerEmote={handleTriggerEmote}
-                  onToggleState={() => engineRef.current?.toggleWaterLand()}
-                />
+                {!fishingOpen && (
+                  <ActionBar
+                    playerState={playerState}
+                    currentAction={currentAction}
+                    onTriggerEmote={handleTriggerEmote}
+                    onToggleState={() => engineRef.current?.toggleWaterLand()}
+                  />
+                )}
                 <ChatBar onSendMessage={handleSendMessage} />
               </>
             )}
