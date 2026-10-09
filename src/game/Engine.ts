@@ -1166,7 +1166,7 @@ export class GameEngine {
 
     // Priority 3: NPC talk spot / in range → talk
     if (this.room.npcs) {
-      for (const npc of this.room.npcs) {
+      for (const npc of this.onDutyNpcs()) {
         if (this.isPlayerInNpcTalkRange(npc)) {
           return { id: 'talk', label: 'Talk' };
         }
@@ -1341,6 +1341,19 @@ export class GameEngine {
   }
 
 
+  /** NPCs working right now: an NPC with `hours` (a shift, Bangkok time) is only here during it.
+   *  All of them are still loaded with the room, so the shift change needs no reload. */
+  private onDutyNpcs(): NpcDef[] {
+    const all = this.room.npcs ?? [];
+    if (!all.some((n) => n.hours)) return all;
+    const h = bangkokHour(undefined, this.room.view?.fixedHour);
+    return all.filter((n) => {
+      if (!n.hours || n.id === this.dialogNpcId) return true; // never vanish mid-talk
+      const [from, to] = n.hours;
+      return from <= to ? h >= from && h < to : h >= from || h < to;
+    });
+  }
+
   /** Find the nearest NPC whose talkSpot the local player is inside. */
   private findNearestTalkSpotNpc(): { id: string; name: string; x: number; y: number } | null {
     if (!this.room.npcs) return null;
@@ -1348,7 +1361,7 @@ export class GameEngine {
     const py = this.localPlayer.y;
     let best: { id: string; name: string; x: number; y: number } | null = null;
     let bestDist = Infinity;
-    for (const npc of this.room.npcs) {
+    for (const npc of this.onDutyNpcs()) {
       const curState = this.getNpcCurrentState(npc);
       if (this.isPlayerInNpcTalkRange(npc, curState)) {
         const dist = Math.hypot(px - curState.x, py - curState.y);
@@ -2491,7 +2504,7 @@ export class GameEngine {
 
     // 6b. NPCs (depth-sorted by dynamic feet y)
     if (this.room.npcs) {
-      for (const npc of this.room.npcs) {
+      for (const npc of this.onDutyNpcs()) {
         const state = this.getNpcRenderState(npc, time);
         if (!spanVisible(v, state.x, 110)) continue;
         const capturedNpc = npc;
@@ -2831,6 +2844,12 @@ export class GameEngine {
   private isPlayerInNpcTalkRange(npc: NpcDef, state?: NpcRenderState): boolean {
     const px = this.localPlayer.x;
     const py = this.localPlayer.y;
+    // Front-facing fishing rooms (Quiet Bay): on the fishing edge ◯ always fishes, so a guide
+    // standing nearby never steals the button. Step back from the edge to talk.
+    if (this.room.fishing) {
+      const edge = this.room.interactables?.find((i) => i.id === 'pier_end')?.rect;
+      if (edge && py >= edge.y && px >= edge.x && px <= edge.x + edge.width) return false;
+    }
     const curState = state ?? this.getNpcCurrentState(npc);
     const spot = this.npcTalkSpots.get(npc.id);
 
@@ -3284,7 +3303,7 @@ export class GameEngine {
     this.ctx.strokeStyle = '#ff00ff';
     this.ctx.lineWidth = 1.5;
     if (this.room.npcs) {
-      for (const npc of this.room.npcs) {
+      for (const npc of this.onDutyNpcs()) {
         const curState = this.getNpcCurrentState(npc);
         const spot = this.npcTalkSpots.get(npc.id);
         if (spot) {

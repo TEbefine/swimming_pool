@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/idle.webp"
+  },
+  "side_idle": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/back_idle.webp"
+  },
+  "walk1": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/walk1.webp"
+  },
+  "walk2": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/walk2.webp"
+  },
+  "wave": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/wave.webp"
+  },
+  "talk": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/talk.webp"
+  },
+  "happy": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/happy.webp"
+  },
+  "thinking": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/thinking.webp"
+  },
+  "point": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/point.webp"
+  },
+  "radio": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/radio.webp"
+  },
+  "clipboard": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/clipboard.webp"
+  },
+  "release": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/release.webp"
+  },
+  "bow": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/bow.webp"
+  },
+  "thumbsup": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/thumbsup.webp"
+  },
+  "blink": {
+    "width": 76,
+    "height": 82,
+    "path": "/sprites/npc/kai/blink.webp"
+  }
+}

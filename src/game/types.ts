@@ -97,6 +97,9 @@ export interface NpcDef {
   /** Optional, for NPCs that stand still: now and then play these poses in a row (e.g. a candy
    *  seller clacking his scissors), then go back to idle for `pauseMs`. */
   idleLoop?: { poses: string[]; frameMs: number; pauseMs: number };
+  /** Optional shift, Bangkok hours [from, to): only here between these hours (wraps past midnight,
+   *  e.g. [18, 6] = 18:00–05:59). Two NPCs on one spot with opposite hours = a shift change. */
+  hours?: [number, number];
 }
 
 export interface RoomDefinition {

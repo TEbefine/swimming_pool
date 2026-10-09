@@ -1,6 +1,7 @@
 import { getTipForDate } from './tips';
 import { getTonightGenre } from '../rooms/club';
 import { npcName } from './npcNames';
+import { bangkokHour } from '../world/cityView';
 import { getAiTipForDate, getPromptTrickForDate, getThinkingHabitForDate } from './aiTips';
 import { getNewsLine } from './aiNews';
 import { getTodayOmen, OMEN_CLOSING } from './spiritOmens';
@@ -55,6 +56,15 @@ export interface DialogScript {
   /** All dialog nodes keyed by id. */
   nodes: Record<string, DialogNode>;
 }
+
+/** The Fishing Guides' menu (Nami + Kai share it). */
+const GUIDE_MENU: DialogChoice[] = [
+  { label: 'How do I fish?', next: 'how' },
+  { label: 'Advanced tips', next: 'tips' },
+  { label: 'What bites now?', next: 'now' },
+  { label: 'About your shift', next: 'shift' },
+  { label: 'Bye', next: 'bye' },
+];
 
 export const dialogues: Record<string, DialogScript> = {
   barista: {
@@ -565,6 +575,127 @@ export const dialogues: Record<string, DialogScript> = {
     },
   },
 
+
+  // ---- Quiet Bay Fishing Guides (part-time staff, ~20). Same spot, two shifts (Bangkok time):
+  //      Nami = day 06:00–17:59 · Kai = night 18:00–05:59 (rooms/lakePier.ts). Docs: characters/bay-staff-*.md
+  nami: {
+    name: npcName('nami'),
+    portraitDir: '/sprites/npc/nami/portrait',
+    faces: ['neutral', 'smile', 'explain', 'thinking', 'confident'],
+    accent: '#4FA3A0',
+    closePose: 'bow',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: "{greeting}! I'm Nami, the Fishing Guide on the day shift.", pose: 'wave', face: 'smile' },
+          { text: 'Want to fish? I can help!', pose: 'talk', face: 'neutral' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      how: {
+        lines: [
+          { text: 'Walk along the front edge of the breakwater. Anywhere is fine!', pose: 'point', face: 'explain' },
+          { text: 'Press ◯ there. Hold it to power up, let go to cast.', pose: 'talk', face: 'explain' },
+          { text: "Small nibbles are fake. Don't pull yet...", pose: 'thinking', face: 'thinking' },
+          { text: 'When the float goes all the way under, PULL!', pose: 'happy', face: 'smile' },
+          { text: 'Then tap ◯ to keep the fish inside the net until the bar is full.', pose: 'thumbsup', face: 'confident' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      tips: {
+        lines: [
+          { text: 'Watch the power gauge. Let go in the gold "Nice!" band near the top.', pose: 'clipboard', face: 'explain' },
+          { text: 'A Nice! cast brings the fish sooner, and it brings bigger, rarer ones.', pose: 'talk', face: 'smile' },
+          { text: 'Distance matters too. Some fish live near the wall, the big ones live far out.', pose: 'point', face: 'explain' },
+          { text: 'Rare fish give you less time to strike. Under half a second for the toughest!', pose: 'thinking', face: 'thinking' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      now: {
+        lines: [
+          { text: 'Daytime is calm. Lots of Commons and Rares out there.', pose: 'talk', face: 'neutral' },
+          { text: 'And on bright days... a Sun Carp. A God-tier fish! I saw it once.', pose: 'happy', face: 'smile' },
+          { text: 'Catch an Epic or better and the whole bay hears about it in the chat.', pose: 'thumbsup', face: 'confident' },
+          { text: 'Every fish you catch goes in your Fish Book. Try to fill it!', pose: 'clipboard', face: 'explain' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      shift: {
+        lines: [
+          { text: "I'm here from six in the morning until six in the evening.", pose: 'radio', face: 'neutral' },
+          { text: 'After that, Kai takes the night shift. He knows all the night fish.', pose: 'talk', face: 'explain' },
+          { text: 'I study at uni. On free days, the sea is my classroom!', pose: 'happy', face: 'smile' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      bye: {
+        lines: [
+          { text: 'Good luck! Take your time, the bay is quiet.', pose: 'bow', face: 'smile' },
+        ],
+      },
+    },
+  },
+  kai: {
+    name: npcName('kai'),
+    portraitDir: '/sprites/npc/kai/portrait',
+    faces: ['neutral', 'smile', 'explain', 'thinking', 'confident'],
+    accent: '#2F3B5C',
+    closePose: 'bow',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: "{greeting}. I'm Kai, Fishing Guide on the night shift.", pose: 'wave', face: 'smile' },
+          { text: 'The bay is dark, so stay on the breakwater. How can I help?', pose: 'talk', face: 'neutral' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      how: {
+        lines: [
+          { text: 'Walk along the front edge and press ◯. Any spot works.', pose: 'point', face: 'explain' },
+          { text: 'Hold ◯ to power up. Let go to cast.', pose: 'talk', face: 'explain' },
+          { text: "Nibbles are fake. Don't pull.", pose: 'thinking', face: 'thinking' },
+          { text: 'The float goes under. That is the moment. Pull.', pose: 'point', face: 'explain' },
+          { text: 'Then tap ◯ to keep the fish in the net. Fill the bar and it is yours.', pose: 'thumbsup', face: 'confident' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      tips: {
+        lines: [
+          { text: 'Let go in the gold "Nice!" band. Faster bites, bigger fish, rarer fish.', pose: 'clipboard', face: 'explain' },
+          { text: 'Where the float lands decides who bites. Near, middle or far water.', pose: 'point', face: 'explain' },
+          { text: 'The big night fish live far out. Cast long.', pose: 'talk', face: 'neutral' },
+          { text: 'Rare fish strike fast. Keep your thumb ready on ◯.', pose: 'thinking', face: 'thinking' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      now: {
+        lines: [
+          { text: 'Night is the best time for the rare ones. Some only bite after dark.', pose: 'talk', face: 'explain' },
+          { text: 'Lantern fish near the wall. Jade Moon Koi in the middle water.', pose: 'point', face: 'explain' },
+          { text: 'Far out: the Ghost Pirate Fish... and the Star Swallower.', pose: 'thinking', face: 'thinking' },
+          { text: 'They say a Moon Whale Calf sings here once in a long while. God tier.', pose: 'talk', face: 'neutral' },
+          { text: 'See the blue specks in the water? Umi-hotaru, sea fireflies. They mean the sea is calm.', pose: 'happy', face: 'smile' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      shift: {
+        lines: [
+          { text: 'I work six in the evening to six in the morning.', pose: 'radio', face: 'neutral' },
+          { text: 'Nami has the day shift. She is the cheerful one.', pose: 'talk', face: 'smile' },
+          { text: 'Night is quiet. I study between rounds. Good for exams.', pose: 'clipboard', face: 'neutral' },
+        ],
+        choices: GUIDE_MENU,
+      },
+      bye: {
+        lines: [
+          { text: 'Mind the edge in the dark. Good fishing.', pose: 'bow', face: 'neutral' },
+        ],
+      },
+    },
+  },
+
 };
 
 const GENRE_LABELS: Record<string, string> = {
@@ -576,11 +707,8 @@ const GENRE_LABELS: Record<string, string> = {
 
 /** Get a time-of-day greeting based on Asia/Bangkok local hour. */
 function getBangkokGreeting(): string {
-  const hour = parseInt(
-    new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Bangkok' })
-      .format(new Date()),
-    10
-  );
+  const hour = bangkokHour(); // Bangkok time (and ?hour= when testing)
+  if (hour < 4) return 'Good evening'; // still the night shift
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';

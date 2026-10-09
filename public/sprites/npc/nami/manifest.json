@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/idle.webp"
+  },
+  "side_idle": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/back_idle.webp"
+  },
+  "walk1": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/walk1.webp"
+  },
+  "walk2": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/walk2.webp"
+  },
+  "wave": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/wave.webp"
+  },
+  "talk": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/talk.webp"
+  },
+  "happy": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/happy.webp"
+  },
+  "thinking": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/thinking.webp"
+  },
+  "point": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/point.webp"
+  },
+  "radio": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/radio.webp"
+  },
+  "clipboard": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/clipboard.webp"
+  },
+  "release": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/release.webp"
+  },
+  "bow": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/bow.webp"
+  },
+  "thumbsup": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/thumbsup.webp"
+  },
+  "blink": {
+    "width": 74,
+    "height": 82,
+    "path": "/sprites/npc/nami/blink.webp"
+  }
+}
