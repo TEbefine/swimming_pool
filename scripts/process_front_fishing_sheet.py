@@ -79,6 +79,9 @@ def fill_marker(a, mask):
     return a
 
 
+SQUEEZE_X = float(os.environ.get('SQUEEZE_X', '1'))
+
+
 def main(src: str, outfit: str) -> None:
     order = ORDERS[outfit]
     sheet = np.array(Image.open(src).convert('RGBA'))
@@ -130,12 +133,13 @@ def main(src: str, outfit: str) -> None:
         bb = img.getbbox()
         img = img.crop(bb)
         ox0, oy0 = bb[0], bb[1]
-        nw, nh = max(1, round(img.width * scale)), max(1, round(img.height * scale))
+        sx = scale * SQUEEZE_X                         # SQUEEZE_X: same narrowing as the walk frames
+        nw, nh = max(1, round(img.width * sx)), max(1, round(img.height * scale))
         img = img.resize((nw, nh), Image.Resampling.LANCZOS)
         arr = np.array(img)
         arr[..., 3] = np.where(arr[..., 3] >= 110, 255, 0)
         feet_y = (feet - oy0 + 1) * scale            # body bottom inside the scaled crop
-        anchor = (cx - ox0) * scale + ref_off         # where the feet-centre should be
+        anchor = (cx - ox0) * sx + ref_off         # where the feet-centre should be
         half = int(np.ceil(max(anchor, nw - anchor))) + 1
         hgt = int(np.ceil(max(nh, feet_y)))
         canvas = Image.new('RGBA', (half * 2, hgt), (0, 0, 0, 0))
@@ -147,7 +151,7 @@ def main(src: str, outfit: str) -> None:
         entry = {'width': canvas.width, 'height': canvas.height, 'path': f'/sprites/outfits/{outfit}/{name}.webp'}
 
         def to_anchor(p):
-            return {'x': round((p[0] - ox0) * scale + px_ - half, 1), 'y': round((p[1] - oy0) * scale + py_ - hgt, 1)}
+            return {'x': round((p[0] - ox0) * sx + px_ - half, 1), 'y': round((p[1] - oy0) * scale + py_ - hgt, 1)}
         if tip:
             entry['tip'] = to_anchor(tip)
         if hand:
