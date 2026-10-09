@@ -16,7 +16,9 @@ export const lakePierRoom: RoomDefinition = {
   schedule: 'always',
   width: 1024,
   height: 576,
-  outfit: 'town',
+  // everyone at the bay wears the angler outfit (cap + fishing vest): walk + front-facing fishing frames
+  // in public/sprites/outfits/angler/ (docs: characters/bay-fishing-outfit.md)
+  outfit: 'angler',
   actorScale: 1,
 
   bounds: { minX: 80, maxX: 956, minY: 348, maxY: 405 },

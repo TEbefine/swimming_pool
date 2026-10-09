@@ -1,0 +1,230 @@
+{
+  "idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/idle.webp"
+  },
+  "side_idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/back_idle.webp"
+  },
+  "walk1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/walk1.webp"
+  },
+  "walk2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/walk2.webp"
+  },
+  "wave": {
+    "width": 55,
+    "height": 74,
+    "path": "/sprites/outfits/angler/wave.webp"
+  },
+  "talk": {
+    "width": 54,
+    "height": 73,
+    "path": "/sprites/outfits/angler/talk.webp"
+  },
+  "happy": {
+    "width": 53,
+    "height": 75,
+    "path": "/sprites/outfits/angler/happy.webp"
+  },
+  "walk_down1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 48,
+    "height": 82,
+    "path": "/sprites/outfits/angler/thinking.webp"
+  },
+  "sit": {
+    "width": 52,
+    "height": 58,
+    "path": "/sprites/outfits/angler/sit.webp"
+  },
+  "lie": {
+    "width": 65,
+    "height": 51,
+    "path": "/sprites/outfits/angler/lie.webp"
+  },
+  "jump": {
+    "width": 52,
+    "height": 71,
+    "path": "/sprites/outfits/angler/jump.webp"
+  },
+  "fish_ready": {
+    "width": 94,
+    "height": 74,
+    "path": "/sprites/outfits/angler/fish_ready.webp",
+    "tip": {
+      "x": 43.1,
+      "y": -4.5
+    }
+  },
+  "fish_windup": {
+    "width": 84,
+    "height": 85,
+    "path": "/sprites/outfits/angler/fish_windup.webp",
+    "tip": {
+      "x": -37.2,
+      "y": -81.2
+    }
+  },
+  "fish_cast": {
+    "width": 112,
+    "height": 74,
+    "path": "/sprites/outfits/angler/fish_cast.webp",
+    "tip": {
+      "x": 51.1,
+      "y": -5.2
+    }
+  },
+  "fish_follow": {
+    "width": 92,
+    "height": 74,
+    "path": "/sprites/outfits/angler/fish_follow.webp",
+    "tip": {
+      "x": 41.3,
+      "y": -4.6
+    }
+  },
+  "fish_wait_a": {
+    "width": 94,
+    "height": 75,
+    "path": "/sprites/outfits/angler/fish_wait_a.webp",
+    "tip": {
+      "x": 42.4,
+      "y": -3.9
+    }
+  },
+  "fish_wait_b": {
+    "width": 92,
+    "height": 75,
+    "path": "/sprites/outfits/angler/fish_wait_b.webp",
+    "tip": {
+      "x": 41.9,
+      "y": -3.5
+    }
+  },
+  "fish_sip": {
+    "width": 92,
+    "height": 75,
+    "path": "/sprites/outfits/angler/fish_sip.webp",
+    "tip": {
+      "x": 42.2,
+      "y": -3.5
+    }
+  },
+  "fish_yawn": {
+    "width": 90,
+    "height": 75,
+    "path": "/sprites/outfits/angler/fish_yawn.webp",
+    "tip": {
+      "x": 40.1,
+      "y": -3.5
+    }
+  },
+  "fish_sit_a": {
+    "width": 104,
+    "height": 63,
+    "path": "/sprites/outfits/angler/fish_sit_a.webp",
+    "tip": {
+      "x": 47.2,
+      "y": -4.3
+    }
+  },
+  "fish_sit_b": {
+    "width": 106,
+    "height": 63,
+    "path": "/sprites/outfits/angler/fish_sit_b.webp",
+    "tip": {
+      "x": 48.2,
+      "y": -4.1
+    }
+  },
+  "fish_bite": {
+    "width": 110,
+    "height": 68,
+    "path": "/sprites/outfits/angler/fish_bite.webp",
+    "tip": {
+      "x": 49.7,
+      "y": -17.7
+    }
+  },
+  "fish_strike": {
+    "width": 100,
+    "height": 67,
+    "path": "/sprites/outfits/angler/fish_strike.webp",
+    "tip": {
+      "x": 45.4,
+      "y": -27.2
+    }
+  },
+  "fish_pull_a": {
+    "width": 110,
+    "height": 70,
+    "path": "/sprites/outfits/angler/fish_pull_a.webp",
+    "tip": {
+      "x": 51.4,
+      "y": -23.8
+    }
+  },
+  "fish_pull_b": {
+    "width": 104,
+    "height": 70,
+    "path": "/sprites/outfits/angler/fish_pull_b.webp",
+    "tip": {
+      "x": 48.3,
+      "y": -24.6
+    }
+  },
+  "fish_catch": {
+    "width": 78,
+    "height": 76,
+    "path": "/sprites/outfits/angler/fish_catch.webp",
+    "tip": {
+      "x": 33.4,
+      "y": -73.0
+    },
+    "hand": {
+      "x": -0.8,
+      "y": -28.6
+    }
+  },
+  "fish_miss": {
+    "width": 80,
+    "height": 77,
+    "path": "/sprites/outfits/angler/fish_miss.webp",
+    "tip": {
+      "x": 34.6,
+      "y": -74.2
+    }
+  }
+}

@@ -3,6 +3,7 @@
 Usage:
   python3 scripts/process_front_fishing_sheet.py src/assets/outfit_town_fishing_sheet.webp town
   python3 scripts/process_front_fishing_sheet.py src/assets/outfit_jinbei_fishing_sheet.webp jinbei
+  python3 scripts/process_front_fishing_sheet.py src/assets/outfit_angler_fishing_sheet.webp angler
 
 Writes public/sprites/outfits/<outfit>/fish_<pose>.webp + manifest entries with
   "tip":  the rod tip (red marker #E0403A) in px from the frame's bottom-centre anchor (x right, y up = negative)
@@ -28,13 +29,14 @@ ORDERS = {
              'wait_a', 'wait_b', 'sit_a', 'sit_b',
              'bite', 'strike', 'pull_a', 'pull_b',
              'catch', 'cheer', 'miss', 'shoulder'],
-    # jinbei sheet (2026-10-09)
+    # jinbei sheet (2026-10-09); the angler sheet uses the same order
     'jinbei': ['ready', 'windup', 'cast', 'follow',
                'wait_a', 'wait_b', 'sip', 'yawn',
                'sit_a', 'sit_b', 'bite', 'strike',
                'pull_a', 'pull_b', 'catch', 'miss'],
 }
-REF_OUTFIT = {'town': 'town', 'jinbei': 'town'}  # whose front idle sets the size
+ORDERS['angler'] = ORDERS['jinbei']  # angler outfit (cap + vest), 2026-10-09 — Quiet Bay
+REF_OUTFIT = {'town': 'town', 'jinbei': 'town', 'angler': 'angler'}  # whose front idle sets the size
 ALPHA_CUT = 40
 
 

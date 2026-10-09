@@ -133,7 +133,7 @@ export interface RoomDefinition {
   elements?: ElementDef[];
   actorScale?: number;
   /** What the player wears here: sprites in public/sprites/outfits/<outfit>/ ('swim' = the base swimsuit art). */
-  outfit: 'swim' | 'cafe' | 'pajamas' | 'town' | 'dalbit' | 'jinbei';
+  outfit: 'swim' | 'cafe' | 'pajamas' | 'town' | 'dalbit' | 'jinbei' | 'angler';
   exits?: {
     triggerBox: [number, number, number, number];
     targetRoom: string;
