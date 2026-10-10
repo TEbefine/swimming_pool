@@ -33,15 +33,24 @@ export interface StoryState {
 
 // The test page (?test=...) plays in its own sandbox save, so testing never touches the real story.
 const IS_TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test');
-const KEY = IS_TEST ? 'dalbit_test_sandbox' : 'dalbit_prologue_v1';
+const GUEST_KEY = IS_TEST ? 'dalbit_test_sandbox' : 'dalbit_prologue_v1';
+// With a Player ID (ID-01 c) the device keeps an address-scoped DRAFT while you play; the server keeps
+// the real save, written at the end of each day (game/saves/cloud.ts). The draft is never authoritative.
+let KEY = GUEST_KEY;
+const draftKey = (address: string) => `dalbit_draft_v1_${address}`;
+const metaKey = (address: string) => `dalbit_draft_meta_v1_${address}`;
+/** Which server save the draft continues from, and the day it last saved. */
+export interface DraftMeta { baseRevision: number | null; savedDay: number; pendingOp: { day: number; id: string } | null }
+let scope: string | null = null;
+let meta: DraftMeta = { baseRevision: null, savedDay: 0, pendingOp: null };
 
 function initialState(): StoryState {
   return { version: 1, step: 'd1_wake', day: 1, coins: 0, energy: 10, bag: {}, flags: {}, ledger: [], records: {}, counters: {} };
 }
 
-function load(): StoryState {
+function load(key = KEY): StoryState {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return initialState();
     const data = JSON.parse(raw) as Partial<StoryState>;
     if (data.version !== 1) return initialState();
@@ -148,4 +157,59 @@ export function recordSize(id: ItemId, cm: number): boolean {
 /** Start the story again from the first morning. */
 export function resetStory() {
   updateStory(() => initialState());
+}
+
+// ---- Player ID hooks (called by game/saves/cloud.ts only) --------------------------------------
+interface CloudStory { revision: number; day: number; state: StoryState }
+
+/** Switch the story to a Player ID's draft (or back to the guest save with null).
+ *  The server save wins when the draft is missing or continues an older save (another device saved later). */
+export function attachStory(address: string | null, cloud: CloudStory | null) {
+  if (IS_TEST) return;
+  scope = address;
+  if (!address) {
+    KEY = GUEST_KEY;
+    meta = { baseRevision: null, savedDay: 0, pendingOp: null };
+    state = load();
+  } else {
+    KEY = draftKey(address);
+    let stored: DraftMeta | null = null;
+    try { stored = JSON.parse(localStorage.getItem(metaKey(address)) ?? 'null') as DraftMeta | null; } catch { stored = null; }
+    const hasDraft = (() => { try { return localStorage.getItem(KEY) !== null; } catch { return false; } })();
+    if (cloud && (!hasDraft || !stored || stored.baseRevision !== cloud.revision)) {
+      state = { ...initialState(), ...cloud.state };
+      meta = { baseRevision: cloud.revision, savedDay: cloud.day, pendingOp: null };
+    } else if (hasDraft && stored) {
+      state = load();
+      meta = stored;
+    } else {
+      // First time with this Player ID: carry on from this browser's guest story (checked at day end).
+      state = load(GUEST_KEY);
+      meta = { baseRevision: null, savedDay: 0, pendingOp: null };
+    }
+    saveMeta();
+  }
+  save();
+  listeners.forEach((l) => l());
+}
+function saveMeta() {
+  if (!scope) return;
+  try { localStorage.setItem(metaKey(scope), JSON.stringify(meta)); } catch { /* storage blocked */ }
+}
+export function getDraftMeta(): DraftMeta | null {
+  return scope ? meta : null;
+}
+export function setDraftMeta(change: (m: DraftMeta) => DraftMeta) {
+  if (!scope) return;
+  meta = change(meta);
+  saveMeta();
+  listeners.forEach((l) => l());
+}
+/** The state as the server expects it: no empty bag stacks, no false flags. */
+export function storyForSave(s: StoryState = state): StoryState {
+  const bag: StoryState['bag'] = {};
+  for (const [id, n] of Object.entries(s.bag)) if (n && n > 0) bag[id as ItemId] = n;
+  const flags: Record<string, boolean> = {};
+  for (const [k, v] of Object.entries(s.flags)) if (v) flags[k] = true;
+  return { version: 1, step: s.step, day: s.day, coins: s.coins, energy: s.energy, bag, flags, ledger: s.ledger, records: s.records, counters: s.counters };
 }

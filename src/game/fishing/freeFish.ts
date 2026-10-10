@@ -45,7 +45,11 @@ export function freeIcon(id: string): string {
   return `/sprites/fish/${id}.webp`;
 }
 
-// ---- the Fish Book (collection), saved per browser ----------------------------------------
+// ---- the Fish Book (collection) -------------------------------------------------------------
+// Guest (no Player ID, or ?test=...): saved in this browser, every catch counts at once.
+// With a Player ID (ID-01 c): the book comes from the server. New catches wait in a PENDING list on
+// this device until the player shows them to a Fishing Guide (Nami / Kai), who records them through
+// /api/items (game/saves/cloud.ts). The book shown = the server book + the pending catches.
 export interface FishBookEntry {
   count: number;
   best: number | null; // cm
@@ -56,33 +60,59 @@ export interface FishBook {
   entries: Record<string, FishBookEntry>;
   total: number;
 }
+export interface PendingCatch { fish: string; sizeCm: number | null; caughtAt: number }
 
+const IS_TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test');
 // test mode (?test=...) keeps its own book so testing never fills the real one
-const KEY = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test')
-  ? 'free_fishing_book_test'
-  : 'free_fishing_book_v1';
-function load(): FishBook {
+const KEY = IS_TEST ? 'free_fishing_book_test' : 'free_fishing_book_v1';
+const pendingKey = (address: string) => `free_fishing_pending_v1_${address}`;
+const EMPTY: FishBook = { version: 1, entries: {}, total: 0 };
+
+function readJson<T>(key: string): T | null {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const d = JSON.parse(raw) as FishBook;
-      if (d.version === 1) return d;
-    }
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
   } catch {
-    // storage blocked — start fresh for this visit
+    return null; // storage blocked — start fresh for this visit
   }
-  return { version: 1, entries: {}, total: 0 };
 }
-let book: FishBook = load();
-const listeners = new Set<() => void>();
-function save() {
+function writeJson(key: string, value: unknown) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(book));
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {
     // ignore
   }
+}
+function loadLocal(): FishBook {
+  const d = readJson<FishBook>(KEY);
+  return d && d.version === 1 ? d : EMPTY;
+}
+function validPending(list: unknown): PendingCatch[] {
+  if (!Array.isArray(list)) return [];
+  return list.filter((c): c is PendingCatch => !!c && typeof c.fish === 'string' && typeof c.caughtAt === 'number' &&
+    (c.sizeCm === null || typeof c.sizeCm === 'number'));
+}
+
+let localBook: FishBook = loadLocal();
+/** The Player ID this book belongs to (null = guest). */
+let scope: string | null = null;
+let serverBook: FishBook = EMPTY;
+let pending: PendingCatch[] = [];
+let book: FishBook = localBook;
+const listeners = new Set<() => void>();
+
+function withCatch(b: FishBook, c: PendingCatch): FishBook {
+  const old = b.entries[c.fish];
+  const entry: FishBookEntry = old
+    ? { ...old, count: old.count + 1, best: c.sizeCm !== null && (old.best === null || c.sizeCm > old.best) ? c.sizeCm : old.best }
+    : { count: 1, best: c.sizeCm, first: c.caughtAt };
+  return { ...b, entries: { ...b.entries, [c.fish]: entry }, total: b.total + 1 };
+}
+function rebuild() {
+  book = scope ? pending.reduce(withCatch, serverBook) : localBook;
   listeners.forEach((l) => l());
 }
+
 export function getFishBook(): FishBook {
   return book;
 }
@@ -93,14 +123,51 @@ export function useFishBook(): FishBook {
 export function addToFishBook(id: string, sizeCm: number | null): { isNew: boolean; record: boolean } {
   const old = book.entries[id];
   const record = !!old && sizeCm !== null && (old.best === null || sizeCm > old.best);
-  const entry: FishBookEntry = old
-    ? { ...old, count: old.count + 1, best: sizeCm !== null && (old.best === null || sizeCm > old.best) ? sizeCm : old.best }
-    : { count: 1, best: sizeCm, first: Date.now() };
-  book = { ...book, entries: { ...book.entries, [id]: entry }, total: book.total + 1 };
-  save();
+  const c: PendingCatch = { fish: id, sizeCm, caughtAt: Date.now() };
+  if (scope) {
+    pending = [...pending, c];
+    writeJson(pendingKey(scope), pending);
+  } else {
+    localBook = withCatch(localBook, c);
+    writeJson(KEY, localBook);
+  }
+  rebuild();
   return { isNew: !old, record };
 }
 export function resetFishBook() {
-  book = { version: 1, entries: {}, total: 0 };
-  save();
+  if (scope) {
+    pending = [];
+    writeJson(pendingKey(scope), pending);
+  } else {
+    localBook = EMPTY;
+    writeJson(KEY, localBook);
+  }
+  rebuild();
+}
+
+// ---- Player ID hooks (called by game/saves/cloud.ts only) --------------------------------------
+/** Switch the book to a Player ID (with the server's book) or back to the guest book (null). */
+export function attachFishBook(address: string | null, server?: { entries: Record<string, FishBookEntry>; total: number }) {
+  if (IS_TEST) return;
+  scope = address;
+  serverBook = server ? { version: 1, entries: server.entries, total: server.total } : EMPTY;
+  pending = address ? validPending(readJson(pendingKey(address))) : [];
+  rebuild();
+}
+/** Catches waiting for a Fishing Guide (oldest first). */
+export function getPendingCatches(): PendingCatch[] {
+  return scope ? [...pending].sort((a, b) => a.caughtAt - b.caughtAt) : [];
+}
+export function usePendingCount(): number {
+  useFishBook();
+  return scope ? pending.length : 0;
+}
+/** After the server accepted (or finally refused) some catches: drop them and show the new server book. */
+export function settlePendingCatches(done: PendingCatch[], server?: { entries: Record<string, FishBookEntry>; total: number }) {
+  if (!scope) return;
+  const gone = new Set(done.map((c) => `${c.fish}@${c.caughtAt}`));
+  pending = pending.filter((c) => !gone.has(`${c.fish}@${c.caughtAt}`));
+  writeJson(pendingKey(scope), pending);
+  if (server) serverBook = { version: 1, entries: server.entries, total: server.total };
+  rebuild();
 }

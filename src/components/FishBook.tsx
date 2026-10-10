@@ -8,6 +8,7 @@ import {
   freeIcon,
   thaiSeason,
   useFishBook,
+  usePendingCount,
   type FreeFish,
   type Sheet,
 } from '../game/fishing/freeFish';
@@ -59,6 +60,7 @@ interface FishBookProps {
 
 export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = false }) => {
   const book = useFishBook();
+  const pending = usePendingCount();
   const [page, setPage] = useState(0);
   const [sel, setSel] = useState<string>(FREE_FISH[0].id);
   const [detail, setDetail] = useState(false); // phone: the big info card over the grid
@@ -136,6 +138,12 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
           <span style={{ ...box(950, 30, 250, 60), display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: fs(1.8, 7), color: '#FFF6E5', textShadow: `0 0.2cqw 0 ${INK}`, whiteSpace: 'nowrap' }}>
             {caughtKinds}/{FREE_FISH.length} kinds · {book.total} caught
           </span>
+          {pending > 0 && (
+            // Player ID: catches wait on this device until a Fishing Guide (Nami / Kai) records them
+            <span style={{ ...box(950, 88, 300, 40), display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: fs(1.5, 6), color: '#F4D98B', textShadow: `0 0.2cqw 0 ${INK}`, whiteSpace: 'nowrap' }}>
+              {pending} waiting · show the Fishing Guide
+            </span>
+          )}
           <button type="button" onClick={onToggle} aria-label="Close Fish Book"
             style={{ ...box(1262, 0, 90, 90), fontSize: fs(2.8, 10), color: '#FFF6E5', textShadow: `0 0.25cqw 0 ${INK}` }}>✕</button>
 

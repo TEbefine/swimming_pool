@@ -25,6 +25,9 @@ import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { LoadingScene } from './components/LoadingScene';
 import { music } from './game/audio/music';
+import { attachPlayer, getCloudAddress, recordPendingCatches } from './game/saves/cloud';
+import { FISHING_GUIDES, guideScript, withRecordResult } from './game/saves/guideRecord';
+import { getPendingCatches } from './game/fishing/freeFish';
 
 /** Context-action IDs that should route through engine.interact(). */
 const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(['talk', 'sit', 'stand', 'read']);
@@ -32,13 +35,18 @@ const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(
 interface AppProps {
   onOpenIdentity?: () => void;
   identityPaused?: boolean;
+  /** ID-01 (c): the verified Player ID (lowercase wallet address) the game saves to; null = guest. */
+  playerId?: string | null;
   /** Dev/test only: extra UI drawn on the game screen (e.g. the ?test=fishing chip). */
   devOverlay?: React.ReactNode;
   /** Dev/test only: runs once the engine has started. */
   onEngineReady?: (engine: GameEngine) => void;
 }
 
-export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdentity, identityPaused = false }) => {
+export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdentity, identityPaused = false, playerId = null }) => {
+  // Player ID saves: load this ID's Fish Book + story (or switch back to guest saves).
+  useEffect(() => { void attachPlayer(playerId); }, [playerId]);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -491,6 +499,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         void startFishing(engine, 'free');
         return;
       }
+      // Fishing Guides record this Player ID's pending catches (ID-01 c)
+      if (actionId === 'talk' && FISHING_GUIDES.has(targetId) && dialogues[targetId]) {
+        openDialog(targetId, guideScript(dialogues[targetId], getPendingCatches().length, getCloudAddress() !== null));
+        return;
+      }
       if (actionId === 'talk' && dialogues[targetId]) {
         openDialog(targetId);
       }
@@ -724,7 +737,12 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       npcId={dialogNpcId}
       script={dialogScript}
       onLineChange={handleDialogLineChange}
-      onNodeEnter={storyActive ? (nodeId) => onStoryNode(dialogNpcId, nodeId) : undefined}
+      onNodeEnter={(nodeId) => {
+        if (storyActive) onStoryNode(dialogNpcId, nodeId);
+        if (FISHING_GUIDES.has(dialogNpcId) && nodeId === 'record') {
+          void recordPendingCatches().then((r) => setDialogScript((cur) => (cur ? withRecordResult(cur, r) : cur)));
+        }
+      }}
       onClose={closeDialog}
       directionNudge={dialogDpadNudge}
       confirmTrigger={dialogConfirmTrigger}

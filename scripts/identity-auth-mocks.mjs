@@ -63,5 +63,5 @@ export async function mockIdentityAuth(context, origin) {
     return route.fulfill({ json: { access_token: jwt(claims), id_token: jwt(claims), refresh_token: data.get('refresh_token'),
       expires_in: '3600', token_type: 'Bearer', user_id: claims.uid, project_id: 'lumen-bay' } });
   });
-  return { expire: () => { expired = true; }, signedLogins, apiRequests };
+  return { expire: () => { expired = true; }, signedLogins, apiRequests, verifyToken: services.verifyToken };
 }

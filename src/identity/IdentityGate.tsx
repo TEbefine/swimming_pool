@@ -20,8 +20,11 @@ function IdentityButton({ children, onClick, disabled, secondary }: { children: 
   return <button type="button" className={`identity-button ${secondary ? 'identity-secondary' : ''}`} onClick={onClick} disabled={disabled}>{children}</button>;
 }
 
-export function IdentityGate({ children }: { children: (options: { onOpenIdentity: () => void; identityPaused: boolean }) => ReactNode }) {
+export function IdentityGate({ children }: { children: (options: { onOpenIdentity: () => void; identityPaused: boolean; playerId: string | null }) => ReactNode }) {
   const [stage, setStage] = useState<Stage>('loading');
+  // ID-01 (c): the verified Player ID the game saves to. Kept while the gate re-checks (tab switch),
+  // cleared only when the device has no identity or a different one.
+  const [playerId, setPlayerId] = useState<string | null>(null);
   const [vault, setVault] = useState<Vault | null>(null);
   const [entered, setEntered] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -74,7 +77,8 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
       if (ticket !== epoch.current) return;
       // Keep even a damaged envelope as the expected value for explicit recovery.
       setVault(stored.vault); session.current = null;
-      if (!stored.vault) { setStage('welcome'); return; }
+      if (!stored.vault) { setPlayerId(null); setStage('welcome'); return; }
+      setPlayerId(id => (id === stored.vault?.address ? id : null));
       const module: typeof import('./vault') = await cryptoModule();
       if (ticket !== epoch.current) return;
       module.validateVault(stored.vault);
@@ -83,6 +87,7 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
         const verified = await authSession.resume(stored.vault.address, controller.signal);
         if (ticket !== epoch.current) return;
         session.current = verified;
+        if (verified) setPlayerId(verified.address);
       }
       if (ticket !== epoch.current) return;
       const recent = session.current !== null;
@@ -180,6 +185,7 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
           const verified = await authSession.login(next.address, message => account.signMessage({ message }), controller.signal);
           if (ticket !== epoch.current) return;
           session.current = verified;
+          setPlayerId(verified.address);
           await markFirebaseSession(next.address, next);
         }
         if (ticket !== epoch.current) return;
@@ -206,6 +212,7 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
           const verified = await authSession.login(vault.address, message => account.signMessage({ message }), controller.signal);
           if (ticket !== epoch.current) return;
           session.current = verified;
+          setPlayerId(verified.address);
           await markFirebaseSession(vault.address, vault);
           if (ticket === epoch.current) setStage('settings');
         } else if (purpose === 'reveal') { setPhrase(result.secret.mnemonic); setStage('reveal'); }
@@ -223,7 +230,7 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
 
   return <>
     {entered && <div inert={stage !== 'closed'} style={stage === 'closed' ? undefined : { visibility: 'hidden', pointerEvents: 'none' }}>
-      {children({ onOpenIdentity: () => void refresh(true), identityPaused: stage !== 'closed' })}
+      {children({ onOpenIdentity: () => void refresh(true), identityPaused: stage !== 'closed', playerId })}
     </div>}
     {stage !== 'closed' && <div className="identity-cover">
       <GameBoyMobile canvasRef={canvasRef} playerState="land" currentAction="idle" playerName="Player ID" floatColor="red" playerCount={0} chatLog={[]}
