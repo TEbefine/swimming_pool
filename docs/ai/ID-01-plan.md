@@ -126,3 +126,7 @@ Vocabulary: **step-up authentication** means asking for fresh proof before a sen
 ## Step (b) implementation notes — 2026-10-08
 
 Branch `id-01b-login` targets `integrate/id-01a`. Review/config/rules-deploy instructions: [ID-01b-review.md](ID-01b-review.md). API session restoration verifies Firebase tokens without refreshing wallet-signature time. Auth is lazy after first unlock and is loaded on returning visits to restore the saved session. To honor the explicit one-write login scope, automatic nonce cleanup is deferred; expired markers can be removed manually only after expiry, with expiry checks still enforced. No rules deployment, items or WebSocket authentication is included.
+
+## Step (c) implementation notes — 2026-10-10
+
+Branch `id-01c-saves` (from `id-01b-login`, `main` merged). Review packet and deploy steps: [ID-01c-review.md](ID-01c-review.md). Built as planned with these decisions: one route `/api/items` (ops `load`, `fishbook.record`, `story.saveDay`) instead of one route per save type; the Fishing Guides Nami (day) and Kai (night) are "the NPC" that finishes Lumen Bay fishing; a missed Dalbit day-end save is caught up by the next day with scaled bounds; story flags/counters are allowlisted by a module shared with the game. Cards and community memory fields are reserved in the document but nothing writes them yet. Server-rolled cast tickets are the proposed next anti-cheat step, because catches are still rolled on the device.
