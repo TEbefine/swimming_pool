@@ -20,7 +20,7 @@ async function collect(directory) {
   }
 }
 for (const path of ['api', 'server/identity', 'server/saves']) await collect(path);
-for (const path of ['package.json', 'tsconfig.json', 'src/identity/loginMessage.ts', 'src/game/fishing/freeFishCatalog.ts', 'src/game/story/items.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
+for (const path of ['package.json', 'tsconfig.json', 'src/identity/loginMessage.ts', 'src/game/fishing/freeFishCatalog.ts', 'src/game/story/items.ts', 'src/game/story/storyKeys.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
 const regionConfig = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
 assert.deepEqual(regionConfig.regions, ['sin1']);
 assert.deepEqual(regionConfig.functions['api/*.ts'].regions, ['sin1']);

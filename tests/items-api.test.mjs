@@ -1,7 +1,7 @@
 import './register-api-ts.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-const { createItemsHandler } = await import('../server/saves/handlers.ts');
+const { createItemsHandler, DailyLimiter } = await import('../server/saves/handlers.ts');
 const { IpLimiter } = await import('../server/identity/http.ts');
 const { LIMITS, STORY } = await import('../server/saves/rules.ts');
 
@@ -13,7 +13,7 @@ const NOON = Date.UTC(2026, 9, 10, 5, 0); // 12:00 Bangkok, rainy season
 const NIGHT = Date.UTC(2026, 9, 10, 15, 0); // 22:00 Bangkok
 const TOKEN = 'mock-id-token-for-tests-0123456789';
 
-function harness(start = NOON) {
+function harness(start = NOON, realPlayerLimits = false) {
   let clock = start;
   const players = new Map();
   const logs = new Map();
@@ -32,7 +32,8 @@ function harness(start = NOON) {
       return out.response;
     },
   };
-  const handler = createItemsHandler({ env, now: () => clock, limiter: new IpLimiter(1000) }, services);
+  const limits = realPlayerLimits ? {} : { playerLimiter: new IpLimiter(1000), playerDaily: new DailyLimiter(100_000) };
+  const handler = createItemsHandler({ env, now: () => clock, limiter: new IpLimiter(1000), ...limits }, services);
   return {
     players, logs,
     setClock: v => { clock = v; }, tick: ms => { clock += ms; }, now: () => clock,
@@ -154,7 +155,7 @@ test('a batch keeps its valid catches and reports the bad ones (one bad catch ne
 });
 
 test('Firestore-reserved names and per-player request flooding are refused', async () => {
-  const h = harness();
+  const h = harness(NOON, true);
   assert.equal((await h.call({ op: 'fishbook.record', operationId: '__reserved_name_xx__', catches: [{ fish: 'sardine', sizeCm: 15, caughtAt: NOON - 9_000 }] })).statusCode, 400);
   const bad = await h.call({ op: 'story.saveDay', operationId: opId(), world: 'dalbit', baseRevision: null, state: { ...day1(), flags: { __name__: true } } });
   assert.equal(bad.statusCode, 422);
@@ -163,6 +164,19 @@ test('Firestore-reserved names and per-player request flooding are refused', asy
   let limited = false;
   for (let i = 0; i < 60 && !limited; i++) limited = (await h.call({ op: 'load' })).statusCode === 429;
   assert.ok(limited, 'flooding one Player ID with loads is limited');
+  // …and per day, even when spread out under the per-minute limit.
+  const d = harness(NOON, true);
+  let dayLimited = false;
+  for (let i = 0; i < 700 && !dayLimited; i++) { d.tick(4_000); dayLimited = (await d.call({ op: 'load' })).statusCode === 429; }
+  assert.ok(dayLimited, 'a daily request cap per Player ID applies');
+});
+
+test('story flags and counters must be ones the story can actually set', async () => {
+  const h = harness();
+  assert.equal((await saveDay(h, { ...day1(), flags: { ...day1().flags, unlocked_day5_shop: true } }, null)).statusCode, 422);
+  assert.equal((await saveDay(h, { ...day1(), counters: { free_coins: 3 } }, null)).statusCode, 422);
+  const ok = await saveDay(h, { ...day1(), flags: { ...day1().flags, caught_eel: true, gave_yeot_father: true, gift_mother_d1: true }, counters: { sold_gu: 4, inn_sold_d1: 2 } }, null);
+  assert.equal(ok.statusCode, 200, JSON.stringify(ok.body));
 });
 
 test('night fish are accepted at night, day fish by day', async () => {

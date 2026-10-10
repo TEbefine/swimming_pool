@@ -154,8 +154,8 @@ export async function recordPendingCatches(): Promise<RecordResult> {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Saving is unavailable right now.';
       if (who !== address) return out;
-      if (err instanceof SaveRequestError && err.status === 422) {
-        // None of these will ever be accepted (bad clock, rules) — drop them so the rest can be saved.
+      if (err instanceof SaveRequestError && (err.status === 422 || err.status === 400)) {
+        // None of these will ever be accepted (bad clock, rules, malformed) — drop them so the rest can be saved.
         settlePendingCatches(chunk, undefined, who);
         out.dropped += chunk.length;
         out.error = message;
@@ -212,14 +212,15 @@ let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let retryDelay = 30_000;
 function retryOffline() {
   clearTimeout(retryTimer);
-  if (status !== 'offline' || !address) { retryDelay = 30_000; return; }
+  if (status !== 'offline' || !address) return;
   const a = address;
   address = null; // attachPlayer ignores a repeat of the current address
   void attachPlayer(a);
 }
 function scheduleRetry() {
+  if (status === 'loading') return; // an attempt is running: keep the timer state and the delay
   clearTimeout(retryTimer);
-  if (status !== 'offline' || !address) { retryDelay = 30_000; return; }
+  if (status !== 'offline' || !address) { retryDelay = 30_000; return; } // only a good load resets the delay
   retryTimer = setTimeout(retryOffline, retryDelay);
   retryDelay = Math.min(retryDelay * 2, 5 * 60_000);
 }

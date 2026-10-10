@@ -124,7 +124,9 @@ export function useFishBook(): FishBook {
 export function addToFishBook(id: string, sizeCm: number | null): { isNew: boolean; record: boolean } {
   const old = book.entries[id];
   const record = !!old && sizeCm !== null && (old.best === null || sizeCm > old.best);
-  const c: PendingCatch = { fish: id, sizeCm, caughtAt: Date.now() };
+  // caughtAt is the catch's identity on this device: keep it strictly increasing.
+  const lastAt = pending.length ? pending[pending.length - 1].caughtAt : 0;
+  const c: PendingCatch = { fish: id, sizeCm, caughtAt: Math.max(Date.now(), lastAt + 1) };
   if (scope) {
     pending = [...pending, c];
     writeJson(pendingKey(scope), pending);
@@ -157,7 +159,9 @@ export function attachFishBook(address: string | null, server?: { entries: Recor
 }
 /** Catches waiting for a Fishing Guide (oldest first). */
 export function getPendingCatches(): PendingCatch[] {
-  return scope ? [...pending].sort((a, b) => a.caughtAt - b.caughtAt) : [];
+  if (!scope) return [];
+  const seen = new Set<number>();
+  return [...pending].sort((a, b) => a.caughtAt - b.caughtAt).filter((c) => !seen.has(c.caughtAt) && !!seen.add(c.caughtAt));
 }
 export function usePendingCount(): number {
   useFishBook();

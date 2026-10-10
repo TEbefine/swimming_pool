@@ -6,6 +6,7 @@ import { ALL_FREE_FISH, READY_SHEETS, bangkokHourAt, isDayHourAt, thaiSeasonAt }
 import type { FreeFish } from '../../src/game/fishing/freeFishCatalog.js';
 import { ITEMS, ITEM_IDS } from '../../src/game/story/items.js';
 import type { ItemId } from '../../src/game/story/items.js';
+import { isStoryCounter, isStoryFlag } from '../../src/game/story/storyKeys.js';
 
 export class SaveError extends Error {
   status: number;
@@ -279,7 +280,7 @@ export function validateStoryDay(raw: unknown, prev: StorySave | undefined, rela
   if (Object.keys(flagsIn).length > LIMITS.maxFlags) throw new SaveError(422, 'Story flags are invalid.');
   const flags: Record<string, boolean> = {};
   for (const [k, v] of Object.entries(flagsIn)) {
-    if (!KEY_PATTERN.test(k) || typeof v !== 'boolean') throw new SaveError(422, 'Story flags are invalid.');
+    if (!KEY_PATTERN.test(k) || !isStoryFlag(k) || typeof v !== 'boolean') throw new SaveError(422, 'Story flags are invalid.');
     if (v) flags[k] = true;
   }
 
@@ -308,7 +309,7 @@ export function validateStoryDay(raw: unknown, prev: StorySave | undefined, rela
   if (Object.keys(countersIn).length > LIMITS.maxCounters) throw new SaveError(422, 'Story counters are invalid.');
   const counters: Record<string, number> = {};
   for (const [k, v] of Object.entries(countersIn)) {
-    if (!KEY_PATTERN.test(k)) throw new SaveError(422, 'Story counters are invalid.');
+    if (!KEY_PATTERN.test(k) || !isStoryCounter(k)) throw new SaveError(422, 'Story counters are invalid.');
     counters[k] = int(v, 0, 100_000, 'counters');
   }
 

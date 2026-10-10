@@ -701,7 +701,7 @@ const TASTE_LINES: Record<GiftTarget, Record<'love' | 'like' | 'neutral' | 'disl
   },
 };
 
-const giftFlag = (to: GiftTarget, day: number) => `gift_${to}_d${day}`;
+const giftFlag = (to: GiftTarget, day: number) => `gift_${to}_d${day}` as const;
 
 /** What the give window can offer: bag items (not story items) + coins. */
 export function givable(s: StoryState = getStory()): ItemId[] {

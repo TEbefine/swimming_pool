@@ -4,6 +4,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { isItemId, type ItemId } from './items';
+import type { StoryCounter, StoryFlag } from './storyKeys';
 
 // Item ids live in items.ts (the item contract); re-exported so older imports keep working.
 export type { ItemId } from './items';
@@ -102,7 +103,7 @@ export function setStep(step: string) {
   updateStory((s) => (s.step === step ? s : { ...s, step }));
 }
 
-export function setFlag(flag: string, value = true) {
+export function setFlag(flag: StoryFlag, value = true) {
   updateStory((s) => (s.flags[flag] === value ? s : { ...s, flags: { ...s.flags, [flag]: value } }));
 }
 
@@ -131,7 +132,7 @@ export function setEnergy(value: number) {
 }
 
 /** Add to a story counter (see StoryState.counters). */
-export function addCounter(key: string, n = 1) {
+export function addCounter(key: StoryCounter, n = 1) {
   updateStory((s) => ({ ...s, counters: { ...s.counters, [key]: (s.counters[key] ?? 0) + n } }));
 }
 

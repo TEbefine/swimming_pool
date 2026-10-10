@@ -26,9 +26,27 @@ interface Options {
   limiter?: IpLimiter;
   /** Per Player ID, per instance: counts EVERY request (also loads and refused saves, which cost reads). */
   playerLimiter?: IpLimiter;
+  playerDaily?: DailyLimiter;
 }
 
 const BODY_LIMIT = 24_576;
+
+/** Requests per Player ID per Bangkok day, per server instance (loads and refused saves cost reads too). */
+export class DailyLimiter {
+  private days = new Map<string, { day: number; count: number }>();
+  private limit: number;
+  constructor(limit: number) { this.limit = limit; }
+  check(key: string, now: number) {
+    const day = Math.floor((now + 7 * 3600_000) / 86_400_000);
+    let e = this.days.get(key);
+    if (!e || e.day !== day) {
+      if (this.days.size > 20_000) this.days.clear();
+      e = { day, count: 0 };
+      this.days.set(key, e);
+    }
+    if (++e.count > this.limit) throw new SaveError(429, 'That is a lot of saving for one day. Please come back tomorrow.');
+  }
+}
 const FIELDS = ['op', 'operationId', 'catches', 'world', 'baseRevision', 'state'];
 
 /** Same JSON for the same request, whatever the key order (for the idempotency hash). */
@@ -43,7 +61,7 @@ function onlyFields(body: Record<string, unknown>, allowed: string[]) {
   if (Object.keys(body).some(k => !allowed.includes(k))) throw new SaveError(400, 'Invalid save request.');
 }
 
-export function createItemsHandler({ env, now = Date.now, limiter = new IpLimiter(60), playerLimiter = new IpLimiter(40) }: Options, services: SaveServices) {
+export function createItemsHandler({ env, now = Date.now, limiter = new IpLimiter(60), playerLimiter = new IpLimiter(20), playerDaily = new DailyLimiter(600) }: Options, services: SaveServices) {
   return async (req: Request, res: Response) => {
     try {
       if (req.method !== 'POST') throw new SaveError(405, 'Use POST to save.');
@@ -62,6 +80,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
       try { address = canonicalAddress(claims.uid); } catch { throw new SaveError(401, 'Please unlock your Player ID to save.'); }
       if (!validSessionClaims(claims, address, origin, now())) throw new SaveError(401, 'Please unlock your Player ID to save.');
       try { playerLimiter.check(address, now()); } catch { throw new SaveError(429, 'Saving too often. Please wait a minute.'); }
+      playerDaily.check(address, now()); // ≤ 600 requests × ≤ 2 reads per ID per day per instance
 
       const body = readBody(req, FIELDS, BODY_LIMIT, 'Save request');
       const op = body.op;
