@@ -1,9 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // A Player ID (Firebase uid = lowercase wallet address) may READ its own save and its own log.
+    // Nobody writes from a browser: only /api/items (firebase-admin) changes saves, after validation.
     match /players/{address} {
       allow read: if request.auth != null && request.auth.uid == address;
       allow write: if false;
+      match /log/{operationId} {
+        allow read: if request.auth != null && request.auth.uid == address;
+        allow write: if false;
+      }
     }
     match /{document=**} {
       allow read, write: if false;

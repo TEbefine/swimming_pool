@@ -45,18 +45,18 @@ export class IpLimiter {
     if (++entry.count > this.limit) throw new LoginError(429, 'Too many sign-in requests. Try again in a minute.');
   }
 }
-export function readBody(req: Request, keys: string[]): Record<string, unknown> {
+export function readBody(req: Request, keys: string[], limit = 8192, what = 'Sign-in request'): Record<string, unknown> {
   if (!/^application\/json(?:\s*;|$)/i.test(header(req, 'content-type'))) throw new LoginError(415, 'Use a JSON request.');
   const length = header(req, 'content-length');
-  if (length && (!/^\d+$/.test(length) || Number(length) > 8192)) throw new LoginError(413, 'Sign-in request is too large.');
+  if (length && (!/^\d+$/.test(length) || Number(length) > limit)) throw new LoginError(413, `${what} is too large.`);
   let body: unknown = req.body;
   if (typeof body === 'string') {
-    if (Buffer.byteLength(body) > 8192) throw new LoginError(413, 'Sign-in request is too large.');
-    try { body = JSON.parse(body); } catch { throw new LoginError(400, 'Invalid sign-in request.'); }
+    if (Buffer.byteLength(body) > limit) throw new LoginError(413, `${what} is too large.`);
+    try { body = JSON.parse(body); } catch { throw new LoginError(400, `Invalid ${what.toLowerCase()}.`); }
   }
-  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new LoginError(400, 'Invalid sign-in request.');
-  if (Buffer.byteLength(JSON.stringify(body)) > 8192) throw new LoginError(413, 'Sign-in request is too large.');
-  if (Object.keys(body).some(key => !keys.includes(key))) throw new LoginError(400, 'Invalid sign-in fields.');
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new LoginError(400, `Invalid ${what.toLowerCase()}.`);
+  if (Buffer.byteLength(JSON.stringify(body)) > limit) throw new LoginError(413, `${what} is too large.`);
+  if (Object.keys(body).some(key => !keys.includes(key))) throw new LoginError(400, `Invalid ${what.toLowerCase()} fields.`);
   return body as Record<string, unknown>;
 }
 export function reply(res: Response, status: number, data: unknown) {

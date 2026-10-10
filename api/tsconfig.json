@@ -4,5 +4,9 @@
     "rootDir": "..",
     "noEmit": false
   },
-  "include": ["./*.ts", "../server/identity/**/*.ts"]
+  "include": [
+    "./*.ts",
+    "../server/identity/**/*.ts",
+    "../server/saves/**/*.ts"
+  ]
 }

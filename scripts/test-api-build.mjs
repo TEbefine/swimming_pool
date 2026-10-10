@@ -19,8 +19,8 @@ async function collect(directory) {
     else files[path] = new FileFsRef({ fsPath: join(root, path) });
   }
 }
-for (const path of ['api', 'server/identity']) await collect(path);
-for (const path of ['package.json', 'tsconfig.json', 'src/identity/loginMessage.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
+for (const path of ['api', 'server/identity', 'server/saves']) await collect(path);
+for (const path of ['package.json', 'tsconfig.json', 'src/identity/loginMessage.ts', 'src/game/fishing/freeFishCatalog.ts', 'src/game/story/items.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
 const regionConfig = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
 assert.deepEqual(regionConfig.regions, ['sin1']);
 assert.deepEqual(regionConfig.functions['api/*.ts'].regions, ['sin1']);
@@ -38,7 +38,7 @@ const headers = {};
 const res = { statusCode: 0, setHeader(k, v) { headers[k] = v; }, end(body) { this.body = body; } };
 await module.default({ method: 'GET' }, res);
 assert.equal(res.statusCode, 405);
-assert.deepEqual(JSON.parse(res.body), { error: 'Use POST to sign in.' });
+assert.deepEqual(JSON.parse(res.body), { error: process.argv[1].endsWith('/api/items.js') ? 'Use POST to save.' : 'Use POST to sign in.' });
 assert.equal(headers['Cache-Control'], 'no-store');
 assert.equal(headers['Allow'], 'POST');
 assert.equal(headers['X-Lumen-Function-Region'], 'sin1');
@@ -57,7 +57,7 @@ if (process.argv[1].endsWith('/api/login.js')) {
 }
 `;
 try {
-  for (const entrypoint of ['api/nonce.ts', 'api/login.ts']) {
+  for (const entrypoint of ['api/nonce.ts', 'api/login.ts', 'api/items.ts']) {
     const diagnostics = [];
     const originalError = console.error;
     console.error = (...args) => { diagnostics.push(args.join(' ')); originalError(...args); };
