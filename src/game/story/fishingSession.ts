@@ -695,6 +695,24 @@ function drawWorld(ctx: CanvasRenderingContext2D, now: number) {
   if (fs.phase !== 'bite') drawFloat(ctx, f.x, f.y + bob, fs.floatDown);
 }
 
+/** The generic fish shadow in the reel bar (16 × 8, centred on 0,0). Never the real fish. */
+const MYSTERY_FISH = [
+  '....XXXXX.......',
+  '..XXXXXXXXX...XX',
+  '.XXXXXXXXXXX.XXX',
+  'XXXXXXXXXXXXXXX.',
+  'XXXXXXXXXXXXXXX.',
+  '.XXXXXXXXXXX.XXX',
+  '..XXXXXXXXX...XX',
+  '....XXXXX.......',
+];
+function drawMysteryFish(ctx: CanvasRenderingContext2D, inNet: boolean) {
+  ctx.fillStyle = inNet ? '#2E4E57' : '#16303A';
+  MYSTERY_FISH.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) if (row[x] === 'X') ctx.fillRect(x - 8, y - 4, 1, 1);
+  });
+}
+
 const iconCache: Record<string, HTMLImageElement> = {};
 /** The fish's icon for canvas drawing (Free Fishing falls back to a stand-in until its sheet is cut). */
 function icon(id: string): HTMLImageElement {
@@ -958,22 +976,18 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedM
   px(ctx, col.x - 1, ny - 1, col.w + 2, 2, C.outline);
   px(ctx, col.x - 1, ny + nh - 1, col.w + 2, 2, C.outline);
 
-  // the fish: dark silhouette of its real icon (its shape is the only hint), tilting as it darts
+  // the fish: a MYSTERY shadow, the same for every fish — what you hooked stays hidden until it's
+  // caught (before, the real icon was drawn with ctx.filter, which Safari / iPhone ignore → the fish
+  // showed in full colour). Plain fillRects, so it looks the same in every browser.
   if (fs.fish && fs.phase !== 'escaped') {
-    const img = icon(fs.fish);
-    const size = 22;
+    icon(fs.fish); // start loading the real icon now, so it's ready to show in his hands on a catch
     const cy = col.y + col.h - fs.fishY * col.h;
     const wig = reducedMotion ? 0 : Math.sin(now / 55) * (tension > 0.6 ? 2 : 1);
-    if (img.complete && img.naturalWidth) {
-      ctx.save();
-      ctx.translate(col.x + col.w / 2 + wig, cy);
-      ctx.rotate(reducedMotion ? 0 : fishTilt);
-      ctx.filter = fs.inNet ? 'brightness(0.2)' : 'brightness(0.08)';
-      ctx.drawImage(img, -size / 2, -size / 2, size, size);
-      ctx.restore();
-    } else {
-      px(ctx, col.x + 5, cy - 3, 12, 6, C.outline);
-    }
+    ctx.save();
+    ctx.translate(Math.round(col.x + col.w / 2 + wig), Math.round(cy));
+    ctx.rotate(reducedMotion ? 0 : fishTilt);
+    drawMysteryFish(ctx, fs.inNet);
+    ctx.restore();
   }
 
   // catch meter (right): red → yellow → green, glows near full, blinks when the line is in danger
