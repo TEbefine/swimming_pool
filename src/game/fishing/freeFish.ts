@@ -66,6 +66,7 @@ const IS_TEST = typeof location !== 'undefined' && new URLSearchParams(location.
 // test mode (?test=...) keeps its own book so testing never fills the real one
 const KEY = IS_TEST ? 'free_fishing_book_test' : 'free_fishing_book_v1';
 const pendingKey = (address: string) => `free_fishing_pending_v1_${address}`;
+const pendingOpKey = (address: string) => `free_fishing_pending_op_v1_${address}`;
 const EMPTY: FishBook = { version: 1, entries: {}, total: 0 };
 
 function readJson<T>(key: string): T | null {
@@ -162,9 +163,19 @@ export function usePendingCount(): number {
   useFishBook();
   return scope ? pending.length : 0;
 }
-/** After the server accepted (or finally refused) some catches: drop them and show the new server book. */
-export function settlePendingCatches(done: PendingCatch[], server?: { entries: Record<string, FishBookEntry>; total: number }) {
-  if (!scope) return;
+/** The operation id a chunk was sent with, kept so a retry after a lost answer replays instead of failing. */
+export function pendingOperation(address: string, chunkKey: string, fresh: () => string): string {
+  const stored = readJson<{ key: string; id: string }>(pendingOpKey(address));
+  if (stored && stored.key === chunkKey && typeof stored.id === 'string') return stored.id;
+  const id = fresh();
+  writeJson(pendingOpKey(address), { key: chunkKey, id });
+  return id;
+}
+/** After the server accepted (or finally refused) some catches: drop them and show the new server book.
+ *  `forAddress` guards against an answer arriving after the player switched to another Player ID. */
+export function settlePendingCatches(done: PendingCatch[], server?: { entries: Record<string, FishBookEntry>; total: number }, forAddress?: string) {
+  if (!scope || (forAddress !== undefined && forAddress !== scope)) return;
+  if (done.length) writeJson(pendingOpKey(scope), null);
   const gone = new Set(done.map((c) => `${c.fish}@${c.caughtAt}`));
   pending = pending.filter((c) => !gone.has(`${c.fish}@${c.caughtAt}`));
   writeJson(pendingKey(scope), pending);

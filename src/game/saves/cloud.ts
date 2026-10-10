@@ -4,7 +4,7 @@
 // - The Dalbit story saves itself when a day ends (step "d<N>_end").
 // Guests (no Player ID, ?test=... pages) never call the server; their saves stay in this browser.
 import { useSyncExternalStore } from 'react';
-import { attachFishBook, getPendingCatches, settlePendingCatches } from '../fishing/freeFish';
+import { attachFishBook, getPendingCatches, pendingOperation, settlePendingCatches } from '../fishing/freeFish';
 import type { FishBookEntry, PendingCatch } from '../fishing/freeFish';
 import { attachStory, getDraftMeta, getStory, setDraftMeta, storyForSave, subscribeStory } from '../story/storyStore';
 import type { StoryState } from '../story/storyStore';
@@ -16,7 +16,7 @@ interface ServerView {
   fishTotal: number;
   lastCatchAt: number | null;
   story: { dalbit: StorySave | null };
-  result?: { recorded?: number; newKinds?: string[] };
+  result?: { recorded?: number; newKinds?: string[]; rejected?: { index: number; reason: string }[] };
   replayed?: boolean;
 }
 export type CloudStatus = 'guest' | 'loading' | 'ready' | 'offline';
@@ -30,6 +30,7 @@ class SaveRequestError extends Error {
 const IS_TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test');
 const CHUNK = 40; // = LIMITS.catchesPerRequest on the server
 const MAX_AGE_MS = 7 * 24 * 3600_000;
+const MIN_GAP_MS = 3_000; // = LIMITS.minCatchGapMs
 
 let address: string | null = null;
 let status: CloudStatus = 'guest';
@@ -120,11 +121,13 @@ export interface RecordResult { recorded: number; newKinds: string[]; dropped: n
 
 export async function recordPendingCatches(): Promise<RecordResult> {
   const out: RecordResult = { recorded: 0, newKinds: [], dropped: 0 };
-  if (!address) return out;
+  const who = address;
+  if (!who) return out;
   if (status === 'offline') {
     try {
       const view = await call({ op: 'load' });
-      settlePendingCatches([], applyView(view));
+      if (who !== address) return out;
+      settlePendingCatches([], applyView(view), who);
       status = 'ready'; emit();
     } catch (err) {
       return { ...out, error: err instanceof Error ? err.message : 'Saving is unavailable right now.' };
@@ -132,22 +135,28 @@ export async function recordPendingCatches(): Promise<RecordResult> {
   }
   const now = Date.now();
   let list = getPendingCatches();
-  // The server refuses catches older than a week or older than the newest one it already has
-  // (e.g. recorded first on another device). Drop those here instead of failing the whole batch.
-  const stale = list.filter((c) => now - c.caughtAt > MAX_AGE_MS || (lastCatchAt !== null && c.caughtAt <= lastCatchAt));
-  if (stale.length) { settlePendingCatches(stale); out.dropped += stale.length; list = getPendingCatches(); }
-  while (list.length) {
+  // The server refuses catches older than a week or not after the newest one it already has (e.g.
+  // recorded first on another device). Drop those here instead of sending them.
+  const stale = list.filter((c) => now - c.caughtAt > MAX_AGE_MS || (lastCatchAt !== null && c.caughtAt - lastCatchAt < MIN_GAP_MS));
+  if (stale.length) { settlePendingCatches(stale, undefined, who); out.dropped += stale.length; list = getPendingCatches(); }
+  while (list.length && who === address) {
     const chunk: PendingCatch[] = list.slice(0, CHUNK);
+    const catches = chunk.map(({ fish, sizeCm, caughtAt }) => ({ fish, sizeCm, caughtAt }));
+    const opId = pendingOperation(who, JSON.stringify(catches), newOperationId);
     try {
-      const view = await call({ op: 'fishbook.record', operationId: newOperationId(), catches: chunk.map(({ fish, sizeCm, caughtAt }) => ({ fish, sizeCm, caughtAt })) });
-      settlePendingCatches(chunk, applyView(view));
-      out.recorded += view.result?.recorded ?? chunk.length;
+      const view = await call({ op: 'fishbook.record', operationId: opId, catches });
+      if (who !== address) return out; // switched Player ID meanwhile: this answer is not for the current book
+      settlePendingCatches(chunk, applyView(view), who);
+      const rejected = view.result?.rejected ?? [];
+      out.recorded += view.result?.recorded ?? chunk.length - rejected.length;
       out.newKinds.push(...(view.result?.newKinds ?? []));
+      if (rejected.length) { out.dropped += rejected.length; out.error = rejected[0].reason; }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Saving is unavailable right now.';
+      if (who !== address) return out;
       if (err instanceof SaveRequestError && err.status === 422) {
-        // The server will never accept these (bad clock, rules) — drop them so the rest can be saved.
-        settlePendingCatches(chunk);
+        // None of these will ever be accepted (bad clock, rules) — drop them so the rest can be saved.
+        settlePendingCatches(chunk, undefined, who);
         out.dropped += chunk.length;
         out.error = message;
       } else {
@@ -182,7 +191,13 @@ async function maybeSaveStoryDay(): Promise<void> {
     storyStatus = 'failed';
     if (err instanceof SaveRequestError && err.status === 409) {
       // Saved already or changed on another device: the server copy wins.
-      try { const view = await call({ op: 'load' }); attachStory(address, view.story.dalbit); storyStatus = 'saved'; } catch { /* retry later */ }
+      try {
+        const view = await call({ op: 'load' });
+        if (who === address && view.story.dalbit && view.story.dalbit.day >= s.day) {
+          attachStory(who, view.story.dalbit);
+          storyStatus = 'saved';
+        }
+      } catch { /* retry later */ }
     } else if (err instanceof SaveRequestError && err.status === 422) {
       setDraftMeta((m) => ({ ...m, pendingOp: null })); // this state will never pass; a new attempt gets a new id
     }
@@ -192,10 +207,26 @@ async function maybeSaveStoryDay(): Promise<void> {
   }
 }
 
+// Offline (load failed): try again on 'online', when the tab comes back, and on a slow backoff.
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+let retryDelay = 30_000;
+function retryOffline() {
+  clearTimeout(retryTimer);
+  if (status !== 'offline' || !address) { retryDelay = 30_000; return; }
+  const a = address;
+  address = null; // attachPlayer ignores a repeat of the current address
+  void attachPlayer(a);
+}
+function scheduleRetry() {
+  clearTimeout(retryTimer);
+  if (status !== 'offline' || !address) { retryDelay = 30_000; return; }
+  retryTimer = setTimeout(retryOffline, retryDelay);
+  retryDelay = Math.min(retryDelay * 2, 5 * 60_000);
+}
+listeners.add(scheduleRetry);
+
 if (!IS_TEST && typeof window !== 'undefined') {
   subscribeStory(() => { void maybeSaveStoryDay(); });
-  window.addEventListener('online', () => {
-    if (status === 'offline' && address) { const a = address; address = null; void attachPlayer(a); }
-    else void maybeSaveStoryDay();
-  });
+  window.addEventListener('online', () => { if (status === 'offline') retryOffline(); else void maybeSaveStoryDay(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && status === 'offline') retryOffline(); });
 }

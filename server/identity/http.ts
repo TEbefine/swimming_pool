@@ -45,7 +45,7 @@ export class IpLimiter {
     if (++entry.count > this.limit) throw new LoginError(429, 'Too many sign-in requests. Try again in a minute.');
   }
 }
-export function readBody(req: Request, keys: string[], limit = 8192, what = 'Sign-in request'): Record<string, unknown> {
+export function readBody(req: Request, keys: string[], limit = 8192, what = 'Sign-in request', fieldsMessage = 'Invalid sign-in fields.'): Record<string, unknown> {
   if (!/^application\/json(?:\s*;|$)/i.test(header(req, 'content-type'))) throw new LoginError(415, 'Use a JSON request.');
   const length = header(req, 'content-length');
   if (length && (!/^\d+$/.test(length) || Number(length) > limit)) throw new LoginError(413, `${what} is too large.`);
@@ -56,7 +56,7 @@ export function readBody(req: Request, keys: string[], limit = 8192, what = 'Sig
   }
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new LoginError(400, `Invalid ${what.toLowerCase()}.`);
   if (Buffer.byteLength(JSON.stringify(body)) > limit) throw new LoginError(413, `${what} is too large.`);
-  if (Object.keys(body).some(key => !keys.includes(key))) throw new LoginError(400, `Invalid ${what.toLowerCase()} fields.`);
+  if (Object.keys(body).some(key => !keys.includes(key))) throw new LoginError(400, fieldsMessage);
   return body as Record<string, unknown>;
 }
 export function reply(res: Response, status: number, data: unknown) {

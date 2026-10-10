@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 const { createItemsHandler } = await import('../server/saves/handlers.ts');
 const { IpLimiter } = await import('../server/identity/http.ts');
-const { LIMITS } = await import('../server/saves/rules.ts');
+const { LIMITS, STORY } = await import('../server/saves/rules.ts');
 
 // ID-01 (c): /api/items with an in-memory transaction store. No Firebase, no network, no credentials.
 const address = '0x' + 'ab'.repeat(20);
@@ -127,15 +127,42 @@ test('refuses catches that break the catalogue, sizes, time, season or speed rul
   await bad({ fish: 'jade_moon_koi', sizeCm: 60, caughtAt: t }, 'night fish at noon');
   await bad({ fish: 'sardine', sizeCm: 15, caughtAt: NOON + 5 * 60_000 }, 'future');
   await bad({ fish: 'sardine', sizeCm: 15, caughtAt: NOON - 8 * 24 * 3600_000 }, 'older than a week');
-  const fast = await record(h, [{ fish: 'sardine', sizeCm: 15, caughtAt: t }, { fish: 'sardine', sizeCm: 15, caughtAt: t + 1_000 }]);
-  assert.equal(fast.statusCode, 422, 'two catches one second apart');
   const unordered = await record(h, [{ fish: 'sardine', sizeCm: 15, caughtAt: t + 9_000 }, { fish: 'sardine', sizeCm: 15, caughtAt: t }]);
-  assert.equal(unordered.statusCode, 422);
+  assert.equal(unordered.statusCode, 400);
   assert.equal(h.players.size, 0, 'nothing was written by any refused request');
   assert.equal((await h.call({ op: 'fishbook.record', operationId: 'short', catches: [] })).statusCode, 400);
   assert.equal((await h.call({ op: 'fishbook.record', operationId: opId(), catches: [{ fish: 'sardine', sizeCm: 15, caughtAt: t, extra: 1 }] })).statusCode, 400);
   const many = Array.from({ length: LIMITS.catchesPerRequest + 1 }, (_, i) => ({ fish: 'sardine', sizeCm: 15, caughtAt: t + i * 5_000 }));
   assert.equal((await record(h, many)).statusCode, 400);
+});
+
+test('a batch keeps its valid catches and reports the bad ones (one bad catch never sinks the rest)', async () => {
+  const h = harness();
+  const t = NOON - 120_000;
+  const res = await record(h, [
+    { fish: 'sardine', sizeCm: 15, caughtAt: t },
+    { fish: 'sardine', sizeCm: 16, caughtAt: t + 1_000 }, // faster than anyone can fish
+    { fish: 'jade_moon_koi', sizeCm: 60, caughtAt: t + 10_000 }, // night fish at noon
+    { fish: 'sardine', sizeCm: 99, caughtAt: t + 20_000 }, // impossible size
+    { fish: 'tilapia', sizeCm: 20, caughtAt: t + 30_000 },
+  ]);
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(res.body.result.recorded, 2);
+  assert.deepEqual(res.body.result.rejected.map(r => r.index), [1, 2, 3]);
+  assert.equal(res.body.fishTotal, 2);
+  assert.equal(res.body.lastCatchAt, t + 30_000);
+});
+
+test('Firestore-reserved names and per-player request flooding are refused', async () => {
+  const h = harness();
+  assert.equal((await h.call({ op: 'fishbook.record', operationId: '__reserved_name_xx__', catches: [{ fish: 'sardine', sizeCm: 15, caughtAt: NOON - 9_000 }] })).statusCode, 400);
+  const bad = await h.call({ op: 'story.saveDay', operationId: opId(), world: 'dalbit', baseRevision: null, state: { ...day1(), flags: { __name__: true } } });
+  assert.equal(bad.statusCode, 422);
+  // Refused saves and loads are not written, so the stored per-minute window can't see them: the
+  // in-memory per-player limiter does (40/min per instance).
+  let limited = false;
+  for (let i = 0; i < 60 && !limited; i++) limited = (await h.call({ op: 'load' })).statusCode === 429;
+  assert.ok(limited, 'flooding one Player ID with loads is limited');
 });
 
 test('night fish are accepted at night, day fish by day', async () => {
@@ -167,6 +194,7 @@ const saveDay = (h, state, baseRevision, id = opId()) => h.call({ op: 'story.sav
 
 test('saves the Dalbit story at the end of a day, in order, with revision checks', async () => {
   const h = harness();
+  STORY.lastDay = 3; // pretend Days 2–3 have shipped
   const first = await saveDay(h, day1(), null);
   assert.equal(first.statusCode, 200, JSON.stringify(first.body));
   assert.equal(first.body.story.dalbit.day, 1);
@@ -181,6 +209,20 @@ test('saves the Dalbit story at the end of a day, in order, with revision checks
   const ok = await saveDay(h, d2, 1);
   assert.equal(ok.statusCode, 200, JSON.stringify(ok.body));
   assert.equal(ok.body.story.dalbit.revision, 2);
+  STORY.lastDay = 1;
+  const d3 = { ...d2, day: 3, step: 'd3_end' };
+  assert.equal((await saveDay(h, d3, 2)).statusCode, 422, 'days the game does not have yet are refused');
+});
+
+test('a missed day-end save is caught up by the next day, with bounds scaled by the days covered', async () => {
+  const h = harness();
+  STORY.lastDay = 3;
+  try {
+    const d2 = { ...day1(), day: 2, step: 'd2_end', coins: 2 * LIMITS.coinGainPerDay };
+    const res = await saveDay(h, d2, null);
+    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    assert.equal((await saveDay(h, { ...day1(), day: 3, step: 'd3_end', coins: 2 * LIMITS.coinGainPerDay + LIMITS.coinGainPerDay + 1 }, 1)).statusCode, 422);
+  } finally { STORY.lastDay = 1; }
 });
 
 test('refuses impossible story states', async () => {
@@ -190,13 +232,14 @@ test('refuses impossible story states', async () => {
     assert.equal(res.statusCode, status, `${why}: ${JSON.stringify(res.body)}`);
   };
   await bad({ step: 'd1_market' }, 409, 'mid-day');
-  await bad({ day: 2, step: 'd2_end' }, 409, 'skipped day 1');
+  await bad({ day: 2, step: 'd2_end' }, 422, 'Day 2 is not in the game yet');
   await bad({ coins: LIMITS.coinGainPerDay + 1 }, 422, 'too many coins');
   await bad({ coins: -1 }, 422, 'negative coins');
   await bad({ energy: 11 }, 422, 'energy above 10');
   await bad({ bag: { gold_bar: 1 } }, 422, 'unknown item');
   await bad({ bag: { small_net: 2 } }, 422, 'two key items');
-  await bad({ bag: { mackerel: 61 } }, 422, 'over the stack/day gain');
+  await bad({ bag: { mackerel: 31 } }, 422, 'one item grew more than a day allows');
+  await bad({ bag: { mackerel: 20, eel: 20, clams: 21 } }, 422, 'the whole bag grew more than a day allows');
   await bad({ records: { mackerel: 500 } }, 422, 'record outside size range');
   await bad({ flags: { 'Bad Key': true } }, 422, 'flag key');
   await bad({ ledger: [{ day: 1, text: 'x'.repeat(LIMITS.maxLedgerText + 1) }] }, 422, 'long ledger text');

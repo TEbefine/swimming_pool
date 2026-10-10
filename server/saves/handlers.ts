@@ -7,7 +7,7 @@ import { canonicalAddress, LoginError, validSessionClaims } from '../identity/ch
 import { allowedOrigin, clientIp, header, IpLimiter, readBody, reply } from '../identity/http.js';
 import type { Request, Response } from '../identity/http.js';
 import {
-  applyCatches, checkOperationId, countOperation, emptyPlayer, normalizePlayer, parseCatches, playerView,
+  applyCatches, catchProblem, checkOperationId, countOperation, emptyPlayer, normalizePlayer, parseCatches, playerView,
   SaveError, validateStoryDay,
 } from './rules.js';
 import type { LogEntry, PlayerDoc } from './rules.js';
@@ -19,7 +19,14 @@ export interface SaveServices {
   /** Runs `fn` in one transaction with the current player + log documents; writes only if it says so. */
   transact: <T>(address: string, operationId: string, fn: (player: unknown, log: unknown) => TxResult<T>) => Promise<T>;
 }
-interface Options { env: NodeJS.ProcessEnv; now?: () => number; limiter?: IpLimiter }
+interface Options {
+  env: NodeJS.ProcessEnv;
+  now?: () => number;
+  /** Per IP, per server instance (best effort on serverless). */
+  limiter?: IpLimiter;
+  /** Per Player ID, per instance: counts EVERY request (also loads and refused saves, which cost reads). */
+  playerLimiter?: IpLimiter;
+}
 
 const BODY_LIMIT = 24_576;
 const FIELDS = ['op', 'operationId', 'catches', 'world', 'baseRevision', 'state'];
@@ -36,7 +43,7 @@ function onlyFields(body: Record<string, unknown>, allowed: string[]) {
   if (Object.keys(body).some(k => !allowed.includes(k))) throw new SaveError(400, 'Invalid save request.');
 }
 
-export function createItemsHandler({ env, now = Date.now, limiter = new IpLimiter(60) }: Options, services: SaveServices) {
+export function createItemsHandler({ env, now = Date.now, limiter = new IpLimiter(60), playerLimiter = new IpLimiter(40) }: Options, services: SaveServices) {
   return async (req: Request, res: Response) => {
     try {
       if (req.method !== 'POST') throw new SaveError(405, 'Use POST to save.');
@@ -54,6 +61,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
       let address: string;
       try { address = canonicalAddress(claims.uid); } catch { throw new SaveError(401, 'Please unlock your Player ID to save.'); }
       if (!validSessionClaims(claims, address, origin, now())) throw new SaveError(401, 'Please unlock your Player ID to save.');
+      try { playerLimiter.check(address, now()); } catch { throw new SaveError(429, 'Saving too often. Please wait a minute.'); }
 
       const body = readBody(req, FIELDS, BODY_LIMIT, 'Save request');
       const op = body.op;
@@ -69,14 +77,17 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         onlyFields(body, ['op', 'operationId', 'catches']);
         const operationId = checkOperationId(body.operationId);
         const catches = parseCatches(body.catches);
+        // Checks that need no stored data run first, so junk never costs Firestore reads.
+        const problems = catches.map(c => catchProblem(c, now()));
+        if (problems.every(Boolean)) throw new SaveError(422, `These catches can't be recorded: ${problems[0]}.`);
         const hash = createHash('sha256').update(stable([op, catches])).digest('hex');
         const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
           const t = now();
           const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
           if (rawLog) return replay(doc, rawLog, hash);
-          const opWindow = countOperation(doc, t);
+          const budget = countOperation(doc, t);
           const { fields, changes } = applyCatches(doc, catches, t);
-          return commit(doc, { ...fields, opWindow }, op, hash, changes, t);
+          return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
         });
         reply(res, 200, result);
         return;
@@ -88,18 +99,19 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         if (body.world !== 'dalbit') throw new SaveError(400, 'Unknown story world.');
         const base = body.baseRevision;
         if (base !== null && (typeof base !== 'number' || !Number.isSafeInteger(base) || base < 1)) throw new SaveError(400, 'Invalid save request.');
+        validateStoryDay(body.state, undefined, false); // shape + absolute bounds before any read
         const hash = createHash('sha256').update(stable([op, body.world, base, body.state])).digest('hex');
         const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
           const t = now();
           const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
           if (rawLog) return replay(doc, rawLog, hash);
-          const opWindow = countOperation(doc, t);
+          const budget = countOperation(doc, t);
           const prev = doc.storyWorlds.dalbit;
           if ((prev?.revision ?? null) !== base) throw new SaveError(409, 'Your story changed on another device. Reload to continue.');
           const state = validateStoryDay(body.state, prev);
           const save = { day: state.day, step: state.step, revision: (prev?.revision ?? 0) + 1, savedAt: t, state };
           const changes = { world: 'dalbit', day: state.day, storyRevision: save.revision, coins: state.coins };
-          return commit(doc, { storyWorlds: { ...doc.storyWorlds, dalbit: save }, opWindow }, op, hash, changes, t);
+          return commit(doc, { storyWorlds: { ...doc.storyWorlds, dalbit: save }, ...budget }, op, hash, changes, t);
         });
         reply(res, 200, result);
         return;
