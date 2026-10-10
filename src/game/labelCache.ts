@@ -9,7 +9,9 @@ export interface Label {
   ay: number;
 }
 
-const PIXEL_FONT = '"Sabai Pixel"';
+const PIXEL_FONT = '"VT323", "IBM Plex Sans Thai"'; // app fonts: VT323 for English, Plex for Thai
+const LABEL_FONT = `500 12px ${PIXEL_FONT}, sans-serif`; // name tags, exit signs
+const BUBBLE_FONT = `13px ${PIXEL_FONT}, sans-serif`; // speech bubbles
 
 export class LabelCache {
   private map = new Map<string, Label>();
@@ -31,7 +33,7 @@ export class LabelCache {
   /** True once the pixel font is ready; before that, labels are drawn live (and not cached). */
   fontReady(): boolean {
     try {
-      return typeof document === 'undefined' || !document.fonts || document.fonts.check(`16px ${PIXEL_FONT}`);
+      return typeof document === 'undefined' || !document.fonts || document.fonts.check(LABEL_FONT, 'กA');
     } catch {
       return true;
     }
@@ -72,7 +74,7 @@ export function makeCanvas(w: number, h: number): [HTMLCanvasElement, CanvasRend
 // ---------------------------------------------------------------------------
 
 export function nameTagSize(ctx: CanvasRenderingContext2D, text: string) {
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = LABEL_FONT;
   const boxW = ctx.measureText(text).width + 12;
   return { boxW, boxH: 20 };
 }
@@ -85,7 +87,7 @@ export function drawNameTag(ctx: CanvasRenderingContext2D, text: string, isMe: b
   ctx.strokeStyle = isMe ? '#4fc3f7' : '#90a4ae';
   ctx.lineWidth = 1;
   ctx.strokeRect(bx, by, boxW, boxH);
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = LABEL_FONT;
   ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -101,7 +103,7 @@ export function buildNameTag(cache: LabelCache, text: string, isMe: boolean): La
 }
 
 export function wrapBubbleText(ctx: CanvasRenderingContext2D, text: string, maxLineWidth = 180): string[] {
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = BUBBLE_FONT;
   const words = text.split(' ');
   const lines: string[] = [];
   let current = words[0] || '';
@@ -116,7 +118,7 @@ export function wrapBubbleText(ctx: CanvasRenderingContext2D, text: string, maxL
 
 /** Speech bubble whose tail tip sits at (x, tipY). */
 export function drawSpeechBubble(ctx: CanvasRenderingContext2D, lines: string[], x: number, bottomY: number) {
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = BUBBLE_FONT;
   let maxW = 0;
   for (const l of lines) maxW = Math.max(maxW, ctx.measureText(l).width);
   const lineHeight = 24;
@@ -207,7 +209,7 @@ export function buildPromptBubble(): Label {
 
 /** Exit sign ("< Lumen Bay"): top-left at (x, y), returns its width. */
 export function exitSignWidth(ctx: CanvasRenderingContext2D, label: string) {
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = LABEL_FONT;
   return Math.ceil(ctx.measureText(label).width) + 12;
 }
 
@@ -217,7 +219,7 @@ export function drawExitSign(ctx: CanvasRenderingContext2D, label: string, x: nu
   ctx.fillStyle = '#FFF6E5';
   ctx.fillRect(x, y, w, 18);
   ctx.fillStyle = '#4A2E1A';
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = LABEL_FONT;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.fillText(label, x + 6, y + 10);

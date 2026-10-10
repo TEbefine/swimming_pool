@@ -771,7 +771,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 onChange={(e) => setChatText(e.target.value)}
                 placeholder="Type message..."
                 maxLength={80}
-                className="flex-1 bg-slate-900 text-white text-[16px] px-2.5 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
+                className="flex-1 bg-slate-900 text-white text-[16px] px-2.5 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-pixel"
               />
               <button
                 type="submit"

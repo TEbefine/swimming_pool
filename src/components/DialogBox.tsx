@@ -225,13 +225,13 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const portraitBottom = 10 + baseBoxH - PORTRAIT.tuck;
   const portraitRight = narrow ? PORTRAIT.rightNarrow : PORTRAIT.rightWide;
 
-  const fontSize = 24; // Sabai Pixel is crisp at 16/24/32px; Bold 24 = long-reading pick
+  const fontSize = 18; // VT323 (English) is pixel-crisp at 18px with its size-adjust; Thai uses IBM Plex Sans Thai
   const accent = script.accent || '#5A3A22';
 
   // Measure box inner width for wrap calculation (with a slight right safety buffer)
   const innerWidth = Math.max(120, (boxInnerW > 0 ? boxInnerW : (w > 0 ? w - 52 : 300)) - 14);
   const resolvedText = currentLine ? resolveDialogText(currentLine.text) : '';
-  const fontSpec = `700 ${fontSize}px 'Sabai Pixel', monospace`;
+  const fontSpec = `400 ${fontSize}px 'VT323', 'IBM Plex Sans Thai', sans-serif`;
 
   const pages = useMemo(() => {
     const lines = wrapTextMeasured(resolvedText, innerWidth, fontSpec);
@@ -515,7 +515,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         inset: 0,
         zIndex: 30,
         pointerEvents: 'auto',
-        fontFamily: "'Sabai Pixel', monospace",
+        fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
         textRendering: 'geometricPrecision',
@@ -673,8 +673,8 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   height: '42px',
                   borderRadius: '8px',
                   padding: '0 12px',
-                  fontFamily: "'Sabai Pixel', monospace",
-                  fontSize: narrow ? '20px' : '22px',
+                  fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
+                  fontSize: '17px',
                   fontWeight: 600,
                   WebkitFontSmoothing: 'antialiased',
                   MozOsxFontSmoothing: 'grayscale',
@@ -696,7 +696,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                     width: '12px',
                     display: 'inline-block',
                     flexShrink: 0,
-                    fontSize: '18px',
+                    fontSize: '16px',
                     lineHeight: 1,
                     color: accent,
                   }}
@@ -761,9 +761,9 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             borderRadius: '999px',
             background: '#5A3A22',
             color: '#FFF8EC',
-            fontFamily: "'Sabai Pixel', monospace",
+            fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
             fontSize: '16px',
-            fontWeight: 700,
+            fontWeight: 600,
             lineHeight: '30px',
             letterSpacing: 0,
             WebkitFontSmoothing: 'antialiased',
@@ -814,12 +814,12 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         {/* Text content */}
         <div
           style={{
-            fontFamily: "'Sabai Pixel', monospace",
+            fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
             fontSize: `${fontSize}px`,
-            fontWeight: 700,
-            lineHeight: 1.75,
+            fontWeight: 400,
+            lineHeight: '29px',
             letterSpacing: 0,
-            color: '#24160E',
+            color: '#4A3424',
             wordBreak: 'break-word',
             whiteSpace: 'pre-wrap',
             flex: 1,
@@ -840,7 +840,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
               right: '14px',
               bottom: '10px',
               color: accent,
-              fontFamily: "'Sabai Pixel', monospace",
+              fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
               fontSize: '16px',
               lineHeight: 1,
               pointerEvents: 'none',

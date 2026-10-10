@@ -85,7 +85,7 @@ export const ChatBar: React.FC<ChatBarProps> = ({ onSendMessage }) => {
           onChange={(e) => setText(e.target.value)}
           placeholder="Type message & press Enter... (Say hi!)"
           maxLength={90}
-          className="flex-1 bg-slate-900/90 text-white placeholder-slate-500 text-[16px] px-3 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
+          className="flex-1 bg-slate-900/90 text-white placeholder-slate-500 text-[16px] px-3 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-pixel"
         />
 
         <button

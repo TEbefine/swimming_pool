@@ -52,7 +52,7 @@ export const NameModal: React.FC<NameModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               maxLength={18}
               autoFocus
-              className="w-full bg-slate-900 text-white text-[16px] px-3 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-mono"
+              className="w-full bg-slate-900 text-white text-[16px] px-3 py-2 rounded border border-slate-700 focus:outline-none focus:border-sky-400 font-pixel"
             />
           </div>
 

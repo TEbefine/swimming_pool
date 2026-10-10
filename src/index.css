@@ -1,9 +1,17 @@
 @import "tailwindcss";
 
+/* Tailwind font utilities follow the app fonts too (font-sans, font-mono). */
+@theme {
+  --font-sans: 'VT323', 'IBM Plex Sans Thai', system-ui, sans-serif;
+  --font-mono: 'VT323', 'IBM Plex Mono', ui-monospace, monospace;
+}
+
 :root {
-  /* One font for all Thai + English text: Sabai Pixel (SAP by Teera). Crisp sizes: 16 / 24 / 32 / 48px */
-  --font-pixel: 'Sabai Pixel', monospace;
-  --font-sub: 'Sabai Pixel', monospace;
+  /* English + numbers: VT323 (pixel). Thai: IBM Plex Sans Thai (VT323 has no Thai, so Thai falls through). Both OFL.
+     Best size: 18px (VT323 pixels land on whole css pixels there). */
+  --font-pixel: 'VT323', 'IBM Plex Sans Thai', system-ui, sans-serif;
+  --font-sub: 'VT323', 'IBM Plex Sans Thai', system-ui, sans-serif;
+  --font-code: 'VT323', 'IBM Plex Mono', ui-monospace, monospace;
   
   --bg-dark: #0f1423;
   --panel-bg: rgba(18, 25, 44, 0.88);
@@ -35,7 +43,8 @@ html, body {
   font-family: var(--font-sub);
   font-size: 16px;
   font-synthesis: none;
-  -webkit-font-smoothing: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   color: var(--text-main);
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -379,7 +388,12 @@ html, body {
 /* DIALOG / VN FONTS                                         */
 /* ========================================================= */
 
-/* Dialog text uses Sabai Pixel too (see --font-pixel). */
+/* Dialog text uses IBM Plex Sans Thai too (see --font-pixel). */
+
+/* Utility used by inputs, chat and menus: the pixel font. */
+.font-pixel {
+  font-family: var(--font-pixel);
+}
 
 /* ========================================================= */
 /* DIALOG / VN SMOOTH TYPOGRAPHY                             */

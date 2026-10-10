@@ -61,29 +61,29 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - My handwriting font **TEERA Handwriting TH** (Thai + English) and the pixel font **Sabai Pixel / Pixelify Sans**. Docs: `docs/ui/*` (talk screen, handheld shell).
 
 ## U-02 · START menu (Pokémon FireRed/LeafGreen style)
-- **Status:** Step 1 finished (shell, cursor memory, description box, input routing, mutual overlay exclusivity, EMOTE sub-screen, FISH BOOK, BAG, HELP, EXIT).
+- **Status:** Step 2 finished (2026-10-10, from the ChatGPT brief): one controller-driven menu system inside the game screen. Field menu (Fish book, Bag, <player name>, Emotes, Options, Help, Resume), EMOTES list, OPTIONS screen (Sound, Music, Vibration, Quality: real stores), description box, hint bar, one Back stack, cursor memory.
 - **Decisions:**
-  - Placed on the right side inside the game screen (~46% width), cream background `#FFF8EC` with 2px `#1E293B` border and inner highlight (dark mode uses `--gb-*` tokens).
-  - No backdrop blur for smooth iPhone 13 performance; subtle dimming layer.
-  - Labels in uppercase pixel font (minimum 16px to avoid iOS zoom).
-  - Description box at the bottom explaining active highlighted row.
-  - Controls: D-pad / WASD navigate cursor, ◯ / Enter / Z confirms, ✕ / Escape backs out. START button / KeyM toggles START menu.
-  - In multiplayer, local player stops walking, but the world keeps ticking (NPCs and players keep moving).
-  - Overlay exclusivity: START closes SceneBox; SELECT (SceneBox) closes START menu.
-- **Files:** `src/components/startMenu/` (`StartMenu.tsx`, `MenuList.tsx`, `EmoteScreen.tsx`, `useMenuStack.ts`, `menu.css`), `src/game/haptics.ts`, `src/game/audio.ts`, `src/game/Engine.ts`, `src/App.tsx`, `src/components/GameBoyMobile.tsx`.
-- **Next:** Step 2 — OPTION screen + VIBRATION setting.
+  - Design: navy `#1b313d`, cream `#eee6c8`, gold `#e7bd66`, blue-gray borders, square double-border frames with a small offset shadow, triangle cursor, selected row = navy + cream text. Tokens are `--gm-*` in `menu.css`; the typeface is `--gm-font` (follows the app font; one line switches it to Sabai Pixel).
+  - Field panel compact in the upper-right, world visible behind; divider before Options; description box near the bottom; hints on the bottom edge (glyphs on handheld, key names on desktop).
+  - Logic lives in ONE pure state machine `menuModel.ts` (`reduce`, `MenuStore`); UI only draws it. One keyboard entry point (`useGameMenu().handleKey` called first in the App key handler) and one D-pad adapter (`DpadAdapter`: one step per press, repeat after ~380 ms).
+  - Back is exactly one level: item actions → Bag → Field menu → Gameplay. START closes everything from any depth. A menu opened directly (B key / HUD bag button) closes to gameplay on Back.
+  - The field cursor, each pocket and each pocket's selected item are remembered (state lives in the store, not in a mounted component).
+  - While the menu is open the player stops walking, the world keeps ticking. On desktop the HeaderBar, ActionBar and ChatBar are hidden (the ChatBar "Enter focuses chat" shortcut used to steal the confirm key).
+  - Menu does not open over a dialog, story panel or loading scene; opening a dialog or SELECT box closes it.
+  - Keys: arrows/WASD move, Enter/Z/E/O confirm, X/Escape back, M/P/` START, B Bag. Shell ◯ = confirm, ✕ = back, START toggles.
+- **Rejected:** the old cream `#FFF8EC` panel with uppercase labels, and the old START/BAG wiring (separate state plus nudge/trigger counters in `App.tsx`, `useMenuStack.ts`): the cursor was lost on re-mount and a D-pad drag stepped several rows. `useMenuStack.ts` was deleted; the store above replaces it.
+- **Files:** `src/components/gameMenu/` (`menuModel.ts`, `menuInput.ts`, `useGameMenu.ts`, `GameMenu.tsx`, `HintBar.tsx`, `DescriptionBox.tsx`), `src/components/startMenu/` (`StartMenu.tsx`, `MenuList.tsx`, `EmoteScreen.tsx`, `OptionsScreen.tsx`, `optionRows.ts`, `menu.css`), `src/App.tsx`, `tests/game-menu.test.mjs`.
+- **Next:** Fish book / Name / Help still close the menu to gameplay when they open (they are separate overlays); returning to the field menu when they close is the open item.
 
 ## U-03 · Bag (Pokémon Black/White & ORAS style)
-- **Status:** Step 1 finished (fullscreen bag layout inside handheld shell, centered arcade cabinet window on desktop, top pocket bar with inline pixel SVGs & dot pagination, carried coins display, item list with ▶ cursor and count, auto-scroll to keep cursor visible, mother's empty notice, CLOSE BAG terminal row, per-pocket cursor memory, bottom description box with 48px pixel icon & metadata infoline, open/close routing from START / B / HUD, dev sandbox "+ Fill Bag" button).
+- **Status:** Step 2 finished (2026-10-10): Bag screen redrawn (BAG title + player name, pocket tabs with ◂ ▸, pixel backpack + pocket name + coins, framed item list with right-aligned quantities, fixed description box) and item actions **Eat / Check / Cancel** that change the real save.
 - **Decisions:**
-  - One source of truth for pockets: `pocketOf(id)` and `POCKETS` (`items`, `fish`, `cards`, `key`) in `src/game/story/items.ts`.
-  - Full screen coverage on mobile over the game screen (HUD is hidden underneath, Coins counter is displayed in the pocket bar). Centered 420px panel on desktop with backdrop dimming.
-  - Pockets remember their row cursor position across pocket switching.
-  - Controls: ←/→ change pocket, ↑/↓ navigate items, ◯ confirms, ✕ backs out.
-  - Back navigation routing: opened from START → ✕ reopens START menu on BAG row. Opened from B or HUD button → ✕ closes bag.
-  - All inventory changes will flow through `src/game/story/bagActions.ts` (prepared for ID-01 server authority).
-- **Files:** `src/game/story/items.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `bag.css`), `src/components/StoryHud.tsx`, `src/dev/storyTest.tsx`, `src/App.tsx`.
-- **Next:** Step 2 — Action menu (EAT, CHECK, CANCEL) + `bagActions.ts`.
+  - One source of truth for pockets: `pocketOf(id)` and `POCKETS` (`items`, `fish`, `cards`, `key`) in `src/game/story/items.ts`. The Gear / Bait / Tools idea was NOT used: the game has no equipment, bait or tools yet, so there is no equipped marker either.
+  - Every inventory action goes through `src/game/story/bagActions.ts` (`itemActionsFor`, `runItemAction`, `itemFacts`), prepared for ID-01 server authority. Eat refuses when energy is already full (item is kept). Check shows rarity, habitat, best catch, energy, prices from the real save.
+  - The action popup owns input; ←/→ and the list ignore keys until it closes. After an action the cursor stays on the same pocket and item (clamped if the stack ran out); feedback shows in the description box for ~3 s or until the next input.
+  - Full screen on handheld, centered 600 px frame on desktop. "CLOSE BAG" row removed: Back / START close it.
+- **Files:** `src/game/story/items.ts`, `src/game/story/bagActions.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `ItemActionMenu.tsx`, `PixelBackpack.tsx`, `bag.css`), `src/components/StoryHud.tsx`, `src/dev/storyTest.tsx`, `src/App.tsx`.
+- **Next:** Cards pocket needs a viewer action (Check shows only item facts today). Add Equip / Set bait to `itemActionsFor` + a marker in `ItemList` when equipment exists.
 
 ## W-01 · World
 - Lumen Bay plan, Dalbit market art. Docs: `docs/world/*`.
@@ -102,3 +102,4 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-07 · Antigravity · Moved handoff to repo root + docs/; ID-01 plan set to Spark + Vercel API routes (no Cloud Functions).
 - 2026-10-07 · Antigravity · U-02 Step 1 finished (START menu shell, cursor memory, description box, input router, overlay exclusivity, EMOTE screen). Branch: `feat/start-menu`.
 - 2026-10-08 · Antigravity · U-03 Step 1 finished (Bag screen shell, pocket bar, item list, description box, input router, cursor memory per pocket, ?test=story fill tool). Branch: `feat/bag`.
+- 2026-10-10 · Claude · U-02 Step 2 + U-03 Step 2 finished (ChatGPT menu brief: single menu state machine, field menu, Options screen, Bag redraw, Eat/Check actions on the real save, desktop HUD hidden while open; 81 unit tests + browser flows on handheld/desktop/production build pass).
