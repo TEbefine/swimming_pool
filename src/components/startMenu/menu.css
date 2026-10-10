@@ -15,9 +15,8 @@
   --gm-ink: #1b313d;        /* text on cream */
   --gm-ink-soft: #4b6373;
   --gm-shadow: rgba(8, 18, 24, 0.55);
-  /* One switch for the typeface. It follows the app font (IBM Plex Sans Thai since 2026-10-10);
-     point it at 'Sabai Pixel' to get the pixel look back. */
-  --gm-font: var(--font-pixel, 'IBM Plex Sans Thai', system-ui, sans-serif);
+  /* Menus use the same bilingual face as dialogue and the world. */
+  --gm-font: var(--font-pixel);
 
   /* handheld (compact) sizes */
   --gm-fs: 15px;

@@ -225,13 +225,13 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const portraitBottom = 10 + baseBoxH - PORTRAIT.tuck;
   const portraitRight = narrow ? PORTRAIT.rightNarrow : PORTRAIT.rightWide;
 
-  const fontSize = 18; // VT323 (English) is pixel-crisp at 18px with its size-adjust; Thai uses IBM Plex Sans Thai
+  const fontSize = 18; // Same bilingual face for wrapping measurements and rendered text.
   const accent = script.accent || '#5A3A22';
 
   // Measure box inner width for wrap calculation (with a slight right safety buffer)
   const innerWidth = Math.max(120, (boxInnerW > 0 ? boxInnerW : (w > 0 ? w - 52 : 300)) - 14);
   const resolvedText = currentLine ? resolveDialogText(currentLine.text) : '';
-  const fontSpec = `400 ${fontSize}px 'VT323', 'IBM Plex Sans Thai', sans-serif`;
+  const fontSpec = `400 ${fontSize}px 'Pool Pixel Default', monospace`;
 
   const pages = useMemo(() => {
     const lines = wrapTextMeasured(resolvedText, innerWidth, fontSpec);
@@ -515,7 +515,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         inset: 0,
         zIndex: 30,
         pointerEvents: 'auto',
-        fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
+        fontFamily: "'Pool Pixel Default', monospace",
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
         textRendering: 'geometricPrecision',
@@ -673,7 +673,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   height: '42px',
                   borderRadius: '8px',
                   padding: '0 12px',
-                  fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
+                  fontFamily: "'Pool Pixel Default', monospace",
                   fontSize: '17px',
                   fontWeight: 600,
                   WebkitFontSmoothing: 'antialiased',
@@ -761,7 +761,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             borderRadius: '999px',
             background: '#5A3A22',
             color: '#FFF8EC',
-            fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
+            fontFamily: "'Pool Pixel Default', monospace",
             fontSize: '16px',
             fontWeight: 600,
             lineHeight: '30px',
@@ -814,7 +814,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         {/* Text content */}
         <div
           style={{
-            fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
+            fontFamily: "'Pool Pixel Default', monospace",
             fontSize: `${fontSize}px`,
             fontWeight: 400,
             lineHeight: '29px',
@@ -840,7 +840,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
               right: '14px',
               bottom: '10px',
               color: accent,
-              fontFamily: "'VT323', 'IBM Plex Sans Thai', sans-serif",
+              fontFamily: "'Pool Pixel Default', monospace",
               fontSize: '16px',
               lineHeight: 1,
               pointerEvents: 'none',

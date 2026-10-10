@@ -3049,8 +3049,8 @@ export class GameEngine {
     }
     // Pixel font still loading: draw live (not cached, so it's redrawn properly once it arrives)
     this.ctx.save();
-    const { boxW } = nameTagSize(this.ctx, nameText);
-    drawNameTag(this.ctx, nameText, isMe, Math.floor(x - boxW / 2), Math.floor(y - 20), boxW);
+    const { boxW, boxH } = nameTagSize(this.ctx, nameText);
+    drawNameTag(this.ctx, nameText, isMe, Math.floor(x - boxW / 2), Math.floor(y - boxH), boxW);
     this.ctx.restore();
   }
 

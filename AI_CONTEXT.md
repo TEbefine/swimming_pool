@@ -2,7 +2,7 @@
 
 Any AI working on this repo: read this whole file before doing anything. Every topic has an **ID**. Each ID stores its items: status, decisions, files and what's next. When you finish work, update the blocks you touched and add one line to the **Log** at the bottom. Never delete a rejected idea: move it to "Rejected" with the reason, so nobody repeats it.
 
-Last updated: 2026-10-07 (handoff from Claude to ChatGPT)
+Last updated: 2026-10-10 (U-01 bilingual font 0.4)
 
 ---
 
@@ -58,7 +58,11 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 4 AI-personified NPCs talk about AI news (Gemini = tycoon, ChatGPT = cool girl, Claude = Emma Watson-like, plus one for other AIs).
 
 ## U-01 · UI and fonts
-- My handwriting font **TEERA Handwriting TH** (Thai + English) and the pixel font **Sabai Pixel / Pixelify Sans**. Docs: `docs/ui/*` (talk screen, handheld shell).
+- Default font: **Pool Pixel Default 0.4**, self-hosted Thai + English, with custom E/e/T/K/ข and compact พ/ฟ/ฬ bodies matched to ผ/ฝ. All 44 Thai consonants plus ฤ/ฦ and marks are covered.
+- Applied to UI, inputs, menus, dialogue and canvas labels; name-tag height accommodates Thai marks. Font URL `?v=0.4` refreshes existing caches. Both OFL notices are included. Details: `docs/ui/default-font.md`.
+- **TEERA Handwriting TH** remains available for artwork.
+- Rejected: raster-derived Pool Soft Pixel v0.1 (unstable strokes); the wider v0.3 พ body is superseded by the ผ/ฝ-style body. Earlier VT323/Plex and Sabai defaults are replaced by the requested bilingual pixel face.
+- Validation: production build and phone/desktop browser checks pass; physical iPhone review pending.
 
 ## U-02 · START menu (Pokémon FireRed/LeafGreen style)
 - **Status:** Step 2 finished (2026-10-10, from the ChatGPT brief): one controller-driven menu system inside the game screen. Field menu (Fish book, Bag, <player name>, Emotes, Options, Help, Resume), EMOTES list, OPTIONS screen (Sound, Music, Vibration, Quality: real stores), description box, hint bar, one Back stack, cursor memory.
@@ -103,3 +107,5 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-07 · Antigravity · U-02 Step 1 finished (START menu shell, cursor memory, description box, input router, overlay exclusivity, EMOTE screen). Branch: `feat/start-menu`.
 - 2026-10-08 · Antigravity · U-03 Step 1 finished (Bag screen shell, pocket bar, item list, description box, input router, cursor memory per pocket, ?test=story fill tool). Branch: `feat/bag`.
 - 2026-10-10 · Claude · U-02 Step 2 + U-03 Step 2 finished (ChatGPT menu brief: single menu state machine, field menu, Options screen, Bag redraw, Eat/Check actions on the real save, desktop HUD hidden while open; 81 unit tests + browser flows on handheld/desktop/production build pass).
+
+- 2026-10-10 · Codex · U-01: applied Pool Pixel Default 0.4 to current main; refined พ/ฟ/ฬ to match ผ/ฝ bodies, preserved E/e/T/K/ข and full Thai coverage, updated font cache URLs, and checked production build plus phone/desktop rendering.

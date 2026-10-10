@@ -9,9 +9,9 @@ export interface Label {
   ay: number;
 }
 
-const PIXEL_FONT = '"VT323", "IBM Plex Sans Thai"'; // app fonts: VT323 for English, Plex for Thai
-const LABEL_FONT = `500 12px ${PIXEL_FONT}, sans-serif`; // name tags, exit signs
-const BUBBLE_FONT = `13px ${PIXEL_FONT}, sans-serif`; // speech bubbles
+const PIXEL_FONT = '"Pool Pixel Default"'; // shared Thai + English pixel face
+const LABEL_FONT = `16px ${PIXEL_FONT}, sans-serif`; // name tags, exit signs
+const BUBBLE_FONT = `16px ${PIXEL_FONT}, sans-serif`; // speech bubbles
 
 export class LabelCache {
   private map = new Map<string, Label>();
@@ -75,13 +75,17 @@ export function makeCanvas(w: number, h: number): [HTMLCanvasElement, CanvasRend
 
 export function nameTagSize(ctx: CanvasRenderingContext2D, text: string) {
   ctx.font = LABEL_FONT;
-  const boxW = ctx.measureText(text).width + 12;
-  return { boxW, boxH: 20 };
+  ctx.textBaseline = 'alphabetic';
+  const metrics = ctx.measureText(text);
+  const inkHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+  const boxH = Math.max(20, Math.ceil(inkHeight) + 6);
+  const textY = (boxH - inkHeight) / 2 + metrics.actualBoundingBoxAscent;
+  return { boxW: metrics.width + 12, boxH, textY };
 }
 
 /** Name tag pill with its top-left corner at (bx, by). */
 export function drawNameTag(ctx: CanvasRenderingContext2D, text: string, isMe: boolean, bx: number, by: number, boxW: number) {
-  const boxH = 20;
+  const { boxH, textY } = nameTagSize(ctx, text);
   ctx.fillStyle = isMe ? 'rgba(15, 32, 67, 0.85)' : 'rgba(0, 0, 0, 0.7)';
   ctx.fillRect(bx, by, boxW, boxH);
   ctx.strokeStyle = isMe ? '#4fc3f7' : '#90a4ae';
@@ -90,16 +94,16 @@ export function drawNameTag(ctx: CanvasRenderingContext2D, text: string, isMe: b
   ctx.font = LABEL_FONT;
   ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, bx + boxW / 2, by + boxH / 2 + 1);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, bx + boxW / 2, by + textY);
 }
 
 export function buildNameTag(cache: LabelCache, text: string, isMe: boolean): Label {
-  const { boxW } = nameTagSize(cache.measureCtx(), text);
-  const [c, g] = makeCanvas(boxW + 2, 22);
+  const { boxW, boxH } = nameTagSize(cache.measureCtx(), text);
+  const [c, g] = makeCanvas(boxW + 2, boxH + 2);
   drawNameTag(g, text, isMe, 1, 1, boxW);
   // anchor = bottom centre of the pill
-  return { canvas: c, ax: 1 + boxW / 2, ay: 21 };
+  return { canvas: c, ax: 1 + boxW / 2, ay: boxH + 1 };
 }
 
 export function wrapBubbleText(ctx: CanvasRenderingContext2D, text: string, maxLineWidth = 180): string[] {

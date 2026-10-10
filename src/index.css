@@ -1,17 +1,29 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Pool Pixel Default';
+  src: url('/fonts/PoolPixelDefault-Regular.woff2?v=0.4') format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+button, input, select, textarea {
+  font-family: var(--font-pixel);
+  font-synthesis: none;
+}
+
 /* Tailwind font utilities follow the app fonts too (font-sans, font-mono). */
 @theme {
-  --font-sans: 'VT323', 'IBM Plex Sans Thai', system-ui, sans-serif;
-  --font-mono: 'VT323', 'IBM Plex Mono', ui-monospace, monospace;
+  --font-sans: 'Pool Pixel Default', monospace;
+  --font-mono: 'Pool Pixel Default', monospace;
 }
 
 :root {
-  /* English + numbers: VT323 (pixel). Thai: IBM Plex Sans Thai (VT323 has no Thai, so Thai falls through). Both OFL.
-     Best size: 18px (VT323 pixels land on whole css pixels there). */
-  --font-pixel: 'VT323', 'IBM Plex Sans Thai', system-ui, sans-serif;
-  --font-sub: 'VT323', 'IBM Plex Sans Thai', system-ui, sans-serif;
-  --font-code: 'VT323', 'IBM Plex Mono', ui-monospace, monospace;
+  /* One bilingual pixel face, including Thai marks; keep strokes consistent. */
+  --font-pixel: 'Pool Pixel Default', monospace;
+  --font-sub: 'Pool Pixel Default', monospace;
+  --font-code: 'Pool Pixel Default', monospace;
   
   --bg-dark: #0f1423;
   --panel-bg: rgba(18, 25, 44, 0.88);
@@ -388,7 +400,7 @@ html, body {
 /* DIALOG / VN FONTS                                         */
 /* ========================================================= */
 
-/* Dialog text uses IBM Plex Sans Thai too (see --font-pixel). */
+/* Dialog text uses Pool Pixel Default too (see --font-pixel). */
 
 /* Utility used by inputs, chat and menus: the pixel font. */
 .font-pixel {

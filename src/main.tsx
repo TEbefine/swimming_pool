@@ -2,11 +2,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
-// Load the pixel font early so canvas text (name tags, speech bubbles) uses it from the first frame
-document.fonts?.load('500 12px "IBM Plex Sans Thai"', 'กA') // canvas name tags, bubbles, signs
-document.fonts?.load('18px "VT323"', 'A') // English text: VT323
-document.fonts?.load('16px "IBM Plex Sans Thai"', 'ก') // Thai text: IBM Plex Sans Thai
-document.fonts?.load('500 16px "IBM Plex Sans Thai"', 'ก')
+// Load both scripts before canvas labels are cached.
+document.fonts?.load('16px "Pool Pixel Default"', 'กพฟฬA')
 
 const root = createRoot(document.getElementById('root')!)
 const testMode = new URLSearchParams(location.search).get('test') // TEST MODE (?test=fishing)
