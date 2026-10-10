@@ -207,7 +207,7 @@ export function buildPromptBubble(): Label {
 
 /** Exit sign ("< Lumen Bay"): top-left at (x, y), returns its width. */
 export function exitSignWidth(ctx: CanvasRenderingContext2D, label: string) {
-  ctx.font = `12px ${PIXEL_FONT}, monospace`;
+  ctx.font = `16px ${PIXEL_FONT}, monospace`;
   return Math.ceil(ctx.measureText(label).width) + 12;
 }
 
@@ -217,7 +217,7 @@ export function drawExitSign(ctx: CanvasRenderingContext2D, label: string, x: nu
   ctx.fillStyle = '#FFF6E5';
   ctx.fillRect(x, y, w, 18);
   ctx.fillStyle = '#4A2E1A';
-  ctx.font = `12px ${PIXEL_FONT}, monospace`;
+  ctx.font = `16px ${PIXEL_FONT}, monospace`;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.fillText(label, x + 6, y + 10);

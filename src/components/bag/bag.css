@@ -17,7 +17,7 @@
   pointer-events: auto;
   user-select: none;
   -webkit-user-select: none;
-  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-family: var(--font-pixel, 'Sabai Pixel', monospace);
 }
 
 @media (prefers-color-scheme: dark) {

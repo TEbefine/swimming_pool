@@ -351,7 +351,7 @@
   transition: width 0.3s ease;
 }
 .ls-enter {
-  font-family: 'Pixelify Sans', var(--font-pixel);
+  font-family: var(--font-pixel);
   font-size: clamp(11px, 4cqw, 16px);
   letter-spacing: 0.1em;
   animation: ls-blink 2.6s ease-in-out infinite alternate;

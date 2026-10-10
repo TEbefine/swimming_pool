@@ -4,6 +4,7 @@ import App from './App.tsx'
 
 // Load the pixel font early so canvas text (name tags, speech bubbles) uses it from the first frame
 document.fonts?.load('16px "Sabai Pixel"')
+document.fonts?.load('700 16px "Sabai Pixel"')
 
 const root = createRoot(document.getElementById('root')!)
 const testMode = new URLSearchParams(location.search).get('test') // TEST MODE (?test=fishing)

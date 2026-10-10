@@ -225,13 +225,13 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const portraitBottom = 10 + baseBoxH - PORTRAIT.tuck;
   const portraitRight = narrow ? PORTRAIT.rightNarrow : PORTRAIT.rightWide;
 
-  const fontSize = narrow ? 26 : 28;
+  const fontSize = 24; // Sabai Pixel is crisp at 16/24/32px; Bold 24 = long-reading pick
   const accent = script.accent || '#5A3A22';
 
   // Measure box inner width for wrap calculation (with a slight right safety buffer)
   const innerWidth = Math.max(120, (boxInnerW > 0 ? boxInnerW : (w > 0 ? w - 52 : 300)) - 14);
   const resolvedText = currentLine ? resolveDialogText(currentLine.text) : '';
-  const fontSpec = `600 ${fontSize}px 'Pixelify Sans', 'Sabai Pixel', monospace`;
+  const fontSpec = `700 ${fontSize}px 'Sabai Pixel', monospace`;
 
   const pages = useMemo(() => {
     const lines = wrapTextMeasured(resolvedText, innerWidth, fontSpec);
@@ -515,7 +515,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         inset: 0,
         zIndex: 30,
         pointerEvents: 'auto',
-        fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+        fontFamily: "'Sabai Pixel', monospace",
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
         textRendering: 'geometricPrecision',
@@ -673,7 +673,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   height: '42px',
                   borderRadius: '8px',
                   padding: '0 12px',
-                  fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+                  fontFamily: "'Sabai Pixel', monospace",
                   fontSize: narrow ? '20px' : '22px',
                   fontWeight: 600,
                   WebkitFontSmoothing: 'antialiased',
@@ -761,11 +761,11 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             borderRadius: '999px',
             background: '#5A3A22',
             color: '#FFF8EC',
-            fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
-            fontSize: '20px',
+            fontFamily: "'Sabai Pixel', monospace",
+            fontSize: '16px',
             fontWeight: 700,
             lineHeight: '30px',
-            letterSpacing: '0.02em',
+            letterSpacing: 0,
             WebkitFontSmoothing: 'antialiased',
             MozOsxFontSmoothing: 'grayscale',
             textRendering: 'geometricPrecision',
@@ -814,11 +814,11 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         {/* Text content */}
         <div
           style={{
-            fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+            fontFamily: "'Sabai Pixel', monospace",
             fontSize: `${fontSize}px`,
-            fontWeight: 600,
-            lineHeight: 1.45,
-            letterSpacing: '0.02em',
+            fontWeight: 700,
+            lineHeight: 1.75,
+            letterSpacing: 0,
             color: '#24160E',
             wordBreak: 'break-word',
             whiteSpace: 'pre-wrap',
@@ -840,7 +840,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
               right: '14px',
               bottom: '10px',
               color: accent,
-              fontFamily: "'Pixelify Sans', 'Sabai Pixel', monospace",
+              fontFamily: "'Sabai Pixel', monospace",
               fontSize: '16px',
               lineHeight: 1,
               pointerEvents: 'none',

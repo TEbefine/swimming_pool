@@ -98,7 +98,7 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
               {v.perfect && <span className="text-[#B8860B]">Perfect!</span>}
               {v.record && <span className="text-[#9C4A3E]">New record!</span>}
             </span>
-            <span className="opacity-75 leading-snug truncate" style={{ fontFamily: 'Itim, system-ui, sans-serif', fontSize: compact ? 11 : 15 }}>
+            <span className="opacity-75 leading-snug truncate" style={{ fontFamily: 'var(--font-pixel)', fontSize: compact ? 11 : 15 }}>
               {info.note}
             </span>
           </div>

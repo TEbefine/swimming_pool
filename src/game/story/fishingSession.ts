@@ -750,7 +750,7 @@ function drawTop(ctx: CanvasRenderingContext2D, now: number) {
     const age = (now - popText.at) / 900;
     ctx.save();
     ctx.globalAlpha = Math.min(1, (1 - age) * 2);
-    ctx.font = 'bold 10px "Press Start 2P", "Pixelify Sans", monospace';
+    ctx.font = 'bold 16px "Sabai Pixel", monospace';
     ctx.textAlign = 'center';
     const y = Math.round(p.y - 100 - age * 12);
     ctx.fillStyle = C.outline;

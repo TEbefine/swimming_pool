@@ -72,7 +72,7 @@
 .start-menu-cursor {
   width: 12px;
   flex-shrink: 0;
-  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-family: var(--font-pixel, 'Sabai Pixel', monospace);
   font-size: 16px;
   line-height: 1;
   color: #1E293B;
@@ -89,7 +89,7 @@
 
 /* Row label */
 .start-menu-label {
-  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-family: var(--font-pixel, 'Sabai Pixel', monospace);
   font-size: 16px;
   font-weight: 600;
   text-transform: uppercase;
@@ -134,7 +134,7 @@
 }
 
 .start-menu-desc-text {
-  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-family: var(--font-pixel, 'Sabai Pixel', monospace);
   font-size: 16px;
   line-height: 1.25;
   color: #2D1A0E;
@@ -169,7 +169,7 @@
 }
 
 .start-menu-header-title {
-  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
+  font-family: var(--font-pixel, 'Sabai Pixel', monospace);
   font-size: 16px;
   font-weight: 700;
   text-transform: uppercase;
