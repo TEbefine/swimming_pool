@@ -60,6 +60,10 @@ function sayName(id: string): string {
 
 /** Where Yunseul stands to fish: the right edge of the pier end, facing the open water. */
 export const FISHING_SPOT = { x: 452, y: 222, facing: 1 as const };
+/** Where you fish this time. Front-facing rooms (room.fishing, e.g. Quiet Bay): right where you stand on
+ *  the edge, facing the camera, float in the water below. Otherwise the side-view pier spot above. */
+let spot: { x: number; y: number; facing: 1 | -1 } = { ...FISHING_SPOT };
+let front = false;
 /** Where the float lands: x from right off the pier end (distance 0) to far out (distance 1). */
 const CAST_X0 = 494;
 const CAST_RANGE = 268;
@@ -83,6 +87,8 @@ export interface FishingView {
   /** Name, note, icon, tier of the catch (for the card). */
   info: CatchInfo | null;
   mode: FishingMode;
+  /** Fishing toward the camera (Quiet Bay): the HUD goes to the top so it never covers you or the float. */
+  front: boolean;
   /** Caught without the fish ever leaving the net. */
   perfect: boolean;
   tired: boolean;
@@ -94,8 +100,8 @@ export interface FishingView {
   record: boolean;
 }
 
-const EMPTY: Omit<FishingView, 'active' | 'mode'> = { phase: 'ready', landed: false, caught: null, info: null, perfect: false, tired: false, aiming: false, sizeCm: null, record: false };
-let view: FishingView = { active: false, mode: 'story', ...EMPTY };
+const EMPTY: Omit<FishingView, 'active' | 'mode' | 'front'> = { phase: 'ready', landed: false, caught: null, info: null, perfect: false, tired: false, aiming: false, sizeCm: null, record: false };
+let view: FishingView = { active: false, mode: 'story', front: false, ...EMPTY };
 const listeners = new Set<() => void>();
 function emit(patch: Partial<FishingView>) {
   view = { ...view, ...patch };
@@ -126,22 +132,43 @@ export function setFishingTestHooks(h: FishingTestHooks) {
 // ---- rod tips of the fishing poses (from the outfit manifest, written by process_fishing_sheet.py) ----
 type Tip = { x: number; y: number };
 let tips: Record<string, Tip> = {};
+/** Front-facing catch frames: where the palm is (the fish is drawn there). */
+let hands: Record<string, Tip> = {};
+/** Every fishing frame this outfit has (some sheets have extra chill poses: sit, sip, yawn). */
+let have = new Set<string>();
 let tipsFor = '';
 async function loadTips(outfit: string) {
   if (tipsFor === outfit) return;
   tipsFor = outfit;
   try {
     const res = await fetch(`/sprites/outfits/${outfit}/manifest.json`);
-    const m = (await res.json()) as Record<string, { tip?: Tip }>;
+    const m = (await res.json()) as Record<string, { tip?: Tip; hand?: Tip }>;
     tips = {};
-    for (const [k, v] of Object.entries(m)) if (v.tip) tips[k] = v.tip;
+    hands = {};
+    have = new Set();
+    for (const [k, v] of Object.entries(m)) {
+      if (!k.startsWith('fish_')) continue;
+      have.add(k);
+      if (v.tip) tips[k] = v.tip;
+      if (v.hand) hands[k] = v.hand;
+    }
   } catch {
     tips = {};
+    hands = {};
+    have = new Set();
   }
 }
 /** True when this outfit has real fishing poses (otherwise a simple rod is drawn in code). */
 function hasPoses(): boolean {
   return !!tips.fish_wait_a;
+}
+/** This pose if the outfit has it, else the fallback. */
+function pick(name: string, fallback: string): string {
+  return have.has(name) ? name : fallback;
+}
+/** Standing pose when not fishing. */
+function restPose(): string {
+  return front ? 'idle' : 'side_idle';
 }
 
 // ---- session state ----------------------------------------------------------------
@@ -153,6 +180,7 @@ let castAt = 0; // performance.now() when the throw started
 let target = { x: 560, y: 245 };
 let reelStart = 0;
 let endAt = 0; // when the last cast ended
+let readyAt = 0; // when the rod came out (for the slow idle between casts)
 let lastLedgerFish: string | null = null;
 let pose = '';
 let splashed = false;
@@ -185,7 +213,7 @@ export function gaugeValue(now: number): number {
 function setPose(name: string) {
   if (pose === name) return;
   pose = name;
-  engine?.setPlayerPose(name, FISHING_SPOT.facing);
+  engine?.setPlayerPose(name, spot.facing);
 }
 
 /** Start fishing at the pier end: walk to the edge, face the water, throw. */
@@ -194,15 +222,21 @@ export async function startFishing(e: GameEngine, m: FishingMode = 'story') {
   engine = e;
   mode = m;
   e.setDialogFrozen(true);
-  emit({ active: true, mode, ...EMPTY });
+  const fc = e.getRoom().fishing;
+  front = !!fc;
+  emit({ active: true, mode, front, ...EMPTY });
+  spot = fc
+    ? { x: Math.round(Math.max(fc.minX, Math.min(fc.maxX, e.localPlayer.x))), y: fc.standY, facing: 1 }
+    : { ...FISHING_SPOT };
   await Promise.all([
     loadTips(e.getRoom().outfit),
-    e.walkPlayerTo(FISHING_SPOT.x, FISHING_SPOT.y, FISHING_SPOT.facing),
+    e.walkPlayerTo(spot.x, spot.y, spot.facing),
   ]);
   pose = '';
   fs = newFishing();
   endAt = 0;
-  setPose(hasPoses() ? 'fish_ready' : 'side_idle');
+  readyAt = performance.now();
+  setPose(hasPoses() ? 'fish_ready' : restPose());
   // now hold ◯ to power up, let go to cast
 }
 
@@ -216,13 +250,14 @@ export function stopFishing() {
     engine.localShakeX = 0;
     engine.cameraFocusX = null;
   }
-  if (hasPoses()) {
+  if (hasPoses() && have.has('fish_shoulder')) {
     setPose('fish_shoulder');
+    const rest = restPose();
     window.setTimeout(() => {
-      if (!view.active && engine?.localPlayer.currentAction === 'fish_shoulder') engine.setPlayerPose('side_idle');
+      if (!view.active && engine?.localPlayer.currentAction === 'fish_shoulder') engine.setPlayerPose(rest);
     }, 700);
   } else {
-    engine?.setPlayerPose('side_idle', FISHING_SPOT.facing);
+    engine?.setPlayerPose(restPose(), spot.facing);
   }
   pose = '';
   engine?.setDialogFrozen(false);
@@ -233,7 +268,7 @@ export function stopFishing() {
 function startAiming(now: number) {
   if (mode === 'story' && getStory().energy <= 0) {
     emit({ tired: true, phase: 'ready', caught: null, landed: false, aiming: false });
-    setPose(hasPoses() ? 'fish_ready' : 'side_idle');
+    setPose(hasPoses() ? 'fish_ready' : restPose());
     return;
   }
   chargeAt = now;
@@ -264,11 +299,21 @@ function throwLine(info: CastInfo) {
   if (!e) return;
   const st = getStory();
   if (mode === 'story') setEnergy(st.energy - 1);
-  // far water is higher on the screen (closer to the horizon)
-  target = {
-    x: Math.round(CAST_X0 + info.distance * CAST_RANGE + (Math.random() - 0.5) * 12),
-    y: Math.round(262 - info.distance * 24 + (Math.random() - 0.5) * 12),
-  };
+  const fc = e.getRoom().fishing;
+  if (front && fc) {
+    // facing the camera: a far cast lands LOWER on the screen (toward the viewer), a little to the right
+    const w = fc.water;
+    target = {
+      x: Math.round(Math.min(w.maxX, spot.x + w.dx0 + info.distance * (w.dx1 - w.dx0) + (Math.random() - 0.5) * 10)),
+      y: Math.round(w.y0 + info.distance * (w.y1 - w.y0) + (Math.random() - 0.5) * 6),
+    };
+  } else {
+    // far water is higher on the screen (closer to the horizon)
+    target = {
+      x: Math.round(CAST_X0 + info.distance * CAST_RANGE + (Math.random() - 0.5) * 12),
+      y: Math.round(262 - info.distance * 24 + (Math.random() - 0.5) * 12),
+    };
+  }
   flightMs = 340 + info.distance * 320;
   const now = performance.now();
   castAt = now - WINDUP_MS; // he is already wound up: go straight into the swing
@@ -350,10 +395,10 @@ function finish(now: number) {
       }
     }
     sound.playEmoteSound('happy');
-    if (!hasPoses()) engine?.setPlayerPose('happy', FISHING_SPOT.facing);
+    if (!hasPoses()) engine?.setPlayerPose('happy', spot.facing);
   } else {
     sound.playBuzzer();
-    if (!hasPoses()) engine?.setPlayerPose('thinking', FISHING_SPOT.facing);
+    if (!hasPoses()) engine?.setPlayerPose('thinking', spot.facing);
   }
   const reel = fs.phase === 'caught' || fs.phase === 'escaped' ? (now - reelStart) / 1000 : 0;
   testHooks.onResult?.(fs.phase, fish, reel);
@@ -448,26 +493,51 @@ function poseFor(now: number): string {
   const t = now - castAt;
   switch (fs.phase) {
     case 'ready':
-      return 'fish_ready';
+      return restingPose(now - readyAt);
     case 'waiting':
       if (t < WINDUP_MS) return 'fish_windup';
       if (t < WINDUP_MS + SWING_MS) return 'fish_cast';
       if (now < landedAt() + 250) return 'fish_follow';
-      return Math.floor((now - landedAt()) / 750) % 2 === 0 ? 'fish_wait_a' : 'fish_wait_b';
+      return waitPose(now - landedAt());
     case 'bite':
       return 'fish_bite';
     case 'reel': {
       if (now - reelStart < STRIKE_MS) return 'fish_strike';
-      if (tension > 0.6) return 'fish_strain';
+      if (tension > 0.6 && have.has('fish_strain')) return 'fish_strain';
       const d = difficultyOf(fs);
       return Math.floor(now / (340 - d * 30)) % 2 === 0 ? 'fish_pull_a' : 'fish_pull_b';
     }
     case 'caught':
-      if (now - endAt < CATCH_SHOW_MS) return Math.floor((now - endAt) / 260) % 2 === 0 ? 'fish_catch' : 'fish_cheer';
-      return 'fish_ready';
+      if (now - endAt < CATCH_SHOW_MS) {
+        // front-facing catch frames hold the fish in the hand: don't flicker between two hand spots
+        if (front) return now - endAt < CATCH_SHOW_MS * 0.55 ? 'fish_catch' : pick('fish_cheer', 'fish_catch');
+        return Math.floor((now - endAt) / 260) % 2 === 0 ? 'fish_catch' : 'fish_cheer';
+      }
+      return restingPose(now - endAt - CATCH_SHOW_MS);
     default: // scared / stolen / escaped
-      return now - endAt < MISS_SHOW_MS ? 'fish_miss' : 'fish_ready';
+      return now - endAt < MISS_SHOW_MS ? 'fish_miss' : restingPose(now - endAt - MISS_SHOW_MS);
   }
+}
+
+/** Float in the water: stand and breathe (a sip of the drink on a longer wait, if the outfit has it). */
+function waitPose(sinceLand: number): string {
+  if (sinceLand > 3200 && sinceLand < 4400 && have.has('fish_sip')) return 'fish_sip';
+  return Math.floor(sinceLand / 750) % 2 === 0 ? 'fish_wait_a' : 'fish_wait_b';
+}
+
+/** Between casts, nothing to do: the slow part of a fishing day. Stand a moment, then breathe with the
+ *  rod out (a sip, a yawn), then sit down on the cooler box. Friends see you relaxing. */
+function restingPose(s: number): string {
+  if (!front || s < 3500) return 'fish_ready';
+  if (have.has('fish_sit_a') && s > 11000) {
+    return Math.floor((s - 11000) / 1400) % 3 === 2 ? pick('fish_sit_b', 'fish_sit_a') : 'fish_sit_a';
+  }
+  const beat = (s - 3500) % 3800;
+  if (beat > 2600) {
+    const extra = Math.floor((s - 3500) / 3800) % 2 === 0 ? 'fish_sip' : 'fish_yawn';
+    if (have.has(extra)) return extra;
+  }
+  return Math.floor(s / 750) % 2 === 0 ? pick('fish_wait_a', 'fish_ready') : pick('fish_wait_b', 'fish_ready');
 }
 
 const C = {
@@ -625,6 +695,24 @@ function drawWorld(ctx: CanvasRenderingContext2D, now: number) {
   if (fs.phase !== 'bite') drawFloat(ctx, f.x, f.y + bob, fs.floatDown);
 }
 
+/** The generic fish shadow in the reel bar (16 × 8, centred on 0,0). Never the real fish. */
+const MYSTERY_FISH = [
+  '....XXXXX.......',
+  '..XXXXXXXXX...XX',
+  '.XXXXXXXXXXX.XXX',
+  'XXXXXXXXXXXXXXX.',
+  'XXXXXXXXXXXXXXX.',
+  '.XXXXXXXXXXX.XXX',
+  '..XXXXXXXXX...XX',
+  '....XXXXX.......',
+];
+function drawMysteryFish(ctx: CanvasRenderingContext2D, inNet: boolean) {
+  ctx.fillStyle = inNet ? '#2E4E57' : '#16303A';
+  MYSTERY_FISH.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) if (row[x] === 'X') ctx.fillRect(x - 8, y - 4, 1, 1);
+  });
+}
+
 const iconCache: Record<string, HTMLImageElement> = {};
 /** The fish's icon for canvas drawing (Free Fishing falls back to a stand-in until its sheet is cut). */
 function icon(id: string): HTMLImageElement {
@@ -680,7 +768,7 @@ function drawTop(ctx: CanvasRenderingContext2D, now: number) {
     const age = (now - popText.at) / 900;
     ctx.save();
     ctx.globalAlpha = Math.min(1, (1 - age) * 2);
-    ctx.font = 'bold 10px "Press Start 2P", "Pixelify Sans", monospace';
+    ctx.font = '700 14px "Pool Pixel Default", monospace';
     ctx.textAlign = 'center';
     const y = Math.round(p.y - 100 - age * 12);
     ctx.fillStyle = C.outline;
@@ -704,9 +792,13 @@ function drawTop(ctx: CanvasRenderingContext2D, now: number) {
     const age = now - endAt;
     if (age < CATCH_SHOW_MS) {
       const rise = Math.min(1, age / 220);
-      const size = 26;
-      const x = Math.round(p.x + 1 - size / 2);
-      const y = Math.round(p.y - 104 - rise * 8 + (Math.floor(age / 260) % 2));
+      const hand = hands[engine!.localPlayer.currentAction];
+      const size = hand ? 22 : 26;
+      // front-facing frames: the fish is held in the open palm(s) (green marker); else held up over the head
+      const x = hand ? Math.round(p.x + hand.x * p.facing - size / 2) : Math.round(p.x + 1 - size / 2);
+      const y = hand
+        ? Math.round(p.y + hand.y - size / 2 - 2 - rise * 2)
+        : Math.round(p.y - 104 - rise * 8 + (Math.floor(age / 260) % 2));
       const img = icon(fs.fish);
       if (img.complete && img.naturalWidth) {
         ctx.save();
@@ -884,22 +976,18 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedM
   px(ctx, col.x - 1, ny - 1, col.w + 2, 2, C.outline);
   px(ctx, col.x - 1, ny + nh - 1, col.w + 2, 2, C.outline);
 
-  // the fish: dark silhouette of its real icon (its shape is the only hint), tilting as it darts
+  // the fish: a MYSTERY shadow, the same for every fish — what you hooked stays hidden until it's
+  // caught (before, the real icon was drawn with ctx.filter, which Safari / iPhone ignore → the fish
+  // showed in full colour). Plain fillRects, so it looks the same in every browser.
   if (fs.fish && fs.phase !== 'escaped') {
-    const img = icon(fs.fish);
-    const size = 22;
+    icon(fs.fish); // start loading the real icon now, so it's ready to show in his hands on a catch
     const cy = col.y + col.h - fs.fishY * col.h;
     const wig = reducedMotion ? 0 : Math.sin(now / 55) * (tension > 0.6 ? 2 : 1);
-    if (img.complete && img.naturalWidth) {
-      ctx.save();
-      ctx.translate(col.x + col.w / 2 + wig, cy);
-      ctx.rotate(reducedMotion ? 0 : fishTilt);
-      ctx.filter = fs.inNet ? 'brightness(0.2)' : 'brightness(0.08)';
-      ctx.drawImage(img, -size / 2, -size / 2, size, size);
-      ctx.restore();
-    } else {
-      px(ctx, col.x + 5, cy - 3, 12, 6, C.outline);
-    }
+    ctx.save();
+    ctx.translate(Math.round(col.x + col.w / 2 + wig), Math.round(cy));
+    ctx.rotate(reducedMotion ? 0 : fishTilt);
+    drawMysteryFish(ctx, fs.inNet);
+    ctx.restore();
   }
 
   // catch meter (right): red → yellow → green, glows near full, blinks when the line is in danger

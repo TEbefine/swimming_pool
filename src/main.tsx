@@ -7,8 +7,8 @@ import { IdentityGate } from './identity/IdentityGate'
 // oxlint-disable-next-line react/only-export-components
 const App = lazy(() => import('./App.tsx'))
 
-// Load the pixel font early so canvas text (name tags, speech bubbles) uses it from the first frame
-document.fonts?.load('16px "Sabai Pixel"')
+// Load both scripts before canvas labels are cached.
+document.fonts?.load('16px "Pool Pixel Default"', 'กพฟฬA')
 
 const root = createRoot(document.getElementById('root')!)
 const testMode = new URLSearchParams(location.search).get('test') // TEST MODE (?test=fishing)

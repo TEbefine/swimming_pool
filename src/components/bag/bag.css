@@ -1,415 +1,195 @@
 /* ========================================================================= */
-/* POKÉMON-STYLE BAG SCREEN (Black/White & ORAS feel for portrait shell)      */
+/* BAG — replaces the screen: title, pockets, backpack + list, description    */
+/* Shares the look (tokens, frame, rows, hints) with startMenu/menu.css.      */
 /* ========================================================================= */
 
-.bag-screen-container {
+.gm-bag-frame {
   position: absolute;
   inset: 0;
   z-index: 35;
-  background-color: #FFF8EC;
-  border: 2px solid #1E293B;
-  box-shadow: inset 0 0 0 1px #CBD5E1;
-  border-radius: 4px;
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-sizing: border-box;
+  justify-content: center;
   pointer-events: auto;
-  user-select: none;
-  -webkit-user-select: none;
-  font-family: var(--font-pixel, 'Pixelify Sans', 'Sabai Pixel', monospace);
 }
 
-@media (prefers-color-scheme: dark) {
-  .bag-screen-container {
-    background-color: var(--gb-bezel, #14161a);
-    border: 2px solid var(--gb-edge, #2d3139);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-    color: var(--gb-bezel-text, #e6e8ee);
-  }
+/* On a big desktop screen the Bag is a framed box over the dimmed world. */
+.gm-bag-frame[data-compact='false'] {
+  background: rgba(8, 18, 24, 0.6);
+  padding: 16px;
 }
 
-/* ------------------------------------------------------------------------- */
-/* 1. TOP POCKET BAR                                                         */
-/* ------------------------------------------------------------------------- */
-
-.bag-pocket-bar {
-  height: 48px;
-  min-height: 48px;
-  border-bottom: 2px solid #1E293B;
-  box-shadow: inset 0 -1px 0 #CBD5E1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  box-sizing: border-box;
-  background: rgba(30, 41, 59, 0.04);
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-pocket-bar {
-    border-bottom: 2px solid var(--gb-edge, #2d3139);
-    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.03);
-  }
-}
-
-.bag-pocket-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.bag-pocket-arrow-btn {
-  background: transparent;
-  border: none;
-  color: #1E293B;
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 4px 6px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-}
-
-.bag-pocket-arrow-btn:active {
-  background: rgba(30, 41, 59, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-pocket-arrow-btn {
-    color: var(--gb-ink, #9aa5f2);
-  }
-  .bag-pocket-arrow-btn:active {
-    background: rgba(255, 255, 255, 0.1);
-  }
-}
-
-.bag-pocket-center {
+.gm-bag {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-width: 110px;
+  width: 100%;
+  height: 100%;
+  background: var(--gm-navy);
+  color: var(--gm-cream);
+  overflow: hidden;
 }
 
-.bag-pocket-title-row {
+.gm-bag-frame[data-compact='false'] .gm-bag {
+  max-width: 600px;
+  max-height: 520px;
+  margin: auto;
+  border: 2px solid var(--gm-slate);
+  box-shadow: 0 0 0 2px var(--gm-navy), 4px 4px 0 var(--gm-shadow);
+}
+
+/* 1. title */
+.gm-bag-title {
+  flex: none;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 12px 3px;
+  border-bottom: 1px solid var(--gm-slate);
 }
-
-.bag-pocket-title {
-  font-size: 16px;
+.gm-bag-heading {
+  color: var(--gm-gold);
+  font-size: var(--gm-fs);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #0F172A;
+  letter-spacing: 0.18em;
+}
+.gm-bag-player {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(var(--gm-fs) - 2px);
+  font-weight: 500;
 }
 
-@media (prefers-color-scheme: dark) {
-  .bag-pocket-title {
-    color: var(--gb-bezel-text, #f1f2f6);
-  }
-}
-
-/* Dots indicator below pocket name: ● ○ ○ ○ */
-.bag-pocket-dots {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 6px;
-}
-
-.bag-pocket-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  border: 1px solid #1E293B;
-  background: transparent;
-  box-sizing: border-box;
-}
-
-.bag-pocket-dot.is-active {
-  background: #1E293B;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-pocket-dot {
-    border-color: var(--gb-ink, #9aa5f2);
-  }
-  .bag-pocket-dot.is-active {
-    background: var(--gb-ink, #9aa5f2);
-  }
-}
-
-.bag-coins-badge {
-  font-size: 16px;
-  font-weight: 600;
-  color: #B45309;
+/* 2. pocket selector with ◂ ▸ indicators */
+.gm-pockets {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 4px 10px;
+  color: var(--gm-gold);
 }
+.gm-pocket-arrow { opacity: 0.9; }
 
-@media (prefers-color-scheme: dark) {
-  .bag-coins-badge {
-    color: #FBBF24;
-  }
-}
-
-/* ------------------------------------------------------------------------- */
-/* 2. MIDDLE ITEM LIST                                                       */
-/* ------------------------------------------------------------------------- */
-
-.bag-item-list-container {
+.gm-tab {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 4px 6px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  overscroll-behavior: contain;
-}
-
-/* Thin clean pixel scrollbar */
-.bag-item-list-container::-webkit-scrollbar {
-  width: 5px;
-}
-
-.bag-item-list-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.bag-item-list-container::-webkit-scrollbar-thumb {
-  background: #94A3B8;
-  border-radius: 2px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-item-list-container::-webkit-scrollbar-thumb {
-    background: #475569;
-  }
-}
-
-.bag-item-row {
-  height: 32px;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 6px;
-  box-sizing: border-box;
-  border-radius: 3px;
-  cursor: pointer;
+  min-width: 0;
+  height: calc(var(--gm-row-h) - 4px);
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
   background: transparent;
-  border: none;
-  width: 100%;
-  text-align: left;
+  color: var(--gm-cream);
+  opacity: 0.62;
+  font: 600 calc(var(--gm-fs) - 2px) / 1 var(--gm-font);
+  text-align: center;
+  cursor: pointer;
   outline: none;
 }
-
-.bag-item-row.is-active {
-  background-color: rgba(30, 41, 59, 0.08);
+.gm-tab.is-active {
+  opacity: 1;
+  background: var(--gm-cream);
+  color: var(--gm-navy);
+  border-bottom-color: var(--gm-gold);
 }
 
-@media (prefers-color-scheme: dark) {
-  .bag-item-row.is-active {
-    background-color: rgba(255, 255, 255, 0.08);
-  }
-}
-
-.bag-item-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
-}
-
-.bag-cursor {
-  width: 12px;
-  flex-shrink: 0;
-  font-size: 16px;
-  line-height: 1;
-  color: #1E293B;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-cursor {
-    color: var(--gb-ink, #9aa5f2);
-  }
-}
-
-.bag-item-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #0F172A;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-item-name {
-    color: var(--gb-bezel-text, #f1f2f6);
-  }
-}
-
-.bag-item-qty {
-  font-size: 16px;
-  font-weight: 600;
-  color: #475569;
-  font-feature-settings: 'tnum';
-  margin-left: 8px;
-  flex-shrink: 0;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-item-qty {
-    color: #94A3B8;
-  }
-}
-
-.bag-empty-notice {
-  padding: 18px 12px 10px;
-  font-size: 16px;
-  line-height: 1.4;
-  color: #5A3A22;
-  opacity: 0.85;
-  text-align: center;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-empty-notice {
-    color: #cbd5e1;
-    opacity: 0.75;
-  }
-}
-
-/* ------------------------------------------------------------------------- */
-/* 3. BOTTOM DESCRIPTION BOX                                                 */
-/* ------------------------------------------------------------------------- */
-
-.bag-descbox {
-  min-height: 82px;
-  max-height: 96px;
-  border-top: 2px solid #5A3A22;
-  box-shadow: inset 0 1px 0 #CBD5E1;
-  background-color: #FFF8EC;
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-sizing: border-box;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-descbox {
-    background-color: var(--gb-bezel, #14161a);
-    border-top: 2px solid var(--gb-edge, #2d3139);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  }
-}
-
-.bag-desc-icon-box {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
-  border-radius: 4px;
-  border: 1.5px solid #1E293B;
-  box-shadow: inset 0 0 0 1px #E2E8F0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #FFF;
-  overflow: hidden;
+/* 3. middle: backpack on the left, framed list on the right */
+.gm-bag-mid {
   position: relative;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-desc-icon-box {
-    background: #1e2229;
-    border-color: var(--gb-edge, #2d3139);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  }
-}
-
-.bag-desc-icon {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-}
-
-.bag-desc-content {
   flex: 1;
-  min-width: 0;
+  min-height: 0;
+  display: flex;
+  gap: 10px;
+  padding: 6px 10px;
+}
+
+.gm-bag-side {
+  flex: none;
+  width: 28%;
+  min-width: 78px;
+  max-width: 132px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 5px;
+  text-align: center;
 }
-
-.bag-desc-name {
-  font-size: 16px;
+.gm-pack-tile {
+  padding: 6px;
+  line-height: 0;
+}
+.gm-backpack { display: block; image-rendering: pixelated; }
+.gm-pocket-name {
+  font-size: calc(var(--gm-fs) - 1px);
   font-weight: 700;
-  text-transform: uppercase;
-  color: #1E293B;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
+  line-height: 1.15;
 }
-
-@media (prefers-color-scheme: dark) {
-  .bag-desc-name {
-    color: var(--gb-ink, #9aa5f2);
-  }
-}
-
-.bag-desc-note {
-  font-size: 16px;
-  line-height: 1.25;
-  color: #2D1A0E;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bag-desc-note {
-    color: var(--gb-bezel-text, #e6e8ee);
-  }
-}
-
-.bag-desc-infoline {
-  font-size: 16px;
+.gm-coins {
+  color: var(--gm-gold);
+  font-size: calc(var(--gm-fs) - 3px);
   font-weight: 600;
-  color: #0284C7;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
 }
 
-@media (prefers-color-scheme: dark) {
-  .bag-desc-infoline {
-    color: #38BDF8;
-  }
+.gm-list-frame {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 5px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gm-slate) transparent;
+}
+.gm-list-frame::-webkit-scrollbar { width: 5px; }
+.gm-list-frame::-webkit-scrollbar-thumb { background: var(--gm-slate); }
+
+.gm-item-row { flex: none; height: var(--gm-row-h); }
+.gm-qty {
+  flex: none;
+  margin-left: 8px;
+  font-weight: 600;
+  font-feature-settings: 'tnum';
+  text-align: right;
+  min-width: 2.2em;
+}
+.gm-item-row:not(.is-active) .gm-qty { color: var(--gm-ink-soft); }
+
+/* While the action menu has focus the list keeps its cursor but looks "parked". */
+.gm-list-frame.is-held .gm-row.is-active { background: var(--gm-navy-soft); }
+
+.gm-empty {
+  margin: 0;
+  padding: 14px 10px;
+  text-align: center;
+  font-size: calc(var(--gm-fs) - 1px);
+  line-height: 1.4;
+  color: var(--gm-ink-soft);
+}
+
+/* 4. contextual action menu, over the lower right of the inventory */
+.gm-popup {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  width: clamp(104px, 34%, 150px);
+  padding: 6px;
+  z-index: 3;
+}
+
+/* 5. description box: fixed height, so nothing jumps when the text changes */
+.gm-bag-desc {
+  flex: none;
+  /* Room for the worst case: name + 2 lines + a meta line (a fish with its prices). */
+  height: 92px;
+  margin: 0 10px 8px;
+}
+.gm-bag-frame[data-compact='false'] .gm-bag-desc { height: 104px; }
+
+/* 6. hints sit in normal flow at the bottom of the Bag */
+.gm-bag .gm-hints {
+  position: relative;
+  flex: none;
 }

@@ -158,7 +158,7 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: '0.3cqw' }}>
               <InfoTitle fish={selFish} entry={selEntry} size={fs(2.1, 8)} />
               {!compact && (
-                <span style={{ fontFamily: 'Itim, system-ui, sans-serif', fontSize: fs(1.9, 9), opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontFamily: 'var(--font-pixel)', fontSize: fs(1.9, 9), opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {selEntry ? selFish.note : `${hint(selFish)} · not caught yet`}
                 </span>
               )}
@@ -172,7 +172,7 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
               <FishIcon fish={selFish} caught={!!selEntry} style={{ width: '30%', aspectRatio: '1', flex: 'none' }} />
               <span style={{ display: 'flex', flexDirection: 'column', gap: '1.5cqw', minWidth: 0 }}>
                 <InfoTitle fish={selFish} entry={selEntry} size="max(10px, 4cqw)" />
-                <span style={{ fontFamily: 'Itim, system-ui, sans-serif', fontSize: 'max(11px, 4.4cqw)', lineHeight: 1.25 }}>
+                <span style={{ fontFamily: 'var(--font-pixel)', fontSize: 'max(11px, 4.4cqw)', lineHeight: 1.25 }}>
                   {selEntry ? selFish.note : `${hint(selFish)}. Not caught yet.`}
                 </span>
               </span>

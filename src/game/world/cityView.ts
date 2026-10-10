@@ -44,6 +44,21 @@ export const ROOM_LIGHTS: Record<string, { x: number; y: number; radius: number;
     { x: 972, y: 73, radius: 110, color: [255, 200, 130] },   // door sconce
     { x: 968, y: 400, radius: 90, color: [255, 170, 90] },    // jukebox glow
   ],
+  // Quiet Bay: the vending machine, the lighthouse lamp, and a few boathouse windows across the bay
+  lake_pier: [
+    { x: 236, y: 330, radius: 46, color: [200, 228, 255] },   // vending machine
+    { x: 866, y: 166, radius: 34, color: [255, 236, 170] },   // lighthouse lamp room
+    { x: 40, y: 160, radius: 16, color: [255, 200, 130] },
+    { x: 118, y: 158, radius: 16, color: [255, 205, 140] },
+    { x: 178, y: 161, radius: 16, color: [255, 200, 130] },
+    { x: 290, y: 159, radius: 16, color: [255, 205, 140] },
+    { x: 352, y: 160, radius: 16, color: [255, 200, 130] },
+    { x: 462, y: 158, radius: 16, color: [255, 205, 140] },
+    { x: 528, y: 160, radius: 16, color: [255, 200, 130] },
+    { x: 640, y: 159, radius: 16, color: [255, 205, 140] },
+    { x: 700, y: 161, radius: 16, color: [255, 200, 130] },
+    { x: 758, y: 158, radius: 16, color: [255, 205, 140] },
+  ],
   dalbit_yard: [
     { x: 430, y: 206, radius: 70, color: [255, 205, 140] },   // paper doors, lamp inside
     { x: 595, y: 200, radius: 45, color: [255, 205, 140] },   // small window

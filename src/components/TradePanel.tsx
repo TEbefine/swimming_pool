@@ -42,7 +42,7 @@ export const TradePanel: React.FC<TradePanelProps> = ({ panel, compact = false, 
   }, [onClose]);
 
   const text = compact ? 'text-[11px]' : 'text-[15px]';
-  const noteFont = { fontFamily: 'Itim, system-ui, sans-serif', fontSize: compact ? 12 : 16 };
+  const noteFont = { fontFamily: 'var(--font-pixel)', fontSize: compact ? 12 : 16 };
   const icon = compact ? 'w-6 h-6' : 'w-8 h-8';
 
   let title: string;

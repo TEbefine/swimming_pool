@@ -54,6 +54,18 @@ def cut_white(img: Image.Image) -> Image.Image:
     return Image.fromarray(np.dstack([col, a * 255]).astype(np.uint8))
 
 
+def lift_backdrop(img: Image.Image) -> Image.Image:
+    """Off-white / light-grey studio backdrops (e.g. 235,235,234) → near pure white, so cut_white
+    finds them. Each channel is scaled so the median border colour becomes 252 (white stays white)."""
+    a = np.array(img.convert('RGB')).astype(float)
+    border = np.concatenate([a[:8].reshape(-1, 3), a[-8:].reshape(-1, 3), a[:, :8].reshape(-1, 3), a[:, -8:].reshape(-1, 3)])
+    bg = np.median(border, axis=0)
+    if bg.min() < 200:          # not a light backdrop: leave it alone
+        return img
+    a = np.clip(a * (252.0 / np.maximum(bg, 1)), 0, 255)
+    return Image.fromarray(a.astype(np.uint8))
+
+
 def find_face(img: Image.Image):
     g = cv2.cvtColor(np.array(img.convert('RGB')), cv2.COLOR_RGB2GRAY)
     best = None
@@ -90,9 +102,9 @@ def main(npc, ident_path, grid_path, faces):
     os.makedirs(out_dir, exist_ok=True)
     grid = Image.open(grid_path).convert('RGB')
     gw, gh = grid.size
-    cells = [grid.crop((0, 0, gw // 2, gh // 2)), grid.crop((gw // 2, 0, gw, gh // 2)),
-             grid.crop((0, gh // 2, gw // 2, gh)), grid.crop((gw // 2, gh // 2, gw, gh))]
-    items = [('neutral', Image.open(ident_path).convert('RGB'))] + list(zip(faces, cells))
+    cells = [lift_backdrop(grid.crop((0, 0, gw // 2, gh // 2))), lift_backdrop(grid.crop((gw // 2, 0, gw, gh // 2))),
+             lift_backdrop(grid.crop((0, gh // 2, gw // 2, gh))), lift_backdrop(grid.crop((gw // 2, gh // 2, gw, gh)))]
+    items = [('neutral', lift_backdrop(Image.open(ident_path).convert('RGB')))] + list(zip(faces, cells))
 
     found = {name: find_face(img) for name, img in items}
     grid_scales = [FACE_W / f[2] for name, f in found.items() if f is not None and name != 'neutral']

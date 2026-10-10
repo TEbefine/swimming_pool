@@ -1,0 +1,150 @@
+{
+  "fish_ready": {
+    "width": 100,
+    "height": 74,
+    "path": "/sprites/outfits/jinbei/fish_ready.webp",
+    "tip": {
+      "x": 46.6,
+      "y": -3.0
+    }
+  },
+  "fish_windup": {
+    "width": 80,
+    "height": 84,
+    "path": "/sprites/outfits/jinbei/fish_windup.webp",
+    "tip": {
+      "x": -36.5,
+      "y": -81.4
+    }
+  },
+  "fish_cast": {
+    "width": 114,
+    "height": 75,
+    "path": "/sprites/outfits/jinbei/fish_cast.webp",
+    "tip": {
+      "x": 53.2,
+      "y": -4.8
+    }
+  },
+  "fish_follow": {
+    "width": 98,
+    "height": 76,
+    "path": "/sprites/outfits/jinbei/fish_follow.webp",
+    "tip": {
+      "x": 44.9,
+      "y": -2.9
+    }
+  },
+  "fish_wait_a": {
+    "width": 100,
+    "height": 75,
+    "path": "/sprites/outfits/jinbei/fish_wait_a.webp",
+    "tip": {
+      "x": 46.5,
+      "y": -3.4
+    }
+  },
+  "fish_wait_b": {
+    "width": 96,
+    "height": 76,
+    "path": "/sprites/outfits/jinbei/fish_wait_b.webp",
+    "tip": {
+      "x": 43.2,
+      "y": -4.0
+    }
+  },
+  "fish_sip": {
+    "width": 96,
+    "height": 75,
+    "path": "/sprites/outfits/jinbei/fish_sip.webp",
+    "tip": {
+      "x": 43.5,
+      "y": -2.1
+    }
+  },
+  "fish_yawn": {
+    "width": 92,
+    "height": 76,
+    "path": "/sprites/outfits/jinbei/fish_yawn.webp",
+    "tip": {
+      "x": 42.9,
+      "y": -3.8
+    }
+  },
+  "fish_sit_a": {
+    "width": 108,
+    "height": 67,
+    "path": "/sprites/outfits/jinbei/fish_sit_a.webp",
+    "tip": {
+      "x": 49.8,
+      "y": -3.8
+    }
+  },
+  "fish_sit_b": {
+    "width": 110,
+    "height": 69,
+    "path": "/sprites/outfits/jinbei/fish_sit_b.webp",
+    "tip": {
+      "x": 49.9,
+      "y": -3.1
+    }
+  },
+  "fish_bite": {
+    "width": 104,
+    "height": 72,
+    "path": "/sprites/outfits/jinbei/fish_bite.webp",
+    "tip": {
+      "x": 48.3,
+      "y": -18.4
+    }
+  },
+  "fish_strike": {
+    "width": 102,
+    "height": 71,
+    "path": "/sprites/outfits/jinbei/fish_strike.webp",
+    "tip": {
+      "x": 47.4,
+      "y": -23.6
+    }
+  },
+  "fish_pull_a": {
+    "width": 108,
+    "height": 74,
+    "path": "/sprites/outfits/jinbei/fish_pull_a.webp",
+    "tip": {
+      "x": 50.6,
+      "y": -25.0
+    }
+  },
+  "fish_pull_b": {
+    "width": 100,
+    "height": 72,
+    "path": "/sprites/outfits/jinbei/fish_pull_b.webp",
+    "tip": {
+      "x": 45.0,
+      "y": -21.2
+    }
+  },
+  "fish_catch": {
+    "width": 72,
+    "height": 76,
+    "path": "/sprites/outfits/jinbei/fish_catch.webp",
+    "tip": {
+      "x": 32.4,
+      "y": -73.8
+    },
+    "hand": {
+      "x": -2.0,
+      "y": -30.5
+    }
+  },
+  "fish_miss": {
+    "width": 78,
+    "height": 76,
+    "path": "/sprites/outfits/jinbei/fish_miss.webp",
+    "tip": {
+      "x": 34.9,
+      "y": -73.6
+    }
+  }
+}

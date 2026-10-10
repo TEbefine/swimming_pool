@@ -15,6 +15,8 @@ export const NPC_NAMES: Record<string, string> = {
   innkeeper: 'Innkeeper',
   rice_seller: 'Rice Seller',
   yeot_seller: 'Yeot Seller',
+  nami: 'Nami',
+  kai: 'Kai',
 };
 
 export function npcName(id: string): string {

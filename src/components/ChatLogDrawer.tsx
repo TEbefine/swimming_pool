@@ -87,7 +87,7 @@ export const ChatLogDrawer: React.FC<ChatLogDrawerProps> = ({
                   </div>
                   <span className="text-[16px] text-slate-500">{timeStr}</span>
                 </div>
-                <div className="text-slate-100 font-mono text-[16px] break-words">
+                <div className="text-slate-100 font-pixel text-[16px] break-words">
                   {msg.text}
                 </div>
               </div>

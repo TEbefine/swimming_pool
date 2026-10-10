@@ -17,6 +17,7 @@ import { rooms } from './rooms';
 import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
 import { MoversManager } from './world/movers';
 import { renderAmbient } from './world/ambient';
+import { drawFisherProps } from './world/bayLife';
 import { getTonightGenre } from './rooms/club';
 import { FrameBudget, LOW_POWER_QUERY, prefersLowPower } from './frameBudget';
 import { ImageLoader, releaseSprite, spriteReady, type Sprite } from './imageLoader';
@@ -1169,7 +1170,7 @@ export class GameEngine {
 
     // Priority 3: NPC talk spot / in range → talk
     if (this.room.npcs) {
-      for (const npc of this.room.npcs) {
+      for (const npc of this.onDutyNpcs()) {
         if (this.isPlayerInNpcTalkRange(npc)) {
           return { id: 'talk', label: 'Talk' };
         }
@@ -1344,6 +1345,19 @@ export class GameEngine {
   }
 
 
+  /** NPCs working right now: an NPC with `hours` (a shift, Bangkok time) is only here during it.
+   *  All of them are still loaded with the room, so the shift change needs no reload. */
+  private onDutyNpcs(): NpcDef[] {
+    const all = this.room.npcs ?? [];
+    if (!all.some((n) => n.hours)) return all;
+    const h = bangkokHour(undefined, this.room.view?.fixedHour);
+    return all.filter((n) => {
+      if (!n.hours || n.id === this.dialogNpcId) return true; // never vanish mid-talk
+      const [from, to] = n.hours;
+      return from <= to ? h >= from && h < to : h >= from || h < to;
+    });
+  }
+
   /** Find the nearest NPC whose talkSpot the local player is inside. */
   private findNearestTalkSpotNpc(): { id: string; name: string; x: number; y: number } | null {
     if (!this.room.npcs) return null;
@@ -1351,7 +1365,7 @@ export class GameEngine {
     const py = this.localPlayer.y;
     let best: { id: string; name: string; x: number; y: number } | null = null;
     let bestDist = Infinity;
-    for (const npc of this.room.npcs) {
+    for (const npc of this.onDutyNpcs()) {
       const curState = this.getNpcCurrentState(npc);
       if (this.isPlayerInNpcTalkRange(npc, curState)) {
         const dist = Math.hypot(px - curState.x, py - curState.y);
@@ -2494,7 +2508,7 @@ export class GameEngine {
 
     // 6b. NPCs (depth-sorted by dynamic feet y)
     if (this.room.npcs) {
-      for (const npc of this.room.npcs) {
+      for (const npc of this.onDutyNpcs()) {
         const state = this.getNpcRenderState(npc, time);
         if (!spanVisible(v, state.x, 110)) continue;
         const capturedNpc = npc;
@@ -2551,7 +2565,11 @@ export class GameEngine {
       drawFns.push({
         y: this.sortYFor(player),
         draw: () => {
+          // Quiet Bay: a bucket (+ cooler box, + lantern at night) next to anyone fishing; friends' lines
+          const fishing = !!this.room.fishing && capturedPlayer.currentAction.startsWith('fish_');
+          if (fishing) drawFisherProps(ctx, this.room.roomId, this.room.outfit, capturedPlayer, capturedX, capturedPlayer === this.localPlayer, 'under', time, sky.night);
           this.renderPlayerSprite(capturedPlayer, capturedDrawY, capturedSprite, capturedX, capturedAir);
+          if (fishing) drawFisherProps(ctx, this.room.roomId, this.room.outfit, capturedPlayer, capturedX, capturedPlayer === this.localPlayer, 'over', time, sky.night);
           // Defer nametag + bubble as overlays
           overlayFns.push(() => this.renderPlayerOverlay(capturedPlayer, capturedDrawY, capturedH, showTag));
         }
@@ -2830,6 +2848,12 @@ export class GameEngine {
   private isPlayerInNpcTalkRange(npc: NpcDef, state?: NpcRenderState): boolean {
     const px = this.localPlayer.x;
     const py = this.localPlayer.y;
+    // Front-facing fishing rooms (Quiet Bay): on the fishing edge ◯ always fishes, so a guide
+    // standing nearby never steals the button. Step back from the edge to talk.
+    if (this.room.fishing) {
+      const edge = this.room.interactables?.find((i) => i.id === 'pier_end')?.rect;
+      if (edge && py >= edge.y && px >= edge.x && px <= edge.x + edge.width) return false;
+    }
     const curState = state ?? this.getNpcCurrentState(npc);
     const spot = this.npcTalkSpots.get(npc.id);
 
@@ -3029,8 +3053,8 @@ export class GameEngine {
     }
     // Pixel font still loading: draw live (not cached, so it's redrawn properly once it arrives)
     this.ctx.save();
-    const { boxW } = nameTagSize(this.ctx, nameText);
-    drawNameTag(this.ctx, nameText, isMe, Math.floor(x - boxW / 2), Math.floor(y - 20), boxW);
+    const { boxW, boxH } = nameTagSize(this.ctx, nameText);
+    drawNameTag(this.ctx, nameText, isMe, Math.floor(x - boxW / 2), Math.floor(y - boxH), boxW);
     this.ctx.restore();
   }
 
@@ -3282,7 +3306,7 @@ export class GameEngine {
     this.ctx.strokeStyle = '#ff00ff';
     this.ctx.lineWidth = 1.5;
     if (this.room.npcs) {
-      for (const npc of this.room.npcs) {
+      for (const npc of this.onDutyNpcs()) {
         const curState = this.getNpcCurrentState(npc);
         const spot = this.npcTalkSpots.get(npc.id);
         if (spot) {

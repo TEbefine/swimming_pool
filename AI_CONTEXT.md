@@ -2,7 +2,7 @@
 
 Any AI working on this repo: read this whole file before doing anything. Every topic has an **ID**. Each ID stores its items: status, decisions, files and what's next. When you finish work, update the blocks you touched and add one line to the **Log** at the bottom. Never delete a rejected idea: move it to "Rejected" with the reason, so nobody repeats it.
 
-Last updated: 2026-10-08 (ID-01b Firebase login in review)
+Last updated: 2026-10-10 (ID-01c saves in progress; main merged into the ID branch)
 
 ---
 
@@ -67,34 +67,37 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 4 AI-personified NPCs talk about AI news (Gemini = tycoon, ChatGPT = cool girl, Claude = Emma Watson-like, plus one for other AIs).
 
 ## U-01 · UI and fonts
-- My handwriting font **TEERA Handwriting TH** (Thai + English) and the pixel font **Sabai Pixel / Pixelify Sans**. Docs: `docs/ui/*` (talk screen, handheld shell).
+- Default font: **Pool Pixel Default 0.4**, self-hosted Thai + English, with custom E/e/T/K/ข and compact พ/ฟ/ฬ bodies matched to ผ/ฝ. All 44 Thai consonants plus ฤ/ฦ and marks are covered.
+- Applied to UI, inputs, menus, dialogue and canvas labels; name-tag height accommodates Thai marks. Font URL `?v=0.4` refreshes existing caches. Both OFL notices are included. Details: `docs/ui/default-font.md`.
+- **TEERA Handwriting TH** remains available for artwork.
+- Rejected: raster-derived Pool Soft Pixel v0.1 (unstable strokes); the wider v0.3 พ body is superseded by the ผ/ฝ-style body. Earlier VT323/Plex and Sabai defaults are replaced by the requested bilingual pixel face.
+- Validation: production build and phone/desktop browser checks pass; physical iPhone review pending.
 
 ## U-02 · START menu (Pokémon FireRed/LeafGreen style)
-- **Status:** Step 1 finished (shell, cursor memory, description box, input routing, mutual overlay exclusivity, EMOTE sub-screen, FISH BOOK, BAG, HELP, EXIT).
+- **Status:** Step 2 finished (2026-10-10, from the ChatGPT brief): one controller-driven menu system inside the game screen. Field menu (Fish book, Bag, <player name>, Emotes, Options, Help, Resume), EMOTES list, OPTIONS screen (Sound, Music, Vibration, Quality: real stores), description box, hint bar, one Back stack, cursor memory.
 - **Decisions:**
-  - Placed on the right side inside the game screen (~46% width), cream background `#FFF8EC` with 2px `#1E293B` border and inner highlight (dark mode uses `--gb-*` tokens).
-  - No backdrop blur for smooth iPhone 13 performance; subtle dimming layer.
-  - Labels in uppercase pixel font (minimum 16px to avoid iOS zoom).
-  - Description box at the bottom explaining active highlighted row.
-  - Controls: D-pad / WASD navigate cursor, ◯ / Enter / Z confirms, ✕ / Escape backs out. START button / KeyM toggles START menu.
-  - In multiplayer, local player stops walking, but the world keeps ticking (NPCs and players keep moving).
-  - Overlay exclusivity: START closes SceneBox; SELECT (SceneBox) closes START menu.
-- **Files:** `src/components/startMenu/` (`StartMenu.tsx`, `MenuList.tsx`, `EmoteScreen.tsx`, `useMenuStack.ts`, `menu.css`), `src/game/haptics.ts`, `src/game/audio.ts`, `src/game/Engine.ts`, `src/App.tsx`, `src/components/GameBoyMobile.tsx`.
-- **Integration:** START row 3 opens the existing profile/Player ID flow; controller feedback is suppressed during identity code entry. Input pause preserves multiplayer world updates.
-- **Next:** Step 2 — OPTION screen + VIBRATION setting.
+  - Design: navy `#1b313d`, cream `#eee6c8`, gold `#e7bd66`, blue-gray borders, square double-border frames with a small offset shadow, triangle cursor, selected row = navy + cream text. Tokens are `--gm-*` in `menu.css`; the typeface is `--gm-font` (follows the app font; one line switches it to Sabai Pixel).
+  - Field panel compact in the upper-right, world visible behind; divider before Options; description box near the bottom; hints on the bottom edge (glyphs on handheld, key names on desktop).
+  - Logic lives in ONE pure state machine `menuModel.ts` (`reduce`, `MenuStore`); UI only draws it. One keyboard entry point (`useGameMenu().handleKey` called first in the App key handler) and one D-pad adapter (`DpadAdapter`: one step per press, repeat after ~380 ms).
+  - Back is exactly one level: item actions → Bag → Field menu → Gameplay. START closes everything from any depth. A menu opened directly (B key / HUD bag button) closes to gameplay on Back.
+  - The field cursor, each pocket and each pocket's selected item are remembered (state lives in the store, not in a mounted component).
+  - While the menu is open the player stops walking, the world keeps ticking. On desktop the HeaderBar, ActionBar and ChatBar are hidden (the ChatBar "Enter focuses chat" shortcut used to steal the confirm key).
+  - Menu does not open over a dialog, story panel or loading scene; opening a dialog or SELECT box closes it.
+  - Keys: arrows/WASD move, Enter/Z/E/O confirm, X/Escape back, M/P/` START, B Bag. Shell ◯ = confirm, ✕ = back, START toggles.
+- **Rejected:** the old cream `#FFF8EC` panel with uppercase labels, and the old START/BAG wiring (separate state plus nudge/trigger counters in `App.tsx`, `useMenuStack.ts`): the cursor was lost on re-mount and a D-pad drag stepped several rows. `useMenuStack.ts` was deleted; the store above replaces it.
+- **Files:** `src/components/gameMenu/` (`menuModel.ts`, `menuInput.ts`, `useGameMenu.ts`, `GameMenu.tsx`, `HintBar.tsx`, `DescriptionBox.tsx`), `src/components/startMenu/` (`StartMenu.tsx`, `MenuList.tsx`, `EmoteScreen.tsx`, `OptionsScreen.tsx`, `optionRows.ts`, `menu.css`), `src/App.tsx`, `tests/game-menu.test.mjs`.
+- **Integration (ID-01):** START row 3 (the player name) opens the profile/Player ID flow (Name modal → "Player ID & recovery backup"); controller feedback is suppressed during identity code entry. Identity pause (`engine.setPause('identity')`) outranks the menu pause; the world keeps ticking.
+- **Next:** Fish book / Name / Help still close the menu to gameplay when they open (they are separate overlays); returning to the field menu when they close is the open item.
 
 ## U-03 · Bag (Pokémon Black/White & ORAS style)
-- **Status:** Step 1 finished (fullscreen bag layout inside handheld shell, centered arcade cabinet window on desktop, top pocket bar with inline pixel SVGs & dot pagination, carried coins display, item list with ▶ cursor and count, auto-scroll to keep cursor visible, mother's empty notice, CLOSE BAG terminal row, per-pocket cursor memory, bottom description box with 48px pixel icon & metadata infoline, open/close routing from START / B / HUD, dev sandbox "+ Fill Bag" button).
+- **Status:** Step 2 finished (2026-10-10): Bag screen redrawn (BAG title + player name, pocket tabs with ◂ ▸, pixel backpack + pocket name + coins, framed item list with right-aligned quantities, fixed description box) and item actions **Eat / Check / Cancel** that change the real save.
 - **Decisions:**
-  - One source of truth for pockets: `pocketOf(id)` and `POCKETS` (`items`, `fish`, `cards`, `key`) in `src/game/story/items.ts`.
-  - Full screen coverage on mobile over the game screen (HUD is hidden underneath, Coins counter is displayed in the pocket bar). Centered 420px panel on desktop with backdrop dimming.
-  - Pockets remember their row cursor position across pocket switching.
-  - Controls: ←/→ change pocket, ↑/↓ navigate items, ◯ confirms, ✕ backs out.
-  - Back navigation routing: opened from START → ✕ reopens START menu on BAG row. Opened from B or HUD button → ✕ closes bag.
-  - All inventory changes will flow through `src/game/story/bagActions.ts` (prepared for ID-01 server authority).
-- **Files:** `src/game/story/items.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `bag.css`), `src/components/StoryHud.tsx`, `src/dev/storyTest.tsx`, `src/App.tsx`.
-- **Integration:** bag shares the overlay pause API and keeps its existing START/B/HUD routing.
-- **Next:** Step 2 — Action menu (EAT, CHECK, CANCEL) + `bagActions.ts`.
+  - One source of truth for pockets: `pocketOf(id)` and `POCKETS` (`items`, `fish`, `cards`, `key`) in `src/game/story/items.ts`. The Gear / Bait / Tools idea was NOT used: the game has no equipment, bait or tools yet, so there is no equipped marker either.
+  - Every inventory action goes through `src/game/story/bagActions.ts` (`itemActionsFor`, `runItemAction`, `itemFacts`), prepared for ID-01 server authority. Eat refuses when energy is already full (item is kept). Check shows rarity, habitat, best catch, energy, prices from the real save.
+  - The action popup owns input; ←/→ and the list ignore keys until it closes. After an action the cursor stays on the same pocket and item (clamped if the stack ran out); feedback shows in the description box for ~3 s or until the next input.
+  - Full screen on handheld, centered 600 px frame on desktop. "CLOSE BAG" row removed: Back / START close it.
+- **Files:** `src/game/story/items.ts`, `src/game/story/bagActions.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `ItemActionMenu.tsx`, `PixelBackpack.tsx`, `bag.css`), `src/components/StoryHud.tsx`, `src/dev/storyTest.tsx`, `src/App.tsx`.
+- **Next:** Cards pocket needs a viewer action (Check shows only item facts today). Add Equip / Set bait to `itemActionsFor` + a marker in `ItemList` when equipment exists.
 
 ## W-01 · World
 - Lumen Bay plan, Dalbit market art. Docs: `docs/world/*`.
@@ -120,3 +123,5 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-08 · Codex · ID-01b Admin runtime fix: scoped jwks-rsa to CommonJS-compatible jose 5.10.0, tested both Vercel-built routes with require(ESM) disabled and generated RSA keys, and saved Singapore as the Vercel project default; new-preview GET/runtime-region evidence belongs in the PR review packet.
 - 2026-10-08 · Codex · ID-01b controller fix: replaced centre-angle identity input with explicit arm hit areas, removed face press effects, added Preview-only combo tracing and phone-size touch/restore/login/error checks; protected vault/crypto files unchanged and physical iPhone retest pending.
 - 2026-10-08 · Codex · ID-01b protected-preview fix: use same-origin credentials and distinguish Vercel protection from API/session errors; added a cookie-gated mock regression. Real iPhone/Mac login retest remains required after deployment.
+- 2026-10-10 · Claude · U-02 Step 2 + U-03 Step 2 finished (ChatGPT menu brief: single menu state machine, field menu, Options screen, Bag redraw, Eat/Check actions on the real save, desktop HUD hidden while open; 81 unit tests + browser flows on handheld/desktop/production build pass).
+- 2026-10-10 · Codex · U-01: applied Pool Pixel Default 0.4 to current main; refined พ/ฟ/ฬ to match ผ/ฝ bodies, preserved E/e/T/K/ข and full Thai coverage, updated font cache URLs, and checked production build plus phone/desktop rendering.

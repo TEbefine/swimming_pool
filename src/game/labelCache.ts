@@ -9,7 +9,9 @@ export interface Label {
   ay: number;
 }
 
-const PIXEL_FONT = '"Sabai Pixel"';
+const PIXEL_FONT = '"Pool Pixel Default"'; // shared Thai + English pixel face
+const LABEL_FONT = `16px ${PIXEL_FONT}, sans-serif`; // name tags, exit signs
+const BUBBLE_FONT = `16px ${PIXEL_FONT}, sans-serif`; // speech bubbles
 
 export class LabelCache {
   private map = new Map<string, Label>();
@@ -31,7 +33,7 @@ export class LabelCache {
   /** True once the pixel font is ready; before that, labels are drawn live (and not cached). */
   fontReady(): boolean {
     try {
-      return typeof document === 'undefined' || !document.fonts || document.fonts.check(`16px ${PIXEL_FONT}`);
+      return typeof document === 'undefined' || !document.fonts || document.fonts.check(LABEL_FONT, 'กA');
     } catch {
       return true;
     }
@@ -72,36 +74,40 @@ export function makeCanvas(w: number, h: number): [HTMLCanvasElement, CanvasRend
 // ---------------------------------------------------------------------------
 
 export function nameTagSize(ctx: CanvasRenderingContext2D, text: string) {
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
-  const boxW = ctx.measureText(text).width + 12;
-  return { boxW, boxH: 20 };
+  ctx.font = LABEL_FONT;
+  ctx.textBaseline = 'alphabetic';
+  const metrics = ctx.measureText(text);
+  const inkHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+  const boxH = Math.max(20, Math.ceil(inkHeight) + 6);
+  const textY = (boxH - inkHeight) / 2 + metrics.actualBoundingBoxAscent;
+  return { boxW: metrics.width + 12, boxH, textY };
 }
 
 /** Name tag pill with its top-left corner at (bx, by). */
 export function drawNameTag(ctx: CanvasRenderingContext2D, text: string, isMe: boolean, bx: number, by: number, boxW: number) {
-  const boxH = 20;
+  const { boxH, textY } = nameTagSize(ctx, text);
   ctx.fillStyle = isMe ? 'rgba(15, 32, 67, 0.85)' : 'rgba(0, 0, 0, 0.7)';
   ctx.fillRect(bx, by, boxW, boxH);
   ctx.strokeStyle = isMe ? '#4fc3f7' : '#90a4ae';
   ctx.lineWidth = 1;
   ctx.strokeRect(bx, by, boxW, boxH);
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = LABEL_FONT;
   ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, bx + boxW / 2, by + boxH / 2 + 1);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, bx + boxW / 2, by + textY);
 }
 
 export function buildNameTag(cache: LabelCache, text: string, isMe: boolean): Label {
-  const { boxW } = nameTagSize(cache.measureCtx(), text);
-  const [c, g] = makeCanvas(boxW + 2, 22);
+  const { boxW, boxH } = nameTagSize(cache.measureCtx(), text);
+  const [c, g] = makeCanvas(boxW + 2, boxH + 2);
   drawNameTag(g, text, isMe, 1, 1, boxW);
   // anchor = bottom centre of the pill
-  return { canvas: c, ax: 1 + boxW / 2, ay: 21 };
+  return { canvas: c, ax: 1 + boxW / 2, ay: boxH + 1 };
 }
 
 export function wrapBubbleText(ctx: CanvasRenderingContext2D, text: string, maxLineWidth = 180): string[] {
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = BUBBLE_FONT;
   const words = text.split(' ');
   const lines: string[] = [];
   let current = words[0] || '';
@@ -116,7 +122,7 @@ export function wrapBubbleText(ctx: CanvasRenderingContext2D, text: string, maxL
 
 /** Speech bubble whose tail tip sits at (x, tipY). */
 export function drawSpeechBubble(ctx: CanvasRenderingContext2D, lines: string[], x: number, bottomY: number) {
-  ctx.font = `16px ${PIXEL_FONT}, monospace`;
+  ctx.font = BUBBLE_FONT;
   let maxW = 0;
   for (const l of lines) maxW = Math.max(maxW, ctx.measureText(l).width);
   const lineHeight = 24;
@@ -207,7 +213,7 @@ export function buildPromptBubble(): Label {
 
 /** Exit sign ("< Lumen Bay"): top-left at (x, y), returns its width. */
 export function exitSignWidth(ctx: CanvasRenderingContext2D, label: string) {
-  ctx.font = `12px ${PIXEL_FONT}, monospace`;
+  ctx.font = LABEL_FONT;
   return Math.ceil(ctx.measureText(label).width) + 12;
 }
 
@@ -217,7 +223,7 @@ export function drawExitSign(ctx: CanvasRenderingContext2D, label: string, x: nu
   ctx.fillStyle = '#FFF6E5';
   ctx.fillRect(x, y, w, 18);
   ctx.fillStyle = '#4A2E1A';
-  ctx.font = `12px ${PIXEL_FONT}, monospace`;
+  ctx.font = LABEL_FONT;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.fillText(label, x + 6, y + 10);

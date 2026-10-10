@@ -7,6 +7,7 @@
 //   'glow'  → after the night lights (lighthouse beacon)
 
 import type { RGB } from './cityView';
+import { drawBayLife } from './bayLife';
 
 export type AmbientPass = 'sky' | 'back' | 'front' | 'glow';
 
@@ -80,6 +81,23 @@ export const AMBIENT: Record<string, AmbientConfig> = {
       [681, 259, 3], [600, 260, 3], [804, 267, 4], [851, 268, 2], [958, 273, 4], [744, 278, 4],
     ],
   },
+  // Quiet Bay (Free Fishing): a calm harbour. Glints on the open bay + the water strip below the
+  // breakwater; the red lighthouse lamp pulses at night. Gulls, fish, cat, boats … are in bayLife.ts.
+  lake_pier: {
+    stars: { count: 90, maxY: 130 },
+    glints: [
+      [922, 192, 3], [622, 207, 2], [831, 210, 5], [966, 212, 4], [673, 213, 4], [107, 218, 5], [961, 221, 2],
+      [843, 223, 2], [101, 225, 4], [729, 227, 5], [310, 231, 5], [608, 236, 2], [313, 239, 3], [450, 241, 2],
+      [730, 242, 3], [160, 244, 5], [410, 244, 4], [988, 246, 4], [62, 247, 5], [106, 248, 5], [639, 252, 4],
+      [129, 256, 5], [998, 256, 2], [455, 257, 4], [276, 260, 3], [196, 262, 5], [736, 262, 4], [647, 267, 4],
+      [592, 268, 4], [907, 271, 5], [653, 274, 2], [449, 275, 3], [710, 277, 3], [954, 278, 4], [1005, 303, 5],
+      [507, 312, 2], [702, 313, 2], [818, 318, 5], [277, 325, 5], [524, 325, 3], [980, 471, 5], [977, 481, 4],
+      [692, 505, 2], [161, 512, 5], [737, 513, 2], [533, 514, 5], [332, 515, 5], [638, 519, 5], [962, 522, 2],
+      [529, 524, 5], [672, 524, 2], [771, 525, 3], [155, 527, 2], [970, 528, 3], [651, 529, 4], [954, 531, 5],
+      [762, 545, 5], [382, 551, 2], [428, 556, 5], [387, 560, 5], [799, 562, 5], [760, 564, 2],
+    ],
+    beacons: [{ x: 866, y: 166, radius: 26, periodMs: 4000, color: [255, 236, 170] }],
+  },
   // Quiet Temple: magic stays SUBTLE (quiet, sacred, never flashy). Everything here is code, not paint,
   // so it moves and reacts to day/night.
   temple: {
@@ -109,6 +127,7 @@ export function renderAmbient(ctx: CanvasRenderingContext2D, roomId: string, pas
   if (pass === 'front') { drawSparkles(ctx, cfg, t, night); drawPetals(ctx, cfg, t); }
   // motes go after the night overlay so fireflies really glow in the dark
   if (pass === 'glow') { drawBeacons(ctx, cfg, t, night); drawPortalGlow(ctx, cfg, t, night); drawMotes(ctx, cfg, t, night); }
+  if (roomId === 'lake_pier' && (pass === 'back' || pass === 'glow')) drawBayLife(ctx, pass, t, night);
   ctx.restore();
 }
 

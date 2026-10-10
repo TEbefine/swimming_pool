@@ -54,6 +54,9 @@ def cut(src: str):
     return crops
 
 
+SQUEEZE_X = float(os.environ.get('SQUEEZE_X', '1'))
+
+
 def write(crops, out_dir: str, url_dir: str, k: float) -> dict:
     target_idle = 75.0 * k
     canvas = (round(32 * target_idle / 50), round(52 * target_idle / 50) + 4)
@@ -61,7 +64,8 @@ def write(crops, out_dir: str, url_dir: str, k: float) -> dict:
     os.makedirs(out_dir, exist_ok=True)
     manifest = {}
     for pose, c in crops.items():
-        img = c.resize((max(1, round(c.width * scale)), max(1, round(c.height * scale))),
+        # SQUEEZE_X=0.87 → narrower (an AI sheet that came out wider than the v3 body; height unchanged)
+        img = c.resize((max(1, round(c.width * scale * SQUEEZE_X)), max(1, round(c.height * scale))),
                        Image.Resampling.LANCZOS)
         if pose in STAND:
             cw, ch = max(canvas[0], img.width), max(canvas[1], img.height)

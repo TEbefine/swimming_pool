@@ -1,0 +1,62 @@
+{
+  "gull_fly": {
+    "w": 24,
+    "h": 22,
+    "frames": 4
+  },
+  "gull_stand": {
+    "w": 19,
+    "h": 16,
+    "frames": 4
+  },
+  "fish_jump": {
+    "w": 20,
+    "h": 25,
+    "frames": 4
+  },
+  "cat_walk": {
+    "w": 17,
+    "h": 17,
+    "frames": 4
+  },
+  "squid_boat": {
+    "w": 46,
+    "h": 25,
+    "frames": 4
+  },
+  "heron": {
+    "w": 33,
+    "h": 24,
+    "frames": 4
+  },
+  "jelly": {
+    "w": 13,
+    "h": 12,
+    "frames": 4
+  },
+  "paper_lantern": {
+    "w": 9,
+    "h": 12,
+    "frames": 2
+  },
+  "camp_lantern": {
+    "w": 7,
+    "h": 12,
+    "frames": 2
+  },
+  "bucket": {
+    "w": 9,
+    "h": 10,
+    "frames": 1
+  },
+  "cooler": {
+    "w": 17,
+    "h": 15,
+    "frames": 1
+  },
+  "cat_sleep": {
+    "w": 18,
+    "h": 14,
+    "frames": 1
+  }
+}

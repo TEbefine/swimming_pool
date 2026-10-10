@@ -1,0 +1,51 @@
+{
+  "id": "kai",
+  "displayName": "Kai",
+  "role": "Fishing Guide at Quiet Bay (part-time, ~20). NIGHT shift 18:00-05:59 Bangkok time.",
+  "room": "lake_pier",
+  "status": "sprite-approved",
+  "look": {
+    "polo": "navy",
+    "vest": "teal, one silver reflective stripe, white curled-wave logo",
+    "lanyard": "red with white ID card",
+    "belt": "walkie-talkie",
+    "trousers": "dark grey",
+    "hair": "neat black, side-swept"
+  },
+  "sheetPoses": [
+    "idle",
+    "side_idle",
+    "back_idle",
+    "walk1",
+    "walk2",
+    "wave",
+    "talk",
+    "happy",
+    "thinking",
+    "point",
+    "radio",
+    "clipboard",
+    "release",
+    "bow",
+    "thumbsup",
+    "blink"
+  ],
+  "standPoses": [
+    "idle",
+    "side_idle",
+    "back_idle",
+    "walk1",
+    "walk2",
+    "thinking",
+    "radio",
+    "clipboard",
+    "blink"
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/kai/",
+    "spriteManifest": "/sprites/npc/kai/manifest.json",
+    "sheetSource": "src/assets/npc_kai_sheet.webp",
+    "portraits": "/sprites/npc/kai/portrait/"
+  },
+  "docs": "claude.ai Project: characters/bay-staff-kai.md"
+}

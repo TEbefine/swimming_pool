@@ -12,8 +12,8 @@ import { NameModal } from './components/NameModal';
 import { HelpModal } from './components/HelpModal';
 import { DialogBox } from './components/DialogBox';
 import { SceneBox } from './components/SceneBox';
-import { StartMenu } from './components/startMenu/StartMenu';
-import { BagScreen } from './components/bag/BagScreen';
+import { GameMenu } from './components/gameMenu/GameMenu';
+import { useGameMenu } from './components/gameMenu/useGameMenu';
 import { StoryHud } from './components/StoryHud';
 import { FishingHud } from './components/FishingHud';
 import { FishBook } from './components/FishBook';
@@ -93,44 +93,29 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const [sceneBoxConfirmTrigger, setSceneBoxConfirmTrigger] = useState<number>(0);
 
   // =========================================================================
-  // START MENU STATE (Pokémon FireRed / LeafGreen style)
+  // IN-SCREEN MENU: START field menu → Bag → item actions (+ Emotes, Options).
+  // One state machine, ONE keyboard handler and ONE D-pad adapter live in components/gameMenu/.
+  // App only forwards buttons to it and reacts when it opens, closes or hands control over.
   // =========================================================================
-  const [startMenuOpen, setStartMenuOpen] = useState(false);
-  const [startMenuDpadNudge, setStartMenuDpadNudge] = useState<{ dx: number; dy: number; timestamp: number } | null>(null);
-  const [startMenuConfirmTrigger, setStartMenuConfirmTrigger] = useState<number>(0);
-  const [startMenuCancelTrigger, setStartMenuCancelTrigger] = useState<number>(0);
-
-  // =========================================================================
-  // BAG STATE (Pokémon Black/White & ORAS style)
-  // =========================================================================
-  const [bagOpen, setBagOpen] = useState(false);
-  const [bagOpenedFrom, setBagOpenedFrom] = useState<'start' | 'b' | 'hud'>('hud');
-  const [bagDpadNudge, setBagDpadNudge] = useState<{ dx: number; dy: number; timestamp: number } | null>(null);
-  const [bagConfirmTrigger, setBagConfirmTrigger] = useState<number>(0);
-  const [bagCancelTrigger, setBagCancelTrigger] = useState<number>(0);
+  const menu = useGameMenu({
+    openFishBook: () => setFishBookOpen(true),
+    openNameEditor: () => setNameModalOpen(true),
+    openHelp: () => setHelpModalOpen(true),
+    triggerEmote: (action) => handleTriggerEmote(action),
+    toggleWaterLand: () => engineRef.current?.toggleWaterLand(),
+    openChanged: (open) => {
+      if (!open) return;
+      // Never two overlays at once: opening the menu closes the SELECT postcard box.
+      setSceneBoxOpen(false);
+      setSceneBoxConfirmTrigger(0);
+      setSceneBoxDpadNudge(null);
+    },
+  }, playerState);
 
   // Synchronize menuFrozen with engine: local player stops walking, but the world does NOT pause.
   useEffect(() => {
-    engineRef.current?.setPause(identityPaused ? 'identity' : startMenuOpen || bagOpen || sceneBoxOpen ? 'input' : 'none');
-  }, [identityPaused, startMenuOpen, bagOpen, sceneBoxOpen]);
-
-  const openBag = useCallback((source: 'start' | 'b' | 'hud') => {
-    setBagOpenedFrom(source);
-    setBagOpen(true);
-    setStartMenuOpen(false);
-    setSceneBoxOpen(false);
-    setBagConfirmTrigger(0);
-    setBagCancelTrigger(0);
-    setBagDpadNudge(null);
-  }, []);
-
-  const handleBagBack = useCallback(() => {
-    setBagOpen(false);
-    if (bagOpenedFrom === 'start') {
-      // Re-open START menu with cursor on BAG
-      setStartMenuOpen(true);
-    }
-  }, [bagOpenedFrom]);
+    engineRef.current?.setPause(identityPaused ? 'identity' : menu.isOpen || sceneBoxOpen ? 'input' : 'none');
+  }, [identityPaused, menu.isOpen, sceneBoxOpen]);
 
   // =========================================================================
   // DIALOG STATE
@@ -154,7 +139,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     if (!engine) return;
 
     // Reset triggers on open; ensure other overlays are closed
-    setStartMenuOpen(false);
+    menu.close();
     setSceneBoxOpen(false);
     setDialogConfirmTrigger(0);
     setDialogDpadNudge(null);
@@ -234,41 +219,20 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   }, []);
 
   const handleToggleSceneBox = useCallback(() => {
-    setSceneBoxOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        // SELECT closes START and bag. Never two overlays at once.
-        setBagOpen(false);
-        setStartMenuOpen(false);
-        setStartMenuConfirmTrigger(0);
-        setStartMenuCancelTrigger(0);
-        setStartMenuDpadNudge(null);
-      }
-      setSceneBoxConfirmTrigger(0);
-      setSceneBoxDpadNudge(null);
-      return next;
-    });
-  }, []);
+    const next = !sceneBoxOpen;
+    // SELECT closes the START menu if it is open. Never two overlays at once.
+    if (next) menu.close();
+    setSceneBoxOpen(next);
+    setSceneBoxConfirmTrigger(0);
+    setSceneBoxDpadNudge(null);
+  }, [sceneBoxOpen, menu]);
 
   const handleToggleStartMenu = useCallback(() => {
-    if (bagOpen) {
-      setBagOpen(false);
-      return;
-    }
-    setStartMenuOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        // START closes SceneBox if open. Never two overlays at once.
-        setSceneBoxOpen(false);
-        setSceneBoxConfirmTrigger(0);
-        setSceneBoxDpadNudge(null);
-      }
-      setStartMenuConfirmTrigger(0);
-      setStartMenuCancelTrigger(0);
-      setStartMenuDpadNudge(null);
-      return next;
-    });
-  }, [bagOpen]);
+    // START closes the whole menu system from anywhere, but never opens it over a dialogue,
+    // a trade window or the loading screen.
+    if (!menu.isOpen && (dialogOpen || storyPanel || loading)) return;
+    menu.toggleStart();
+  }, [menu, dialogOpen, storyPanel, loading]);
 
   // =========================================================================
   // ◯ BUTTON / E KEY / O KEY — unified interact handler
@@ -276,14 +240,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const closeFishing = useCallback(() => stopFishing(), []);
 
   const handleCircleAction = useCallback(() => {
-    // When Bag is open → ◯ confirms current item or CLOSE BAG
-    if (bagOpen) {
-      setBagConfirmTrigger((prev) => prev + 1);
-      return;
-    }
-    // When START menu is open → ◯ confirms current item
-    if (startMenuOpen) {
-      setStartMenuConfirmTrigger((prev) => prev + 1);
+    // Menu open → ◯ confirms: opens a section, opens item actions, or runs an action
+    if (menu.isOpen) {
+      menu.press('confirm');
       return;
     }
     // A story window is open → use its buttons (tap / click)
@@ -316,20 +275,15 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       // Fallback: toggleWaterLand
       engine.toggleWaterLand();
     }
-  }, [bagOpen, startMenuOpen, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel]);
+  }, [menu, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel]);
 
   // =========================================================================
   // ✕ BUTTON — jump / splash, cancel SceneBox, or advances dialog
   // =========================================================================
   const handleCrossAction = useCallback(() => {
-    // When Bag is open → ✕ cancels / goes back
-    if (bagOpen) {
-      setBagCancelTrigger((prev) => prev + 1);
-      return;
-    }
-    // When START menu is open → ✕ cancels / goes back one level
-    if (startMenuOpen) {
-      setStartMenuCancelTrigger((prev) => prev + 1);
+    // Menu open → ✕ goes back exactly one level (item actions → Bag → field menu → game)
+    if (menu.isOpen) {
+      menu.press('back');
       return;
     }
     // A story window is open → ✕ closes it
@@ -364,7 +318,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     } else {
       engine.triggerEmote('jump');
     }
-  }, [bagOpen, startMenuOpen, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel]);
+  }, [menu, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel]);
 
   // =========================================================================
   // KEYBOARD: Tab for SceneBox, E and O for ◯, Escape for ✕
@@ -373,6 +327,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     const handler = (e: KeyboardEvent) => {
       if (identityPaused) return;
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      // While the in-screen menu is open it owns the keyboard (the only menu key handler).
+      if (menu.handleKey(e)) return;
       // Fishing: E / O / Space = ◯ (holding lifts the net), Esc / X = stop
       if (fishingOpen) {
         const k = e.key.toLowerCase();
@@ -393,16 +349,6 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           closeDialog();
           return;
         }
-        if (bagOpen) {
-          e.preventDefault();
-          handleBagBack();
-          return;
-        }
-        if (startMenuOpen) {
-          e.preventDefault();
-          setStartMenuOpen(false);
-          return;
-        }
         if (sceneBoxOpen) {
           e.preventDefault();
           setSceneBoxOpen(false);
@@ -415,11 +361,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       // BAG keyboard hotkey: KeyB ('B' toggles the bag)
       if ((e.code === 'KeyB' || e.key.toLowerCase() === 'b') && !dialogOpen) {
         e.preventDefault();
-        if (bagOpen) {
-          handleBagBack();
-        } else {
-          openBag('b');
-        }
+        menu.open('bag');
         return;
       }
 
@@ -459,7 +401,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       window.removeEventListener('keydown', handler);
       window.removeEventListener('keyup', up);
     };
-  }, [identityPaused, handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, startMenuOpen, bagOpen, openBag, handleBagBack, closeDialog, fishingOpen]);
+  }, [identityPaused, handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, menu, closeDialog, fishingOpen]);
 
   // =========================================================================
   // ENGINE SETUP
@@ -739,7 +681,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
   // Close the bag when fishing starts; stop fishing if we leave the story room
   useEffect(() => {
-    if (fishingOpen) setBagOpen(false);
+    if (fishingOpen) menu.close();
   }, [fishingOpen]);
   useEffect(() => {
     if (!storyActive && !freeFishingRoom && fishingOpen) closeFishing();
@@ -755,14 +697,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     </>
   ) : devOverlay ?? null;
 
-  const storyHudElement = (storyActive && !dialogOpen && !bagOpen) ? (
+  const storyHudElement = (storyActive && !dialogOpen && !menu.bagShown) ? (
     <>
       <StoryHud
-        bagOpen={bagOpen}
-        onToggleBag={() => {
-          if (bagOpen) handleBagBack();
-          else openBag('hud');
-        }}
+        bagOpen={menu.bagShown}
+        onToggleBag={() => menu.open('bag')}
         compact={effectiveIsMobile}
       />
       {storyPanel && (
@@ -808,45 +747,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     />
   ) : null;
 
-  const startMenuElement = (
-    <StartMenu
-      isOpen={startMenuOpen}
-      playerName={playerName}
-      playerState={playerState}
-      onClose={() => setStartMenuOpen(false)}
-      onOpenFishBook={() => {
-        setFishBookOpen(true);
-        setStartMenuOpen(false);
-      }}
-      onOpenBag={() => {
-        openBag('start');
-      }}
-      onOpenNameModal={() => {
-        setNameModalOpen(true);
-        setStartMenuOpen(false);
-      }}
-      onOpenHelpModal={() => {
-        setHelpModalOpen(true);
-        setStartMenuOpen(false);
-      }}
-      onTriggerEmote={handleTriggerEmote}
-      onToggleState={handleCircleAction}
-      directionNudge={startMenuDpadNudge}
-      confirmTrigger={startMenuConfirmTrigger}
-      cancelTrigger={startMenuCancelTrigger}
-    />
+  const gameMenuElement = (
+    <GameMenu menu={menu} playerName={playerName} playerState={playerState} compact={effectiveIsMobile} />
   );
-
-  const bagElement = bagOpen ? (
-    <BagScreen
-      isOpen={bagOpen}
-      onClose={() => setBagOpen(false)}
-      onBack={handleBagBack}
-      directionNudge={bagDpadNudge}
-      confirmTrigger={bagConfirmTrigger}
-      cancelTrigger={bagCancelTrigger}
-    />
-  ) : null;
 
   // Canvas blur class for world focus effect
   const canvasBlurClass = dialogOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
@@ -878,22 +781,15 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           playerCount={playerCount}
           chatLog={visibleChatLog}
           statusLabel={currentRoom.name}
-          hideStatusBadge={dialogOpen || startMenuOpen || bagOpen}
+          hideStatusBadge={dialogOpen || menu.isOpen}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
             if (fishingOpen) {
               // no walking while the line is out
-            } else if (bagOpen) {
-              // BAG is open: D-pad navigates pocket & item list. Player stops walking.
-              if (Math.abs(dy) > 0.4 || Math.abs(dx) > 0.4) {
-                setBagDpadNudge({ dx, dy, timestamp: Date.now() });
-              }
-            } else if (startMenuOpen) {
-              // START menu is open: D-pad navigates menu ONLY. Player stops walking.
-              // Multiplayer note: world does NOT pause, NPCs and other players keep moving.
-              if (Math.abs(dy) > 0.4 || Math.abs(dx) > 0.4) {
-                setStartMenuDpadNudge({ dx, dy, timestamp: Date.now() });
-              }
+            } else if (menu.isOpen) {
+              // Menu open: the D-pad drives the menu ONLY (one step per press, repeats while held).
+              // The player stops walking; the world does NOT pause, NPCs and other players keep moving.
+              menu.feedDpad(dx, dy);
             } else if (sceneBoxOpen) {
               if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
                 setSceneBoxDpadNudge({ dx, dy, timestamp: Date.now() });
@@ -909,15 +805,15 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           onToggleState={handleCircleAction}
           onCircleHold={fishingHold}
           onActionA={handleCrossAction}
-          onTriggerEmote={action => { if (!identityPaused && !startMenuOpen && !bagOpen && !sceneBoxOpen) handleTriggerEmote(action); }}
+          onTriggerEmote={action => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen) handleTriggerEmote(action); }}
           onSendMessage={handleSendMessage}
           onOpenFloatPicker={() => setFloatModalOpen(true)}
           onOpenNameModal={() => setNameModalOpen(true)}
           onOpenHelpModal={() => setHelpModalOpen(true)}
           onToggleSceneBox={handleToggleSceneBox}
           onToggleStartMenu={handleToggleStartMenu}
-          startMenuOpen={startMenuOpen}
-          playerInputBlocked={bagOpen || sceneBoxOpen || dialogOpen}
+          startMenuOpen={menu.isOpen}
+          playerInputBlocked={sceneBoxOpen || dialogOpen}
           screenOverlay={loadingElement ?? (
             <>
               {storyHudElement}
@@ -925,8 +821,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
               {standaloneFishBook}
               {dialogBoxElement}
               {sceneBoxElement}
-              {startMenuElement}
-              {bagElement}
+              {gameMenuElement}
             </>
           )}
         />
@@ -934,20 +829,22 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         /* Main Game Screen with Retro Arcade Border */
         <div className="relative w-full h-full max-w-[1280px] max-h-[720px] flex items-center justify-center p-1 sm:p-3">
           <div className="relative w-full h-full flex items-center justify-center bg-slate-900 rounded-lg overflow-hidden border-4 border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-            {/* Header UI */}
-            <HeaderBar
-              roomName={currentRoom.name}
-              playerCount={playerCount}
-              playerName={playerName}
-              floatColor={floatColor}
-              onOpenFloatPicker={() => setFloatModalOpen(true)}
-              onOpenNameModal={() => setNameModalOpen(true)}
-              onOpenHelpModal={() => setHelpModalOpen(true)}
-              onToggleChatLog={() => setChatLogOpen(!chatLogOpen)}
-              chatLogOpen={chatLogOpen}
-              onToggleMobileMode={() => setForceHandheld((prev) => (prev === true ? false : true))}
-              isMobileMode={effectiveIsMobile}
-            />
+            {/* Header UI — hidden while the in-screen menu is open so the menu owns the whole screen */}
+            {!menu.isOpen && (
+              <HeaderBar
+                roomName={currentRoom.name}
+                playerCount={playerCount}
+                playerName={playerName}
+                floatColor={floatColor}
+                onOpenFloatPicker={() => setFloatModalOpen(true)}
+                onOpenNameModal={() => setNameModalOpen(true)}
+                onOpenHelpModal={() => setHelpModalOpen(true)}
+                onToggleChatLog={() => setChatLogOpen(!chatLogOpen)}
+                chatLogOpen={chatLogOpen}
+                onToggleMobileMode={() => setForceHandheld((prev) => (prev === true ? false : true))}
+                isMobileMode={effectiveIsMobile}
+              />
+            )}
 
             {/* Canvas Viewport */}
             <canvas
@@ -981,37 +878,25 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
               </div>
             )}
 
-            {/* Desktop StartMenu overlay */}
-            {startMenuOpen && (
-              <div className="absolute inset-0 z-[7]">
-                {startMenuElement}
+            {/* Desktop in-screen menu: START field menu, Emotes, Options, Bag */}
+            {menu.isOpen && (
+              <div className="absolute inset-0 z-[25]">
+                {gameMenuElement}
               </div>
             )}
 
-            {/* Desktop Bag overlay */}
-            {bagOpen && (
-              <div
-                className="absolute inset-0 z-[8] flex items-center justify-center bg-black/40"
-                onClick={handleBagBack}
-              >
-                <div
-                  className="relative w-full max-w-[420px] h-full max-h-[520px]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {bagElement}
-                </div>
-              </div>
-            )}
-
-            {/* Action & Emotes Bar + Chat Bar — hidden while a dialogue or story window is open (they covered its text) */}
-            {!dialogOpen && !storyPanel && (
+            {/* Action & Emotes Bar + Chat Bar — hidden while a dialogue or story window is open (they covered its text).
+                The emote bar also hides while fishing: at Quiet Bay the float lands in the water right under it. */}
+            {!dialogOpen && !storyPanel && !menu.isOpen && (
               <>
-                <ActionBar
-                  playerState={playerState}
-                  currentAction={currentAction}
-                  onTriggerEmote={action => { if (!identityPaused && !startMenuOpen && !bagOpen && !sceneBoxOpen) handleTriggerEmote(action); }}
-                  onToggleState={() => engineRef.current?.toggleWaterLand()}
-                />
+                {!fishingOpen && (
+                  <ActionBar
+                    playerState={playerState}
+                    currentAction={currentAction}
+                    onTriggerEmote={action => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen) handleTriggerEmote(action); }}
+                    onToggleState={() => engineRef.current?.toggleWaterLand()}
+                  />
+                )}
                 <ChatBar onSendMessage={handleSendMessage} />
               </>
             )}
