@@ -377,6 +377,8 @@ export class GameEngine {
   private dialogFrozen: boolean = false;
   private dialogNpcId: string | null = null;
   private menuFrozen: boolean = false;
+  /** True while walkPlayerTo() is driving the character — updateLocalPlayer yields. */
+  private walkToActive: boolean = false;
   private npcPoseOverride: Map<string, { pose: string; until: number }> = new Map();
 
   // Debug overlay (F3)
@@ -1814,7 +1816,7 @@ export class GameEngine {
   private updateLocalPlayer(dt: number) {
     // If seated, dialog frozen, menu open, or fading out, don't process movement
     // Multiplayer note: The world does NOT pause: other players and NPCs keep moving.
-    if (this.seatedIndex >= 0 || this.dialogFrozen || this.menuFrozen || this.fadeDirection === 'out') return;
+    if (this.seatedIndex >= 0 || this.dialogFrozen || this.menuFrozen || this.walkToActive || this.fadeDirection === 'out') return;
 
     let dx = 0;
     let dy = 0;
@@ -3291,6 +3293,7 @@ export class GameEngine {
       const moveDir = Math.abs(moveX) >= Math.abs(moveY) * 0.75 ? 'side' : (moveY < 0 ? 'up' : 'down');
       const playerFacing = moveX < -0.2 ? -1 : (moveX > 0.2 ? 1 : facing);
 
+      this.walkToActive = true;
       this.isMoving = true;
       this.moveDir = moveDir;
       this.localPlayer.facing = playerFacing;
@@ -3316,6 +3319,7 @@ export class GameEngine {
           this.localPlayer.x = tx;
           this.localPlayer.y = ty;
           this.localPlayer.facing = facing;
+          this.walkToActive = false;
           this.isMoving = false;
           this.clickTarget = null;
           this.broadcastState();
