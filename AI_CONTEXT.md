@@ -2,7 +2,7 @@
 
 Any AI working on this repo: read this whole file before doing anything. Every topic has an **ID**. Each ID stores its items: status, decisions, files and what's next. When you finish work, update the blocks you touched and add one line to the **Log** at the bottom. Never delete a rejected idea: move it to "Rejected" with the reason, so nobody repeats it.
 
-Last updated: 2026-10-10 (ID-01c saves built on id-01c-saves, in review)
+Last updated: 2026-10-11 (ID-01 a–c merged to main)
 
 ---
 
@@ -23,7 +23,7 @@ Last updated: 2026-10-10 (ID-01c saves built on id-01c-saves, in review)
 - **Story (spirit NPC):** first story "Dalbit": the heir Kang Yunseul (real name Wol Hwi), a fictional world only *inspired* by Korea. Systems: fishing (wait → strike → reel), Pokémon-style battles, items/bag, gifts and relationships.
 - Detailed design docs live in `docs/` (cards, characters, world, ui, audio, tech). Read the doc for an ID before changing it.
 
-## ID-01 · Player identity (12-word wallet): STEP (c) SAVES BUILT ON `id-01c-saves`, IN REVIEW (b still unmerged)
+## ID-01 · Player identity (12-word wallet): STEPS (a)–(c) LIVE ON MAIN (2026-10-11)
 - Approved plan: `docs/ai/ID-01-plan.md` supersedes the original prompt's PIN, server-stored nonce, session and save-model details. Original brief: `docs/ai/PROMPT_player_id.md`.
 - Branch: **id-01a-wallet**, based on main. Local wallet + mandatory written backup and three-word check; exactly **7 controller presses from 8 inputs** instead of a six-digit PIN. Dot-only entry, no press feedback; desktop arrows + T/O/X/Q.
 - Device vault encrypts BOTH the 12 words and private key using PBKDF2-HMAC-SHA-256 (600,000 iterations; random 16-byte salt) + AES-256-GCM (fresh 12-byte IV, 128-bit tag). Secrets never intentionally enter networking, logs or plaintext persistent storage. Short combos remain vulnerable to offline guessing.
@@ -44,7 +44,7 @@ Last updated: 2026-10-10 (ID-01c saves built on id-01c-saves, in review)
   - Game: Quiet Bay catches wait on the device (`free_fishing_pending_v1_<address>`) until **Nami (day) / Kai (night)** record them ("Record my catches (N)"). Dalbit plays on an address-scoped draft and saves itself at the end of each day (HUD: "Day N is saved to your Player ID."); the server copy wins when the draft continues an older save. Any device that unlocks the same Player ID loads the same Fish Book and story. Guests and `?test=` pages keep browser-only saves; old guest saves are not uploaded (the guest story is only a starting point, checked at day end).
   - Rules: owner may read `players/{address}` and its `log`; no client writes anywhere (deploy with `firebase deploy --only firestore:rules`).
   - Limits, honestly: the CLIENT still rolls which fish bites, so a modified client can claim a rare fish that passes every rule; the fix is server-rolled "cast tickets" (proposed next). Firestore emulator tests could not run in the build container (download blocked) — run `npm run test:rules`.
-- Next: Teera tests the `id-01c-saves` preview on iPhone (deploy rules first), then merge order (b) → (c). After that: server-rolled cast tickets (anti-cheat for catches), cards save immediately (C-01), (d) polish for new-device restore, (e) WebSocket token check. One step = one branch = one AI builds, another reviews, Teera tests the preview, then merges.
+- 2026-10-11: Teera tested the `id-01c-saves` preview on iPhone (rules deployed; catch → Nami → Fish Book, Dalbit Day 1 save, works) and approved; `main` fast-forwarded to it, which also carries (b) — PR #5 can be closed. Next: server-rolled cast tickets (anti-cheat for catches), cards save immediately (C-01), (d) polish for new-device restore, (e) WebSocket token check. One step = one branch = one AI builds, another reviews, Teera tests the preview, then merges.
 - Rejected/superseded: numeric PIN → controller combo; Firestore nonce issuance → stateless challenge; memory-only Firebase auth → persistent auth + step-up; discarded phrase → encrypted phrase for gated reveal; silent identity regeneration → restore-first.
 
 ## C-01 · Card system "Memory Disk"
@@ -133,3 +133,4 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-10 · Claude · U-02 Step 2 + U-03 Step 2 finished (ChatGPT menu brief: single menu state machine, field menu, Options screen, Bag redraw, Eat/Check actions on the real save, desktop HUD hidden while open; 81 unit tests + browser flows on handheld/desktop/production build pass).
 - 2026-10-10 · Codex · U-01: applied Pool Pixel Default 0.4 to current main; refined พ/ฟ/ฬ to match ผ/ฝ bodies, preserved E/e/T/K/ข and full Thai coverage, updated font cache URLs, and checked production build plus phone/desktop rendering.
 - 2026-10-10 · Claude · ID-01c: merged main into the login branch as `id-01c-saves`; built `/api/items` validated saves (Fish Book via Nami/Kai, Dalbit day-end save, load on any device), owner-read log rules, review fixes from an independent reviewer (2 rounds); 117 unit tests, API build smoke, identity + controls + new saves browser suites pass; emulator rules test not runnable here.
+- 2026-10-11 · Claude · ID-01 (a)–(c) merged to main (fast-forward to `id-01c-saves` after Teera's iPhone preview test); production deploy READY.
