@@ -221,7 +221,6 @@ export async function startFishing(e: GameEngine, m: FishingMode = 'story') {
   if (view.active) return;
   engine = e;
   mode = m;
-  e.setDialogFrozen(true);
   const fc = e.getRoom().fishing;
   front = !!fc;
   emit({ active: true, mode, front, ...EMPTY });
@@ -232,6 +231,7 @@ export async function startFishing(e: GameEngine, m: FishingMode = 'story') {
     loadTips(e.getRoom().outfit),
     e.walkPlayerTo(spot.x, spot.y, spot.facing),
   ]);
+  e.setDialogFrozen(true);
   pose = '';
   fs = newFishing();
   endAt = 0;
@@ -519,25 +519,14 @@ function poseFor(now: number): string {
   }
 }
 
-/** Float in the water: stand and breathe (a sip of the drink on a longer wait, if the outfit has it). */
+/** Float in the water: stand and breathe with rod waiting for a bite. */
 function waitPose(sinceLand: number): string {
-  if (sinceLand > 3200 && sinceLand < 4400 && have.has('fish_sip')) return 'fish_sip';
   return Math.floor(sinceLand / 750) % 2 === 0 ? 'fish_wait_a' : 'fish_wait_b';
 }
 
-/** Between casts, nothing to do: the slow part of a fishing day. Stand a moment, then breathe with the
- *  rod out (a sip, a yawn), then sit down on the cooler box. Friends see you relaxing. */
-function restingPose(s: number): string {
-  if (!front || s < 3500) return 'fish_ready';
-  if (have.has('fish_sit_a') && s > 11000) {
-    return Math.floor((s - 11000) / 1400) % 3 === 2 ? pick('fish_sit_b', 'fish_sit_a') : 'fish_sit_a';
-  }
-  const beat = (s - 3500) % 3800;
-  if (beat > 2600) {
-    const extra = Math.floor((s - 3500) / 3800) % 2 === 0 ? 'fish_sip' : 'fish_yawn';
-    if (have.has(extra)) return extra;
-  }
-  return Math.floor(s / 750) % 2 === 0 ? pick('fish_wait_a', 'fish_ready') : pick('fish_wait_b', 'fish_ready');
+/** Between casts, hold the rod ready at the water's edge. */
+function restingPose(_s: number): string {
+  return hasPoses() ? 'fish_ready' : restPose();
 }
 
 const C = {

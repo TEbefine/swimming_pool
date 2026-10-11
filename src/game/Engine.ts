@@ -1182,6 +1182,9 @@ export class GameEngine {
       const dx = px - ei.x;
       const dy = py - ei.y;
       if (Math.sqrt(dx * dx + dy * dy) <= ei.radius) {
+        if (ei.id === 'pier_end' || ei.label === 'Fish') {
+          return { id: 'fish', label: ei.label };
+        }
         return { id: 'read', label: ei.label };
       }
     }
@@ -1191,6 +1194,9 @@ export class GameEngine {
       for (const item of this.room.interactables) {
         const r = item.rect;
         if (px >= r.x && px <= r.x + r.width && py >= r.y && py <= r.y + r.height) {
+          if (item.id === 'pier_end' || item.label === 'Fish') {
+            return { id: 'fish', label: item.label };
+          }
           return { id: 'read', label: item.label };
         }
       }
@@ -1276,6 +1282,18 @@ export class GameEngine {
           }
         }
         this.triggerEmote('thinking');
+        break;
+      }
+      case 'fish': {
+        const ei = this.findNearestElementInteraction();
+        if (ei && (ei.id === 'pier_end' || ei.label === 'Fish') && this.onInteract) {
+          this.onInteract(ei.id, 'fish');
+        } else {
+          const item = this.findNearestInteractable();
+          if (item && this.onInteract) {
+            this.onInteract(item.id, 'fish');
+          }
+        }
         break;
       }
       case 'dive':
@@ -3197,7 +3215,9 @@ export class GameEngine {
           }
         }
       }
-      this.localPlayer.currentAction = 'idle';
+      if (this.localPlayer.currentAction === 'talk') {
+        this.localPlayer.currentAction = 'idle';
+      }
       this.broadcastState();
     }
   }
@@ -3243,38 +3263,75 @@ export class GameEngine {
   }
 
   /**
-   * Walk the local player to a target position over time (max ~400ms).
-   * Resolves when the player is close enough or the time limit expires.
+   * Walk the local player to a target position over time.
+   * Drives the walk frames so the character visibly steps, then faces target direction.
    */
   public walkPlayerTo(tx: number, ty: number, facing: 1 | -1): Promise<void> {
     return new Promise<void>((resolve) => {
       const startTime = performance.now();
-      const maxDuration = 400;
+      const startX = this.localPlayer.x;
+      const startY = this.localPlayer.y;
+      const dist = Math.hypot(tx - startX, ty - startY);
 
-      // Set click target so the normal movement system drives the walk
-      this.clickTarget = { x: tx, y: ty };
+      if (dist < 3) {
+        this.localPlayer.x = tx;
+        this.localPlayer.y = ty;
+        this.localPlayer.facing = facing;
+        this.isMoving = false;
+        this.clickTarget = null;
+        this.broadcastState();
+        resolve();
+        return;
+      }
 
-      const check = () => {
+      // Speed is 160 px/s; cap duration reasonably
+      const duration = Math.min(500, Math.max(120, (dist / (160 * this.actorScale)) * 1000));
+      const moveX = (tx - startX) / dist;
+      const moveY = (ty - startY) / dist;
+      const moveDir = Math.abs(moveX) >= Math.abs(moveY) * 0.75 ? 'side' : (moveY < 0 ? 'up' : 'down');
+      const playerFacing = moveX < -0.2 ? -1 : (moveX > 0.2 ? 1 : facing);
+
+      this.isMoving = true;
+      this.moveDir = moveDir;
+      this.localPlayer.facing = playerFacing;
+
+      let lastFrame = performance.now();
+      let walkTimer = 0;
+      let walkFrame = 0;
+      const stepInterval = 0.13;
+
+      const check = (now: number) => {
         if (this.destroyed) { resolve(); return; }
-        const elapsed = performance.now() - startTime;
-        const dx = this.localPlayer.x - tx;
-        const dy = this.localPlayer.y - ty;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const elapsed = now - startTime;
+        const dt = Math.min(0.05, (now - lastFrame) / 1000);
+        lastFrame = now;
 
-        if (dist < 6 || elapsed > maxDuration) {
-          // Snap to position and face
+        walkTimer += dt;
+        if (walkTimer >= stepInterval) {
+          walkTimer -= stepInterval;
+          walkFrame = (walkFrame + 1) % 4;
+        }
+
+        if (elapsed >= duration) {
           this.localPlayer.x = tx;
           this.localPlayer.y = ty;
           this.localPlayer.facing = facing;
-          this.clickTarget = null;
           this.isMoving = false;
-          this.localPlayer.currentAction = 'idle';
+          this.clickTarget = null;
           this.broadcastState();
           resolve();
           return;
         }
+
+        const t = elapsed / duration;
+        this.localPlayer.x = startX + (tx - startX) * t;
+        this.localPlayer.y = startY + (ty - startY) * t;
+        this.localPlayer.currentAction = WALK_CYCLES[moveDir][walkFrame];
+        this.broadcastState(false);
+
         requestAnimationFrame(check);
       };
+
       requestAnimationFrame(check);
     });
   }

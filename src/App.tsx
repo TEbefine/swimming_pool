@@ -30,7 +30,7 @@ import { FISHING_GUIDES, guideScript, withRecordResult } from './game/saves/guid
 import { getPendingCatches } from './game/fishing/freeFish';
 
 /** Context-action IDs that should route through engine.interact(). */
-const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(['talk', 'sit', 'stand', 'read']);
+const INTERACT_ACTIONS: ReadonlySet<ContextActionId> = new Set<ContextActionId>(['talk', 'sit', 'stand', 'read', 'fish']);
 
 interface AppProps {
   onOpenIdentity?: () => void;
@@ -479,8 +479,19 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       return false;
     };
 
-    // onInteract: open dialog when NPC talk is triggered
+    // onInteract: open dialog when NPC talk is triggered, or start fishing
     engine.onInteract = (targetId: string, actionId?: ContextActionId) => {
+      // Direct fishing interaction
+      if (actionId === 'fish' || targetId === 'pier_end') {
+        if (engine.getRoom().freeFishing) {
+          void startFishing(engine, 'free');
+          return;
+        }
+        if (isStoryRoom(engine.getRoom().roomId) && canFishDirect()) {
+          void startFishing(engine);
+          return;
+        }
+      }
       // Story rooms (Dalbit): the story picks the dialogue for the current beat
       if (isStoryRoom(engine.getRoom().roomId)) {
         // The pier end: once fishing is unlocked, ◯ starts fishing straight away

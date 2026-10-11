@@ -64,7 +64,7 @@ export interface Interactable {
   rect: Rect;
 }
 
-export type ContextActionId = 'sit' | 'stand' | 'talk' | 'read' | 'dive' | 'climb' | 'jump';
+export type ContextActionId = 'sit' | 'stand' | 'talk' | 'read' | 'dive' | 'climb' | 'jump' | 'fish';
 
 export interface ContextAction {
   id: ContextActionId;
