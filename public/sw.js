@@ -22,7 +22,7 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-const isArt = (path) => /^\/(sprites|maps|ui|fonts)\//.test(path) || path === '/favicon.svg' || path === '/icons.svg';
+const isArt = (path) => /^\/(sprites|maps|ui|fonts)\//.test(path) || path === '/favicon.svg';
 
 async function trim(cacheName, limit) {
   const cache = await caches.open(cacheName);

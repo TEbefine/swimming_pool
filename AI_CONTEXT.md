@@ -2,7 +2,7 @@
 
 Any AI working on this repo: read this whole file before doing anything. Every topic has an **ID**. Each ID stores its items: status, decisions, files and what's next. When you finish work, update the blocks you touched and add one line to the **Log** at the bottom. Never delete a rejected idea: move it to "Rejected" with the reason, so nobody repeats it.
 
-Last updated: 2026-10-11 (ID-01 a–c merged to main)
+Last updated: 2026-10-11 (cleanup and production asset audit)
 
 ---
 
@@ -109,6 +109,12 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - **Files:** `src/game/story/items.ts`, `src/game/story/bagActions.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `ItemActionMenu.tsx`, `PixelBackpack.tsx`, `bag.css`), `src/components/gameMenu/` (`menuModel.ts`, `useGameMenu.ts`, `GameMenu.tsx`), `docs/ui/game-menu.md`, `docs/ai/ID-02-world-bag-plan.md`, `src/App.tsx`, `tests/game-menu.test.mjs`.
 - **Next:** Cards pocket needs a viewer action (Check shows only item facts today). Add Equip / Set bait to `itemActionsFor` + a marker in `ItemList` when equipment exists. Future ID-02 World Bag (see plan in `docs/ai/ID-02-world-bag-plan.md`).
 
+## P-02 · Cleanup (2026-10-11)
+- Removed verified unused starter files, retired greybox tooling, old transfer snapshots, unused public map exports, and superseded font assets. Original production-art sources and active development harnesses remain.
+- Tailwind scans application source and the HTML entry only; design documents no longer add unused utility styles.
+- Fixed Dalbit Market’s missing thumbnail reference using its existing market artwork.
+- Full deletion inventory, measured size changes, and validation: `docs/tech/cleanup-2026-10-11.md`.
+
 ## W-01 · World
 - Lumen Bay plan, Dalbit market art. Docs: `docs/world/*`.
 
@@ -142,3 +148,5 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-11 · Claude · `npm run dev` plays as a TEST Player ID with local dev saves through the real save rules (branch `dev-test-id`); fixes the iPhone dev error `crypto.subtle.importKey` (insecure http context).
 - 2026-10-11 · Antigravity · U-03: Added generic pocket link row (FISH BOOK with live species + pending badges), pocket-specific empty messages, Mother's line in story rooms only, docs/ui/game-menu.md, and ID-02 World Bag plan.
 - 2026-10-11 · Antigravity · U-03: Disaggregated FISH pocket to list each caught fish directly; moved fish sprite to the left showcase tile (replacing the backpack) with full-width description below.
+
+- 2026-10-11 · Codex · P-02: audited the actual Projects/swimming_pool checkout, removed verified unused files and narrowed generated CSS sources; retained current identity/saves and art pipelines. See the cleanup report for validation and measured savings.

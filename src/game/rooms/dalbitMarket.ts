@@ -10,7 +10,7 @@ export const dalbitMarketRoom: RoomDefinition = {
   roomId: 'dalbit_market',
   name: 'Dock Market',
   backgroundImage: '/maps/dalbit/market.webp',
-  thumbnail: '/maps/thumbs/dalbit_market.webp',
+  thumbnail: '/maps/dalbit/market.webp',
   icon: '🐟',
   schedule: 'always',
   width: 1024,

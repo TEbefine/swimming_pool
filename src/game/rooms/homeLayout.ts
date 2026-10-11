@@ -1,6 +1,6 @@
 // "My Room" — the player's own quiet room. Characters at 2× (same as the café).
 // Furniture is sized to the ROOM (door ≈ bookshelf height), not to the chibi body.
-// Background: /maps/home_empty.webp (1024×576). Elements placed by BOTTOM-CENTRE (x, y).
+// Background: /maps/home_room.webp (1024×576). Elements placed by BOTTOM-CENTRE (x, y).
 // Seats: 'sit' (floor-sit pose) or 'lie' (lie pose on the bed).
 // Interaction ids: bed → Rest, guitar → Play, my_collection → Collection (saved tips),
 // diary → Write, record_player → Music.

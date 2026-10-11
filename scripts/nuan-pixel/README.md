@@ -27,4 +27,4 @@ python3 build.py          # -> out/NuanPixel-Regular.ttf/.woff2
 python3 build.py --bold   # -> out/NuanPixel-Bold.ttf/.woff2
 python3 hbrender.py out/NuanPixel-Regular.ttf preview.webp "สวัสดีครับ|Pixel Poolside" 6
 ```
-Then copy the `.woff2` files into `public/fonts/`.
+These are historical font experiments. Keep generated files in `out/`; the app now uses Pool Pixel Default (see `../../docs/ui/default-font.md`).

@@ -27,5 +27,5 @@ Lessons learned while building the pool, café and My Room. Follow these and new
 | Thing | Rule |
 |---|---|
 | Dialogue colors | cream #FFF6E5, brown border #4A2E1A, portrait backing #ECDEC4 |
-| Fonts | Press Start 2P (English), Itim (Thai) — in public/fonts/ |
+| Fonts | Pool Pixel Default 0.4 (Thai + English) — see ../ui/default-font.md |
 | Text | no emoji inside dialogue (pixel fonts can't draw them) |

@@ -1,4 +1,7 @@
-@import "tailwindcss";
+/* Scan application files only; design references are not shipped UI. */
+@import "tailwindcss" source(none);
+@source "./";
+@source "../index.html";
 
 @font-face {
   font-family: 'Pool Pixel Default';

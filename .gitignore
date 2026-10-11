@@ -56,3 +56,8 @@ firestore-debug.log*
 
 # npm run dev: the TEST Player ID's local saves (server/dev/devSaves.ts)
 .dev/
+
+# Regenerable tool caches and retired project transfer archives
+.ruff_cache/
+Claude outputs/*snapshot*.tgz
+Claude outputs/*.b64
