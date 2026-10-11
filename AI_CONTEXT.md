@@ -117,6 +117,8 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 2. Show designs visually and work step by step. Ask one short question only when a wrong guess would be expensive.
 3. Keep it fast on iPhone 13 (no heavy libraries, lazy-load images, prefer CSS/WebGL with fallbacks).
 4. After each session, update this file: the touched ID blocks plus one Log line.
+5. **Test on `dev-test-id`, ship on `main`** (Teera, 2026-10-11): build and test features on the `dev-test-id` branch (`npm run dev` = TEST Player ID, local dev saves); merge to `main` only when complete.
+6. **Test-only things never reach the real game**: test IDs, test saves, test badges/tools/hooks must be guarded (e.g. `import.meta.env.DEV`, `?test=`) so they have no effect and leave no trace in the production build — check the built bundle when adding one.
 
 ## Log
 - 2026-10-06 · Claude · C-LEG-01 finished (frame, inscription, living universe, carousel, gold foil, Birthday Alignment, quiet sky).
