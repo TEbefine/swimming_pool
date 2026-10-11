@@ -118,7 +118,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       setSceneBoxConfirmTrigger(0);
       setSceneBoxDpadNudge(null);
     },
-  }, playerState);
+  }, playerState, isStoryRoom(currentRoom.roomId));
 
   // Synchronize menuFrozen with engine: local player stops walking, but the world does NOT pause.
   useEffect(() => {
@@ -766,7 +766,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   ) : null;
 
   const gameMenuElement = (
-    <GameMenu menu={menu} playerName={playerName} playerState={playerState} compact={effectiveIsMobile} />
+    <GameMenu
+      menu={menu}
+      playerName={playerName}
+      playerState={playerState}
+      compact={effectiveIsMobile}
+      isStoryRoom={storyActive}
+      hasPlayerId={Boolean(playerId)}
+    />
   );
 
   // Canvas blur class for world focus effect

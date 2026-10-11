@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MenuStore, FIELD_IDS, createInitialState, reduce, selectedItem, selectedRow, activePocket,
+  pocketRows, selectedPocketRow, pocketRowCount,
 } from '../src/components/gameMenu/menuModel.ts';
 import {
   menuInputFromKey, KeyGate, DpadAdapter, directionFromDpad,
@@ -308,4 +309,102 @@ test('D-pad dead zone and axis choice', () => {
   assert.equal(directionFromDpad(0.3, -0.3), null);
   assert.equal(directionFromDpad(-1, 0), 'left');
   assert.equal(directionFromDpad(1, -1), 'up');
+});
+
+// ---- fish list in FISH pocket ---------------------------------------------
+
+test('FISH pocket lists each fish the user has, moves between them, and wraps', () => {
+  const { store, press, s, ctx } = rig();
+  store.open('bag');
+  press('right'); // switch to FISH
+  assert.equal(activePocket(s(), ctx), 'fish');
+  assert.equal(selectedRow(s(), ctx), 0);
+  assert.equal(selectedItem(s(), ctx), 'mackerel');
+
+  // Move to next fish
+  press('down');
+  assert.equal(selectedRow(s(), ctx), 1);
+  assert.equal(selectedItem(s(), ctx), 'eel');
+
+  press('down');
+  assert.equal(selectedRow(s(), ctx), 2);
+  assert.equal(selectedItem(s(), ctx), 'clams');
+
+  // Wrap to top
+  press('down');
+  assert.equal(selectedRow(s(), ctx), 0);
+  assert.equal(selectedItem(s(), ctx), 'mackerel');
+
+  // Wrap to bottom
+  press('up');
+  assert.equal(selectedRow(s(), ctx), 2);
+  assert.equal(selectedItem(s(), ctx), 'clams');
+});
+
+test('checking a fish from the action popup shows feedback and stays on that fish', () => {
+  const { store, press, s, calls, ctx } = rig();
+  store.open('bag');
+  press('right', 'down'); // FISH -> eel
+  assert.equal(selectedItem(s(), ctx), 'eel');
+
+  press('confirm'); // open popup: [Check, Cancel]
+  assert.ok(s().popup);
+  assert.equal(s().popup.itemId, 'eel');
+
+  press('confirm'); // confirm Check
+  assert.equal(s().popup, null);
+  assert.deepEqual(named(calls, 'action'), [['action', 'eel', 'check']]);
+  assert.equal(s().feedback, 'did check eel');
+  assert.equal(selectedItem(s(), ctx), 'eel');
+});
+
+test('empty fish pocket has 0 items and wraps gracefully when fish are added', () => {
+  const { store, press, s, ctx, bag } = rig({ items: [], fish: [], cards: [], key: [] });
+  store.open('bag');
+  press('right'); // FISH pocket (empty)
+  assert.equal(activePocket(s(), ctx), 'fish');
+  assert.equal(selectedItem(s(), ctx), null);
+  assert.equal(pocketRowCount('fish', ctx), 0);
+
+  // Catch fish
+  bag.fish = ['red_sea_bream', 'sardine'];
+  assert.equal(pocketRowCount('fish', ctx), 2);
+  assert.equal(selectedItem(s(), ctx), 'red_sea_bream');
+
+  press('down');
+  assert.equal(selectedItem(s(), ctx), 'sardine');
+});
+
+test('generic link row functions correctly when provided by context', () => {
+  const custom = {
+    pocketIds: ['items', 'fish', 'cards', 'key'],
+    itemsIn: () => ['card_a'],
+    actionsFor: () => ['check'],
+    linkIn: (p) => (p === 'cards' ? { target: 'fishbook', label: 'CARD ALBUM' } : null),
+    emoteCount: 0,
+    optionCount: 0,
+  };
+  const calls = [];
+  const host = {
+    sfx: (k) => calls.push(['sfx', k]),
+    openFishBook: () => calls.push(['fishbook']),
+    openNameEditor: () => {},
+    openHelp: () => {},
+    chooseEmote: () => {},
+    changeOption: () => {},
+    runItemAction: () => '',
+    openChanged: () => {},
+  };
+  const store = new MenuStore(() => custom, host);
+  store.open('bag');
+  store.press('right');
+  store.press('right'); // cards
+  assert.equal(activePocket(store.getSnapshot(), custom), 'cards');
+  assert.equal(pocketRowCount('cards', custom), 2); // 1 item + 1 link
+
+  store.press('down'); // on link row
+  assert.equal(selectedItem(store.getSnapshot(), custom), null);
+  store.press('confirm');
+  assert.equal(store.getSnapshot().open, false);
+  assert.deepEqual(named(calls, 'fishbook'), [['fishbook']]);
 });

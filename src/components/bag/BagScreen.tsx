@@ -2,6 +2,8 @@ import React from 'react';
 import { useStory } from '../../game/story/storyStore';
 import { ITEMS, POCKETS, itemIcon } from '../../game/story/items';
 import { ACTION_HINT, carriedIn } from '../../game/story/bagActions';
+import { useFishBook, getPendingCatches, freeIcon } from '../../game/fishing/freeFish';
+import { FREE_FISH, TIERS } from '../../game/fishing/freeFishCatalog';
 import type { MenuInput, MenuState } from '../gameMenu/menuModel';
 import { DescriptionBox } from '../gameMenu/DescriptionBox';
 import { HintBar, hintsFor } from '../gameMenu/HintBar';
@@ -15,39 +17,129 @@ interface BagScreenProps {
   state: MenuState;
   playerName: string;
   compact: boolean;
+  isStoryRoom?: boolean;
+  hasPlayerId?: boolean;
   onPress: (input: MenuInput) => void;
   onPoint: (index: number, confirm: boolean) => void;
   onPocket: (index: number) => void;
 }
 
+const POCKET_EMPTY_TEXT: Record<string, string> = {
+  items: 'Nothing here yet.',
+  fish: 'No fish yet. Cast a line at the Lake Pier.',
+  cards: 'No cards yet.',
+  key: 'No key items yet.',
+};
+
 const clamp = (i: number, n: number) => Math.max(0, Math.min(i, n - 1));
 
+interface RowItem {
+  id: string;
+  name: string;
+  count: number;
+  icon?: string;
+  note: string;
+  meta: string;
+}
+
 /** The Bag. Replaces the whole screen. It only draws: the cursor, pockets and popup live in the menu model. */
-export const BagScreen: React.FC<BagScreenProps> = ({ state, playerName, compact, onPress, onPoint, onPocket }) => {
+export const BagScreen: React.FC<BagScreenProps> = ({
+  state,
+  playerName,
+  compact,
+  isStoryRoom = false,
+  hasPlayerId = false,
+  onPress,
+  onPoint,
+  onPocket,
+}) => {
   const story = useStory();
+  const book = useFishBook();
+
   const pocketIndex = clamp(state.pocket, POCKETS.length);
   const pocket = POCKETS[pocketIndex];
-  const rows = carriedIn(story.bag, pocket.id).map((id) => ({ id, count: story.bag[id] ?? 0 }));
-  const row = rows.length ? clamp(state.selected[pocket.id] ?? 0, rows.length) : 0;
-  const current = rows[row];
-  const item = current ? ITEMS[current.id] : null;
+
+  let rows: RowItem[] = [];
+
+  if (pocket.id === 'fish' && !isStoryRoom) {
+    const storyFish: RowItem[] = carriedIn(story.bag, 'fish').map((id) => {
+      const item = ITEMS[id];
+      const bits: string[] = [];
+      if (item.energy) bits.push(`Energy +${item.energy}`);
+      if (item.sell?.gu && item.sell?.inn) bits.push(`Gu ${item.sell.gu}c / Inn ${item.sell.inn}c`);
+      else if (item.sell?.gu) bits.push(`Gu ${item.sell.gu}c`);
+      else if (item.sell?.inn) bits.push(`Inn ${item.sell.inn}c`);
+      return {
+        id,
+        name: item.name,
+        count: story.bag[id] ?? 0,
+        icon: itemIcon(id),
+        note: item.note,
+        meta: bits.join(' · '),
+      };
+    });
+
+    const pendingCatches = getPendingCatches();
+    const freeFish: RowItem[] = FREE_FISH.filter((f) => (book.entries[f.id]?.count ?? 0) > 0).map((f) => {
+      const entry = book.entries[f.id];
+      const count = entry?.count ?? 0;
+      const best = entry?.best;
+      const pendingCountForFish = pendingCatches.filter((c) => c.fish === f.id).length;
+      const bits: string[] = [`${TIERS[f.tier].label} tier`];
+      if (best) bits.push(`Best: ${best} cm`);
+      if (hasPlayerId && pendingCountForFish > 0) {
+        bits.push(`${pendingCountForFish} waiting for Nami/Kai`);
+      }
+      return {
+        id: f.id,
+        name: f.name,
+        count,
+        icon: freeIcon(f.id),
+        note: f.note,
+        meta: bits.join(' · '),
+      };
+    });
+
+    rows = [...storyFish, ...freeFish];
+  } else {
+    rows = carriedIn(story.bag, pocket.id).map((id) => {
+      const item = ITEMS[id];
+      const bits: string[] = [];
+      if (item.energy) bits.push(`Energy +${item.energy}`);
+      if (item.sell?.gu && item.sell?.inn) bits.push(`Gu ${item.sell.gu}c / Inn ${item.sell.inn}c`);
+      else if (item.sell?.gu) bits.push(`Gu ${item.sell.gu}c`);
+      else if (item.sell?.inn) bits.push(`Inn ${item.sell.inn}c`);
+      if (item.driesTo) bits.push(`Dries → ${ITEMS[item.driesTo].name}`);
+      if (item.key) bits.push('Key item');
+      return {
+        id,
+        name: item.name,
+        count: story.bag[id] ?? 0,
+        icon: itemIcon(id),
+        note: item.note,
+        meta: bits.join(' · '),
+      };
+    });
+  }
+
+  const row = rows.length > 0 ? clamp(state.selected[pocket.id] ?? 0, rows.length) : 0;
+  const current = rows[row] ?? null;
   const popup = state.popup;
   const h = hintsFor(compact);
 
   // What the description box says right now.
-  let text = 'Nothing in this pocket yet.';
+  let text = isStoryRoom
+    ? "Empty. Mother would say that's a good sign you haven't lost anything yet."
+    : 'Nothing in this pocket yet.';
+  let title = pocketName(pocket.label);
   let meta = '';
-  if (item) {
-    text = item.note;
-    const bits: string[] = [];
-    if (item.energy) bits.push(`Energy +${item.energy}`);
-    if (item.sell?.gu && item.sell?.inn) bits.push(`Gu ${item.sell.gu}c / Inn ${item.sell.inn}c`);
-    else if (item.sell?.gu) bits.push(`Gu ${item.sell.gu}c`);
-    else if (item.sell?.inn) bits.push(`Inn ${item.sell.inn}c`);
-    if (item.driesTo) bits.push(`Dries → ${ITEMS[item.driesTo].name}`);
-    if (item.key) bits.push('Key item');
-    meta = bits.join(' · ');
+
+  if (current) {
+    title = current.name;
+    text = current.note;
+    meta = current.meta;
   }
+
   if (state.feedback) {
     text = state.feedback;
   } else if (popup) {
@@ -74,23 +166,44 @@ export const BagScreen: React.FC<BagScreenProps> = ({ state, playerName, compact
         <div className="gm-bag-mid">
           <div className="gm-bag-side">
             <div className="gm-frame gm-pack-tile">
-              <PixelBackpack size={compact ? 64 : 88} />
+              {current?.icon ? (
+                <img
+                  className="gm-pack-item-sprite"
+                  src={current.icon}
+                  alt={current.name}
+                  width={compact ? 64 : 88}
+                  height={compact ? 64 : 88}
+                  draggable={false}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    img.onerror = null;
+                    img.src = '/sprites/items/mackerel.webp';
+                  }}
+                />
+              ) : (
+                <PixelBackpack size={compact ? 64 : 88} />
+              )}
             </div>
             <div className="gm-pocket-name">{pocketName(pocket.label)}</div>
             <div className="gm-coins">Coins {story.coins}</div>
           </div>
 
-          <ItemList items={rows} active={row} held={!!popup} onPoint={onPoint} />
+          <ItemList
+            items={rows}
+            emptyText={POCKET_EMPTY_TEXT[pocket.id]}
+            active={row}
+            held={!!popup}
+            onPoint={onPoint}
+          />
 
           {popup && <ItemActionMenu popup={popup} onPoint={onPoint} />}
         </div>
 
         <DescriptionBox
           className="gm-bag-desc"
-          title={item ? item.name : pocketName(pocket.label)}
+          title={title}
           text={text}
           meta={meta}
-          icon={current ? itemIcon(current.id) : undefined}
           feedback={!!state.feedback}
         />
 

@@ -9,7 +9,7 @@
 // Back always returns exactly one level:  item actions → Bag → Field menu → gameplay.
 // START always closes the whole system.  Cursors are remembered even after the menu closes.
 
-import type { ItemId, PocketId } from '../../game/story/items';
+import type { PocketId } from '../../game/story/items';
 
 export type MenuInput = 'up' | 'down' | 'left' | 'right' | 'confirm' | 'back' | 'start' | 'bag';
 export type MenuView = 'field' | 'bag' | 'emotes' | 'options';
@@ -22,7 +22,7 @@ export const FIELD_IDS: readonly FieldId[] = ['fishbook', 'bag', 'name', 'emotes
 export const FIELD_DIVIDER_BEFORE = FIELD_IDS.indexOf('options');
 
 export interface ActionPopup {
-  itemId: ItemId;
+  itemId: string;
   /** Real actions for this item. "Cancel" is always the extra last row. */
   actions: readonly ItemActionId[];
   cursor: number;
@@ -46,11 +46,23 @@ export interface MenuState {
   tick: number;
 }
 
+export type PocketLinkTarget = 'fishbook';
+
+export interface PocketLink {
+  target: PocketLinkTarget;
+  label?: string;
+}
+
+export type PocketRow =
+  | { kind: 'item'; id: string }
+  | { kind: 'link'; link: PocketLink };
+
 /** Live facts the machine needs. Built fresh for every input, never cached. */
 export interface MenuContext {
   pocketIds: readonly PocketId[];
-  itemsIn(pocket: PocketId): readonly ItemId[];
-  actionsFor(id: ItemId): readonly ItemActionId[];
+  itemsIn(pocket: PocketId): readonly string[];
+  actionsFor(id: string): readonly ItemActionId[];
+  linkIn?: (pocket: PocketId) => PocketLink | null;
   emoteCount: number;
   optionCount: number;
 }
@@ -62,7 +74,7 @@ export type Effect =
   | { type: 'help' }
   | { type: 'emote'; index: number }
   | { type: 'option'; index: number; dir: 1 | -1 }
-  | { type: 'item-action'; itemId: ItemId; action: ItemActionId };
+  | { type: 'item-action'; itemId: string; action: ItemActionId };
 
 export interface MenuHost {
   sfx(kind: Sfx): void;
@@ -72,7 +84,7 @@ export interface MenuHost {
   chooseEmote(index: number): void;
   changeOption(index: number, dir: 1 | -1): void;
   /** Does the action to the real game state and returns one short line to show. */
-  runItemAction(itemId: ItemId, action: ItemActionId): string;
+  runItemAction(itemId: string, action: ItemActionId): string;
   /** The menu opened or closed (freeze/unfreeze the player, close other overlays…). */
   openChanged(open: boolean): void;
 }
@@ -105,14 +117,37 @@ export function activePocket(s: MenuState, ctx: MenuContext): PocketId {
   return ctx.pocketIds[clamp(s.pocket, ctx.pocketIds.length)];
 }
 
+/** Rows in a pocket: story items, plus any generic link row (e.g. Fish Book in FISH). */
+export function pocketRows(pocket: PocketId, ctx: MenuContext): readonly PocketRow[] {
+  const rows: PocketRow[] = ctx.itemsIn(pocket).map((id) => ({ kind: 'item', id }));
+  const link = ctx.linkIn?.(pocket);
+  if (link) rows.push({ kind: 'link', link });
+  return rows;
+}
+
+export function pocketRowCount(pocket: PocketId, ctx: MenuContext): number {
+  return pocketRows(pocket, ctx).length;
+}
+
 /** Row selected in the active pocket (always valid for the current contents; 0 when empty). */
 export function selectedRow(s: MenuState, ctx: MenuContext): number {
-  const len = ctx.itemsIn(activePocket(s, ctx)).length;
+  const len = pocketRowCount(activePocket(s, ctx), ctx);
   return len === 0 ? 0 : clamp(s.selected[activePocket(s, ctx)] ?? 0, len);
 }
 
-export function selectedItem(s: MenuState, ctx: MenuContext): ItemId | null {
-  return ctx.itemsIn(activePocket(s, ctx))[selectedRow(s, ctx)] ?? null;
+export function selectedPocketRow(s: MenuState, ctx: MenuContext): PocketRow | null {
+  const rows = pocketRows(activePocket(s, ctx), ctx);
+  return rows[selectedRow(s, ctx)] ?? null;
+}
+
+export function selectedItem(s: MenuState, ctx: MenuContext): string | null {
+  const row = selectedPocketRow(s, ctx);
+  return row?.kind === 'item' ? row.id : null;
+}
+
+export function selectedLink(s: MenuState, ctx: MenuContext): PocketLink | null {
+  const row = selectedPocketRow(s, ctx);
+  return row?.kind === 'link' ? row.link : null;
 }
 
 export function closed(s: MenuState): MenuState {
@@ -185,12 +220,12 @@ function fieldStep(s: MenuState, input: MenuInput): Step {
 
 function bagStep(s: MenuState, input: MenuInput, ctx: MenuContext): Step {
   const pocket = activePocket(s, ctx);
-  const items = ctx.itemsIn(pocket);
+  const rows = pocketRows(pocket, ctx);
   switch (input) {
     case 'up':
     case 'down': {
-      if (items.length < 2) return { state: s, effects: [] };
-      const next = wrap(selectedRow(s, ctx), input === 'up' ? -1 : 1, items.length);
+      if (rows.length < 2) return { state: s, effects: [] };
+      const next = wrap(selectedRow(s, ctx), input === 'up' ? -1 : 1, rows.length);
       return { state: { ...s, selected: { ...s.selected, [pocket]: next } }, effects: [sfx('move')] };
     }
     case 'left':
@@ -200,9 +235,17 @@ function bagStep(s: MenuState, input: MenuInput, ctx: MenuContext): Step {
       return { state: { ...s, pocket: wrap(clamp(s.pocket, n), input === 'left' ? -1 : 1, n) }, effects: [sfx('move')] };
     }
     case 'confirm': {
-      const id = items[selectedRow(s, ctx)];
-      if (!id) return { state: s, effects: [] };
-      return { state: { ...s, popup: { itemId: id, actions: ctx.actionsFor(id), cursor: 0 } }, effects: [sfx('select')] };
+      const row = rows[selectedRow(s, ctx)];
+      if (!row) return { state: s, effects: [] };
+      if (row.kind === 'item') {
+        return { state: { ...s, popup: { itemId: row.id, actions: ctx.actionsFor(row.id), cursor: 0 } }, effects: [sfx('select')] };
+      }
+      if (row.kind === 'link') {
+        if (row.link.target === 'fishbook') {
+          return { state: closed(s), effects: [sfx('select'), { type: 'fishbook' }] };
+        }
+      }
+      return { state: s, effects: [] };
     }
     case 'back':
     case 'bag': return popView(s);
@@ -273,7 +316,7 @@ export function reducePoint(prev: MenuState, index: number, confirm: boolean, ct
       case 'options': moved = { ...s, options: clamp(index, ctx.optionCount) }; break;
       case 'bag': {
         const pocket = activePocket(s, ctx);
-        const len = ctx.itemsIn(pocket).length;
+        const len = pocketRowCount(pocket, ctx);
         if (len === 0) return { state: s, effects: [] };
         moved = { ...s, selected: { ...s.selected, [pocket]: clamp(index, len) } };
         break;
@@ -386,7 +429,7 @@ export class MenuStore {
         // The item may be gone now (last one eaten): keep the cursor on a real row.
         const ctx = this.getContext();
         const pocket = activePocket(this.state, ctx);
-        const len = ctx.itemsIn(pocket).length;
+        const len = pocketRowCount(pocket, ctx);
         const row = len === 0 ? 0 : clamp(this.state.selected[pocket] ?? 0, len);
         this.state = { ...this.state, feedback, selected: { ...this.state.selected, [pocket]: row } };
         break;

@@ -3,9 +3,11 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { PlayerState } from '../../game/types';
-import { POCKETS } from '../../game/story/items';
+import { POCKETS, type ItemId } from '../../game/story/items';
 import { getStory } from '../../game/story/storyStore';
 import { carriedIn, itemActionsFor, runItemAction } from '../../game/story/bagActions';
+import { FREE_BY_ID, FREE_FISH, TIERS } from '../../game/fishing/freeFishCatalog';
+import { getFishBook } from '../../game/fishing/freeFish';
 import { sound } from '../../game/audio';
 import { triggerHaptic } from '../../game/haptics';
 import { getEmoteItems, type EmoteItem } from '../startMenu/EmoteScreen';
@@ -52,10 +54,12 @@ const SFX: Record<Sfx, () => void> = {
   back: () => { sound.playBack(); triggerHaptic(15); },
 };
 
-export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerState): GameMenuApi {
+export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerState, isStoryRoom = false): GameMenuApi {
   // Always call the newest callbacks / read the newest player state without rebuilding the store.
   const cb = useRef(callbacks);
   cb.current = callbacks;
+  const isStory = useRef(isStoryRoom);
+  isStory.current = isStoryRoom;
   const emotes = useRef<EmoteItem[]>([]);
   emotes.current = getEmoteItems(playerState);
 
@@ -64,8 +68,17 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
 
     const getContext = (): MenuContext => ({
       pocketIds: POCKET_IDS,
-      itemsIn: (pocket) => carriedIn(getStory().bag, pocket), // live, never a stale render's copy
-      actionsFor: itemActionsFor,
+      itemsIn: (pocket) => {
+        if (pocket === 'fish' && !isStory.current) {
+          const book = getFishBook();
+          const free = FREE_FISH.filter((f) => (book.entries[f.id]?.count ?? 0) > 0).map((f) => f.id);
+          const storyFish = carriedIn(getStory().bag, 'fish');
+          return [...storyFish, ...free];
+        }
+        return carriedIn(getStory().bag, pocket);
+      },
+      actionsFor: (id) => (FREE_BY_ID[id] ? ['check'] : itemActionsFor(id as ItemId)),
+      linkIn: () => null,
       emoteCount: emotes.current.length,
       optionCount: OPTION_ROWS.length,
     });
@@ -82,7 +95,15 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
         else cb.current.triggerEmote(item.id);
       },
       changeOption: (index, dir) => OPTION_ROWS[index]?.change(dir),
-      runItemAction,
+      runItemAction: (itemId, action) => {
+        if (FREE_BY_ID[itemId]) {
+          const f = FREE_BY_ID[itemId];
+          const entry = getFishBook().entries[itemId];
+          const best = entry?.best ? ` Best: ${entry.best} cm.` : '';
+          return `${f.name} (${TIERS[f.tier].label} tier).${best}`;
+        }
+        return runItemAction(itemId as ItemId, action);
+      },
       openChanged: (open) => {
         dpadRef.current?.reset(); // a finger may still be on the D-pad
         cb.current.openChanged(open);

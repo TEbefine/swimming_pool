@@ -16,13 +16,22 @@ interface GameMenuProps {
   playerState: PlayerState;
   /** True inside the Game Boy screen (small), false in the desktop arcade screen. */
   compact: boolean;
+  isStoryRoom?: boolean;
+  hasPlayerId?: boolean;
 }
 
 /**
  * Everything the menu draws inside the game screen: the field menu (START), Emotes, Options and
  * the Bag. It has no input code of its own: see gameMenu/useGameMenu.ts and menuInput.ts.
  */
-export const GameMenu: React.FC<GameMenuProps> = ({ menu, playerName, playerState, compact }) => {
+export const GameMenu: React.FC<GameMenuProps> = ({
+  menu,
+  playerName,
+  playerState,
+  compact,
+  isStoryRoom = false,
+  hasPlayerId = false,
+}) => {
   const { state } = menu;
   if (!state.open) return null;
   const view = topView(state);
@@ -34,6 +43,8 @@ export const GameMenu: React.FC<GameMenuProps> = ({ menu, playerName, playerStat
         state={state}
         playerName={playerName}
         compact={compact}
+        isStoryRoom={isStoryRoom}
+        hasPlayerId={hasPlayerId}
         onPress={menu.press}
         onPoint={menu.point}
         onPocket={menu.setPocket}

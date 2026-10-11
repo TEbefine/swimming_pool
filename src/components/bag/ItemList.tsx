@@ -2,20 +2,22 @@ import React, { useEffect, useRef } from 'react';
 import { ITEMS, type ItemId } from '../../game/story/items';
 
 export interface BagItemRowData {
-  id: ItemId;
+  id: string;
+  name?: string;
   count: number;
 }
 
 interface ItemListProps {
   items: readonly BagItemRowData[];
+  emptyText?: string;
   active: number;
   /** An action menu is open on top: the cursor stays, but this list takes no input. */
   held: boolean;
   onPoint: (index: number, confirm: boolean) => void;
 }
 
-/** Names on the left, quantities right-aligned. */
-export const ItemList: React.FC<ItemListProps> = ({ items, active, held, onPoint }) => {
+/** Names on the left, quantities right-aligned. Displays story items and caught free fish. */
+export const ItemList: React.FC<ItemListProps> = ({ items, emptyText, active, held, onPoint }) => {
   const activeRef = useRef<HTMLButtonElement>(null);
 
   // Keep the cursor row in view when the list is longer than the box.
@@ -26,7 +28,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, active, held, onPoint
   if (items.length === 0) {
     return (
       <div className="gm-frame gm-list-frame">
-        <p className="gm-empty">Empty. Mother would say that's a good sign you haven't lost anything yet.</p>
+        {emptyText && <p className="gm-empty">{emptyText}</p>}
       </div>
     );
   }
@@ -35,6 +37,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, active, held, onPoint
     <div className={`gm-frame gm-list-frame${held ? ' is-held' : ''}`} role="listbox" aria-label="Items">
       {items.map((it, i) => {
         const isActive = i === active;
+        const displayName = it.name ?? ITEMS[it.id as ItemId]?.name ?? it.id;
         return (
           <button
             key={it.id}
@@ -47,7 +50,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, active, held, onPoint
             onClick={(e) => { e.stopPropagation(); onPoint(i, true); }}
           >
             <span className="gm-cursor" aria-hidden="true" />
-            <span className="gm-row-label">{ITEMS[it.id].name}</span>
+            <span className="gm-row-label">{displayName}</span>
             <span className="gm-qty">×{it.count}</span>
           </button>
         );

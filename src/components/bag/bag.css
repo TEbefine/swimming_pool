@@ -120,8 +120,22 @@
 .gm-pack-tile {
   padding: 6px;
   line-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .gm-backpack { display: block; image-rendering: pixelated; }
+.gm-pack-item-sprite {
+  display: block;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.gm-bag-frame[data-compact='false'] .gm-pack-item-sprite {
+  width: 88px;
+  height: 88px;
+}
 .gm-pocket-name {
   font-size: calc(var(--gm-fs) - 1px);
   font-weight: 700;
@@ -156,6 +170,42 @@
   min-width: 2.2em;
 }
 .gm-item-row:not(.is-active) .gm-qty { color: var(--gm-ink-soft); }
+
+/* Link row in a pocket (e.g. FISH BOOK) */
+.gm-link-row {
+  flex: none;
+  min-height: var(--gm-row-h);
+  height: auto;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.gm-link-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.gm-link-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+}
+.gm-link-qty {
+  font-size: calc(var(--gm-fs) - 2px);
+  white-space: nowrap;
+}
+.gm-link-sub {
+  font-size: calc(var(--gm-fs) - 3px);
+  color: var(--gm-gold);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+.gm-link-row.is-active .gm-link-sub {
+  color: #7c3a00;
+  font-weight: 600;
+}
 
 /* While the action menu has focus the list keeps its cursor but looks "parked". */
 .gm-list-frame.is-held .gm-row.is-active { background: var(--gm-navy-soft); }

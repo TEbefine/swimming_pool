@@ -98,14 +98,16 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - **Next:** Fish book / Name / Help still close the menu to gameplay when they open (they are separate overlays); returning to the field menu when they close is the open item.
 
 ## U-03 · Bag (Pokémon Black/White & ORAS style)
-- **Status:** Step 2 finished (2026-10-10): Bag screen redrawn (BAG title + player name, pocket tabs with ◂ ▸, pixel backpack + pocket name + coins, framed item list with right-aligned quantities, fixed description box) and item actions **Eat / Check / Cancel** that change the real save.
+- **Status:** Step 2 finished (2026-10-10), Link Row & Empty State polish added (2026-10-11): Bag screen redrawn (BAG title + player name, pocket tabs with ◂ ▸, pixel backpack + pocket name + coins, framed item list with right-aligned quantities, fixed description box) and item actions **Eat / Check / Cancel** that change the real save.
 - **Decisions:**
   - One source of truth for pockets: `pocketOf(id)` and `POCKETS` (`items`, `fish`, `cards`, `key`) in `src/game/story/items.ts`. The Gear / Bait / Tools idea was NOT used: the game has no equipment, bait or tools yet, so there is no equipped marker either.
   - Every inventory action goes through `src/game/story/bagActions.ts` (`itemActionsFor`, `runItemAction`, `itemFacts`), prepared for ID-01 server authority. Eat refuses when energy is already full (item is kept). Check shows rarity, habitat, best catch, energy, prices from the real save.
   - The action popup owns input; ←/→ and the list ignore keys until it closes. After an action the cursor stays on the same pocket and item (clamped if the stack ran out); feedback shows in the description box for ~3 s or until the next input.
+  - Generic pocket link rows (`PocketLink`, `PocketRow` in `menuModel.ts`): FISH pocket displays `FISH BOOK <N> kinds` (and `<N> waiting for Nami/Kai` badge when pending catches exist). Confirm on the row emits `{ type: 'fishbook' }` and opens the Fish Book. Cursor memory and wrap-around stay intact.
+  - Doubled empty message eliminated: list area shows short centered pocket prompt (FISH "No fish yet. Cast a line at the Lake Pier.", ITEMS "Nothing here yet.", CARDS "No cards yet.", KEY "No key items yet."). Description box shows Mother's line in story rooms (`isStoryRoom`) and neutral hint outside story rooms. Empty FISH pocket always renders the FISH BOOK link row.
   - Full screen on handheld, centered 600 px frame on desktop. "CLOSE BAG" row removed: Back / START close it.
-- **Files:** `src/game/story/items.ts`, `src/game/story/bagActions.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `ItemActionMenu.tsx`, `PixelBackpack.tsx`, `bag.css`), `src/components/StoryHud.tsx`, `src/dev/storyTest.tsx`, `src/App.tsx`.
-- **Next:** Cards pocket needs a viewer action (Check shows only item facts today). Add Equip / Set bait to `itemActionsFor` + a marker in `ItemList` when equipment exists.
+- **Files:** `src/game/story/items.ts`, `src/game/story/bagActions.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `ItemActionMenu.tsx`, `PixelBackpack.tsx`, `bag.css`), `src/components/gameMenu/` (`menuModel.ts`, `useGameMenu.ts`, `GameMenu.tsx`), `docs/ui/game-menu.md`, `docs/ai/ID-02-world-bag-plan.md`, `src/App.tsx`, `tests/game-menu.test.mjs`.
+- **Next:** Cards pocket needs a viewer action (Check shows only item facts today). Add Equip / Set bait to `itemActionsFor` + a marker in `ItemList` when equipment exists. Future ID-02 World Bag (see plan in `docs/ai/ID-02-world-bag-plan.md`).
 
 ## W-01 · World
 - Lumen Bay plan, Dalbit market art. Docs: `docs/world/*`.
@@ -138,3 +140,5 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-10 · Claude · ID-01c: merged main into the login branch as `id-01c-saves`; built `/api/items` validated saves (Fish Book via Nami/Kai, Dalbit day-end save, load on any device), owner-read log rules, review fixes from an independent reviewer (2 rounds); 117 unit tests, API build smoke, identity + controls + new saves browser suites pass; emulator rules test not runnable here.
 - 2026-10-11 · Claude · ID-01 (a)–(c) merged to main (fast-forward to `id-01c-saves` after Teera's iPhone preview test); production deploy READY.
 - 2026-10-11 · Claude · `npm run dev` plays as a TEST Player ID with local dev saves through the real save rules (branch `dev-test-id`); fixes the iPhone dev error `crypto.subtle.importKey` (insecure http context).
+- 2026-10-11 · Antigravity · U-03: Added generic pocket link row (FISH BOOK with live species + pending badges), pocket-specific empty messages, Mother's line in story rooms only, docs/ui/game-menu.md, and ID-02 World Bag plan.
+- 2026-10-11 · Antigravity · U-03: Disaggregated FISH pocket to list each caught fish directly; moved fish sprite to the left showcase tile (replacing the backpack) with full-width description below.
