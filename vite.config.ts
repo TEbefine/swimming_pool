@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
+import { devSaves } from './server/dev/devSaves.js'
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
@@ -9,6 +10,8 @@ export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     tailwindcss(),
+    // npm run dev: /api/items for the fixed TEST Player ID, stored in .dev/saves.json
+    devSaves(),
   ],
   resolve: {
     // Production ships Preact (same React API, ~10 KB instead of ~200 KB of react-dom):

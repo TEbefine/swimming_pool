@@ -53,3 +53,6 @@ firestore-debug.log*
 
 # Vercel local build metadata
 .vercel/
+
+# npm run dev: the TEST Player ID's local saves (server/dev/devSaves.ts)
+.dev/

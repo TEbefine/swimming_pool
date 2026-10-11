@@ -8,6 +8,7 @@ import { attachFishBook, getPendingCatches, pendingOperation, settlePendingCatch
 import type { FishBookEntry, PendingCatch } from '../fishing/freeFish';
 import { attachStory, getDraftMeta, getStory, setDraftMeta, storyForSave, subscribeStory } from '../story/storyStore';
 import type { StoryState } from '../story/storyStore';
+import { DEV_TEST_ADDRESS, DEV_TEST_TOKEN } from '../../identity/devTestIdentity';
 
 interface StorySave { day: number; step: string; revision: number; savedAt: number; state: StoryState }
 interface ServerView {
@@ -50,6 +51,8 @@ export function getCloudAddress() { return address; }
 
 // ---- transport ---------------------------------------------------------------------------------
 async function idToken(): Promise<string> {
+  // npm run dev only: the TEST Player ID talks to the dev server's /api/items (server/dev/devSaves.ts).
+  if (import.meta.env.DEV && address === DEV_TEST_ADDRESS) return DEV_TEST_TOKEN;
   const { firebaseAuth } = await import('../../identity/firebaseAuth');
   const user = await firebaseAuth().current();
   if (!user || user.uid !== address) throw new SaveRequestError(401, 'Please unlock your Player ID to save.');
@@ -76,7 +79,9 @@ async function call(body: Record<string, unknown>): Promise<ServerView> {
 }
 
 function newOperationId(): string {
-  return `op-${crypto.randomUUID()}`;
+  // getRandomValues works everywhere (randomUUID needs https, which a phone on the dev server lacks)
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return `op-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function applyView(view: ServerView) {
