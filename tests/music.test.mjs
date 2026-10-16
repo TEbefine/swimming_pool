@@ -361,3 +361,38 @@ test('tryAutoPlay attempts to resume suspended context and begins playback if al
   assert.equal(music.isPlaying(), true);
 });
 
+
+test('boot intro hold: the Press START tap unlocks audio but room music waits until the intro ends', async () => {
+  music.destroy();
+  const ctx = sound.getContext();
+  ctx.state = 'suspended';
+  music.setLevel('normal');
+
+  music.holdForBoot(true);
+  music.playForRoom('town');
+  await new Promise((r) => setTimeout(r, 10));
+
+  // The Press START tap: audio is unlocked, but no room music during the intro
+  win.dispatchEvent(new Event('pointerdown'));
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(ctx.state, 'running');
+  const looping = () => ctx.sources.filter((s) => s.loop === true && s.startedAt !== null);
+  const before = looping().length;
+
+  // A track that finishes loading while the intro plays must wait too
+  music.playForRoom('cafe');
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(looping().length, before);
+
+  // While the intro's sound plays the shared AudioContext counts as busy (never idle-suspended)
+  music.setBootSoundActive(true);
+  assert.equal(music.isPlaying(), true);
+
+  // Intro done (or skipped): the room music fades in as usual
+  music.startRoomMusic();
+  assert.equal(music.isPlaying(), true);
+  const started = looping();
+  assert.equal(started.length, before + 1);
+  assert.equal(started.at(-1).startedAt, ctx.currentTime);
+  assert.ok(ctx.gains.some((g) => g.gain.ramps.some((r) => r.val === 1 && r.time === ctx.currentTime + 1.5)));
+});

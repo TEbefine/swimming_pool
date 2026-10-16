@@ -25,6 +25,8 @@ import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { LoadingScene } from './components/LoadingScene';
 import { music } from './game/audio/music';
+import { sound } from './game/audio';
+import { bootWillShow, preloadBootIntro, showBootOnce } from './boot/bootSound';
 import { attachPlayer, getCloudAddress, recordPendingCatches } from './game/saves/cloud';
 import { FISHING_GUIDES, guideScript, withRecordResult } from './game/saves/guideRecord';
 import { getPendingCatches } from './game/fishing/freeFish';
@@ -53,7 +55,23 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   // Room state stored in React state (runtime room travel)
   const [currentRoom, setCurrentRoom] = useState<RoomDefinition>(() => getRoomForToday());
 
+  // =========================================================================
+  // BOOT INTRO (first open on a device, src/boot): "SWIMMING POOL / by SAP Co." after Press START.
+  // Dev harnesses (devOverlay) and ?autostart skip it; ?boot forces it again.
+  // =========================================================================
+  const [bootPlan] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const force = params.has('boot');
+    const allowed = !devOverlay && !params.has('autostart');
+    return { force, allowed, willShow: allowed && bootWillShow(force) };
+  });
+  const bootHostRef = useRef<HTMLDivElement | null>(null);
+  const bootPlayingRef = useRef(false);
+  const [bootPlaying, setBootPlaying] = useState(false);
+
   useEffect(() => {
+    // First open: room music must not start before the intro ends — not even from an early tap on the loading screen.
+    if (bootPlan.willShow) music.holdForBoot(true);
     music.playForRoom(currentRoom.roomId);
     void music.tryAutoPlay();
   }, []);
@@ -122,8 +140,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
   // Synchronize menuFrozen with engine: local player stops walking, but the world does NOT pause.
   useEffect(() => {
-    engineRef.current?.setPause(identityPaused ? 'identity' : menu.isOpen || sceneBoxOpen ? 'input' : 'none');
-  }, [identityPaused, menu.isOpen, sceneBoxOpen]);
+    engineRef.current?.setPause(identityPaused ? 'identity' : menu.isOpen || sceneBoxOpen || bootPlaying ? 'input' : 'none');
+  }, [identityPaused, menu.isOpen, sceneBoxOpen, bootPlaying]);
 
   // =========================================================================
   // DIALOG STATE
@@ -334,6 +352,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (identityPaused) return;
+      if (bootPlayingRef.current) return; // the boot intro owns the keys (any key skips it)
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       // While the in-screen menu is open it owns the keyboard (the only menu key handler).
       if (menu.handleKey(e)) return;
@@ -520,9 +539,60 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       }
     };
 
+    // Press START → (first open) boot intro with its own sound, or (later opens) the start chime → room music.
+    const runBoot = async (host: HTMLDivElement, leaveLoading: () => void) => {
+      const willShow = bootWillShow(bootPlan.force);
+      if (willShow) {
+        bootPlayingRef.current = true;
+        setBootPlaying(true);
+        music.holdForBoot(true);
+        music.setBootSoundActive(true);
+      }
+      // The loading scene stays up until the intro's first frame covers it, then goes at once (no blank frame).
+      let handedOver = false;
+      const handOver = () => {
+        if (handedOver || cancelled) return;
+        handedOver = true;
+        setLoading(false);
+        setLoadingLeaving(false);
+      };
+      const watch = new MutationObserver(() => { if (host.querySelector('.boot')) { watch.disconnect(); handOver(); } });
+      if (willShow) watch.observe(host, { childList: true });
+      // Safety net: the intro is ~5 s. If anything ever hangs, skip it so the game always becomes playable.
+      const watchdog = willShow ? window.setTimeout(() => window.dispatchEvent(new Event('boot:skip')), 12000) : undefined;
+      let shown = false;
+      try {
+        const r = await showBootOnce(host, {
+          ctx: sound.getContext(),   // the app's shared AudioContext, unlocked by this tap
+          dest: null,                // no separate sound-effects volume node in the app: straight to the speakers
+          sound: !sound.isMuted(),   // Options → Sound
+          force: bootPlan.force,
+        });
+        shown = r.shown;
+      } catch {
+        // the picture failed: carry on into the game
+      } finally {
+        window.clearTimeout(watchdog);
+        watch.disconnect();
+        host.querySelectorAll('.boot').forEach((el) => el.remove());
+      }
+      if (cancelled) return;
+      music.setBootSoundActive(false);
+      if (!shown) void music.playStartChime(); // every later open: the normal chime
+      music.startRoomMusic();                  // either way, then the room music fades in
+      bootPlayingRef.current = false;
+      setBootPlaying(false);
+      if (!handedOver) {
+        handedOver = true;
+        leaveLoading();
+      }
+    };
+
     const init = async () => {
       // Preload start chime early so it's ready when the player presses START
       music.preloadStartChime();
+      // First open: also warm up the boot intro's two fonts and two sounds while the art downloads
+      if (bootPlan.willShow) preloadBootIntro(bootPlan.force);
       setLoadProgress(12);
       // Gentle progress while the art downloads (loadAssets has no per-file callback yet).
       const creep = window.setInterval(() => setLoadProgress((p) => p + (92 - p) * 0.08), 140);
@@ -535,20 +605,30 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       setLoadProgress(100);
       // The loading scene now waits for the player (tap / any button / key) — see the effect below.
       let entered = false;
-      enterGameRef.current = () => {
-        if (cancelled || entered) return;
-        entered = true;
-        enterGameRef.current = null;
-        void music.playStartChime();
-        engine.start();
-        setPlayerCountByRoom(engine.getPlayerCountByRoom());
-        onEngineReady?.(engine);
+      // The loading scene fades out (0.5 s) — the normal hand-over when there is no boot intro.
+      const leaveLoading = () => {
         setLoadingLeaving(true);
         startTimer = window.setTimeout(() => {
           if (cancelled) return;
           setLoading(false);
           setLoadingLeaving(false);
         }, 500);
+      };
+      enterGameRef.current = () => {
+        if (cancelled || entered) return;
+        entered = true;
+        enterGameRef.current = null;
+        engine.start();
+        setPlayerCountByRoom(engine.getPlayerCountByRoom());
+        onEngineReady?.(engine);
+        const host = bootHostRef.current;
+        if (!bootPlan.allowed || !host) {
+          music.holdForBoot(false);
+          void music.playStartChime();
+          leaveLoading();
+          return;
+        }
+        void runBoot(host, leaveLoading);
       };
       // Dev harnesses and ?autostart skip the wait.
       if (devOverlay || new URLSearchParams(window.location.search).has('autostart')) {
@@ -804,6 +884,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     />
   ) : null;
 
+  // The boot intro's stage: covers the whole game screen (handheld window or arcade screen). Empty and click-through
+  // except while the intro's .boot layer is inside it (a tap on that layer skips the intro).
+  const bootHostElement = (
+    <div ref={bootHostRef} className="absolute inset-0 pointer-events-none [&>.boot]:pointer-events-auto" style={{ zIndex: 60 }} />
+  );
+  // While the intro plays the game ignores the buttons (◯ / START also skip it: GameBoyMobile dispatches "boot:skip").
+  const ignore = () => {};
+
   return (
     <div className="relative w-screen h-screen bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
       {/* RENDER VIEW: Game Boy Handheld on Mobile vs Desktop Arcade Cabinet */}
@@ -815,12 +903,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           playerName={playerName}
           floatColor={floatColor}
           playerCount={playerCount}
-          chatLog={visibleChatLog}
+          chatLog={bootPlaying ? [] : visibleChatLog}
           statusLabel={currentRoom.name}
           hideStatusBadge={dialogOpen || menu.isOpen}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
-            if (fishingOpen) {
+            if (bootPlayingRef.current) {
+              // boot intro: no walking, no menus
+            } else if (fishingOpen) {
               // no walking while the line is out
             } else if (menu.isOpen) {
               // Menu open: the D-pad drives the menu ONLY (one step per press, repeats while held).
@@ -838,28 +928,33 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
               engineRef.current?.setVirtualDpad(dx, dy);
             }
           }}
-          onToggleState={handleCircleAction}
-          onCircleHold={fishingHold}
-          onActionA={handleCrossAction}
-          onTriggerEmote={action => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen) handleTriggerEmote(action); }}
+          onToggleState={bootPlaying ? ignore : handleCircleAction}
+          onCircleHold={bootPlaying ? ignore : fishingHold}
+          onActionA={bootPlaying ? ignore : handleCrossAction}
+          onTriggerEmote={bootPlaying ? ignore : (action) => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen) handleTriggerEmote(action); }}
           onSendMessage={handleSendMessage}
-          onOpenFloatPicker={() => setFloatModalOpen(true)}
-          onOpenNameModal={() => setNameModalOpen(true)}
-          onOpenHelpModal={() => setHelpModalOpen(true)}
-          onToggleSceneBox={handleToggleSceneBox}
-          onToggleStartMenu={handleToggleStartMenu}
+          onOpenFloatPicker={bootPlaying ? ignore : () => setFloatModalOpen(true)}
+          onOpenNameModal={bootPlaying ? ignore : () => setNameModalOpen(true)}
+          onOpenHelpModal={bootPlaying ? ignore : () => setHelpModalOpen(true)}
+          onToggleSceneBox={bootPlaying ? ignore : handleToggleSceneBox}
+          onToggleStartMenu={bootPlaying ? ignore : handleToggleStartMenu}
           startMenuOpen={menu.isOpen}
-          playerInputBlocked={sceneBoxOpen || dialogOpen}
-          screenOverlay={loadingElement ?? (
+          playerInputBlocked={sceneBoxOpen || dialogOpen || bootPlaying}
+          screenOverlay={
             <>
-              {storyHudElement}
-              {fishingElement}
-              {standaloneFishBook}
-              {dialogBoxElement}
-              {sceneBoxElement}
-              {gameMenuElement}
+              {loadingElement ?? (
+                <>
+                  {storyHudElement}
+                  {fishingElement}
+                  {standaloneFishBook}
+                  {dialogBoxElement}
+                  {sceneBoxElement}
+                  {gameMenuElement}
+                </>
+              )}
+              {bootHostElement}
             </>
-          )}
+          }
         />
       ) : (
         /* Main Game Screen with Retro Arcade Border */
@@ -947,6 +1042,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
             {/* Loading scene inside the arcade screen */}
             {loadingElement && <div className="absolute inset-0 z-[40]">{loadingElement}</div>}
+
+            {/* Boot intro stage (first open), above everything on the arcade screen */}
+            {bootHostElement}
 
             {/* CRT scanline effect subtle overlay (hidden during dialog) */}
             {!dialogBoxElement && (

@@ -1,0 +1,89 @@
+/* Boot intro ("SWIMMING POOL / by SAP Co.") — first open only. See src/boot/bootIntro.ts.
+   Ported verbatim from the approved ui/boot-intro-final.html (the .boot block). Do not restyle here:
+   the look, timing and colours are final. Fonts are self-hosted (public/fonts/, latin subsets) with
+   font-display: block so the letters never swap font mid-animation. The app's own UI font is
+   'Pool Pixel Default', so these two family names do not clash with anything else. */
+
+@font-face { font-family: "Rubik"; font-style: italic; font-weight: 800; font-display: block; src: url("/fonts/Rubik-800-italic-latin.woff2") format("woff2"); }
+@font-face { font-family: "VT323"; font-style: normal; font-weight: 400; font-display: block; src: url("/fonts/VT323-400-latin.woff2") format("woff2"); }
+
+.boot {
+  --boot-bg-top: #d6ecf1;
+  --boot-bg-bottom: #f6efdc;
+  --boot-title: 15.897;       /* row-1 font size as % of screen width ... */
+  --boot-title-h: 7.346;     /* ... and as % of screen height (the smaller one wins) */
+  --boot-badge-ink: #4f7e97;  /* badge ring + letters: a soft steel blue, quiet next to the title */
+  --boot-badge: 6.154;       /* badge font size, % of width */
+  --boot-badge-h: 2.844;      /* badge font size, % of height */
+  --boot-bottom: 14.218;      /* gap under the badge, % of height */
+
+  position: absolute; inset: 0; overflow: hidden;
+  container-type: size;                                  /* sizes scale with the screen */
+  background: linear-gradient(180deg, var(--boot-bg-top), var(--boot-bg-bottom));
+}
+.boot__stage {
+  height: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center;
+  padding-bottom: calc(var(--boot-bottom) * 1cqh);
+}
+.boot__mid { flex: 1; display: flex; align-items: center; justify-content: center; }
+
+/* the title: 2 rows (SWIMMING / POOL), flat, rainbow POOL */
+.boot__title {
+  --k: 1;                                                /* auto-fit safety, set by JS (never above 1) */
+  margin: 0; display: flex; flex-direction: column; align-items: center;
+  font-family: "Rubik", "Arial Black", Impact, sans-serif;
+  font-style: italic; font-weight: 800; text-transform: uppercase;
+  font-size: calc(min(var(--boot-title) * 1cqw, var(--boot-title-h) * 1cqh) * var(--k));
+  line-height: .85; letter-spacing: -.02em;
+}
+.boot__row { display: flex; align-items: baseline; white-space: nowrap; }
+.boot__ch  { position: relative; display: block; will-change: transform, opacity; }   /* animated by JS (Web Animations) */
+/* the finishing light. POOL: a white glint sweeps through each letter (::after, clipped to the letter shape) */
+.boot__ch::after {
+  content: attr(data-ch); position: absolute; inset: 0; color: transparent; pointer-events: none;
+  background: linear-gradient(105deg, transparent 0 38%, #e4eef3 38% 46%, #ffffff 46% 54%, #e4eef3 54% 62%, transparent 62%) no-repeat;   /* flat, hard-edged white stripe */
+  background-size: 300% 100%; background-position: 130% 0;
+  -webkit-background-clip: text; background-clip: text;
+}
+/* SWIMMING: the sun. A soft round ball of light drifts left to right across the whole word and recolours
+   only the part of each letter it is over. It is 3 overlapping radial-gradient layers (big, medium, small),
+   each a flat full-colour disc (no fade toward the edge) at the same opacity (--sun-a, 0.3), so the light builds up in steps where they overlap. */
+.boot__ch[data-row="0"]::after {
+  background:
+    radial-gradient(circle closest-side, rgba(255,255,255,var(--sun-a,.3)) 0 97%, rgba(255,255,255,0) 100%) no-repeat,
+    radial-gradient(circle closest-side, rgba(255,255,255,var(--sun-a,.3)) 0 97%, rgba(255,255,255,0) 100%) no-repeat,
+    radial-gradient(circle closest-side, rgba(255,255,255,var(--sun-a,.3)) 0 97%, rgba(255,255,255,0) 100%) no-repeat;
+  background-size: var(--sun-w1, 100px) var(--sun-w1, 100px), var(--sun-w2, 70px) var(--sun-w2, 70px), var(--sun-w3, 40px) var(--sun-w3, 40px);
+  background-position: -999px 0, -999px 0, -999px 0;
+  -webkit-background-clip: text; background-clip: text;      /* the shorthand above resets this, so set it again */
+}
+/* optional (off by default): a little four-point star twinkles on each POOL letter (::before) */
+.boot__ch::before {
+  content: ""; position: absolute; top: 0%; right: -6%; width: .42em; height: .42em; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 22%, #ffc83d 24% 100%);
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  opacity: 0; transform: scale(0);
+}
+
+/* the badge: "by SAP Co." -- a white pill with a thick navy ring set just inside its edge, and heavy navy letters that
+   fill it (the classic console-maker badge feel). Same chunky-pixel filter as the title, so the ring steps and the letters are blocky */
+.boot__badge {
+  box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+  font-family: "Rubik", "Arial Black", Impact, sans-serif; font-style: italic; font-weight: 800;
+  font-size: min(var(--boot-badge) * 1.2cqw, var(--boot-badge-h) * 1.2cqh);
+  line-height: 1; letter-spacing: .01em; white-space: nowrap;
+  padding: .34em .9em .4em .85em;
+  background: transparent; color: var(--boot-badge-ink); border-radius: 999px;
+  will-change: transform, opacity;
+  position: relative; overflow: hidden;
+}
+.boot__badge::before {                       /* the thick light ring just inside the edge */
+  content: ""; position: absolute; inset: .16em; border: max(3px, .16em) solid var(--boot-badge-ink); border-radius: 999px; pointer-events: none;
+}
+/* "by SAP Co.": one soft light bar slides across the whole pill (::after) */
+.boot__badge::after {
+  content: ""; position: absolute; top: -10%; bottom: -10%; left: 0; width: 26%; pointer-events: none;
+  background: linear-gradient(100deg, transparent 0 36%, rgba(255,255,255,.4) 36% 64%, transparent 64%);   /* one flat, hard-edged band */
+  opacity: 1; transform: translateX(-170%) skewX(-20deg);
+}

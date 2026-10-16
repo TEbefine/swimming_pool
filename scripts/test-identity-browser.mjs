@@ -34,6 +34,9 @@ try {
   }));
   const expire = () => authMock.expire();
   await page.addInitScript(() => {
+    // The first-open boot intro (src/boot) is checked by scripts/test-boot-browser.mjs; mark it seen so it
+    // does not sit over the game while this suite presses START.
+    localStorage.setItem('swimming_pool.boot.seen.v1', '1');
     window.identityFeedback = { haptics: 0, audio: 0 };
     navigator.vibrate = () => { window.identityFeedback.haptics++; return true; };
     const Audio = window.AudioContext || window.webkitAudioContext;

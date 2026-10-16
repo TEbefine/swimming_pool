@@ -3,9 +3,11 @@
  *  - Game code (/assets/*, hashed names): cache-first, kept forever (a new deploy = new names).
  *  - Art, fonts, manifests: served from the phone instantly, refreshed quietly in the background
  *    (stale-while-revalidate), so new art still arrives on the next visit.
+ *  - Music + sound files (/audio/*.m4a, .wav — incl. the boot intro's boot_note.wav / boot_glow.wav): cache-first.
+ *    Fonts (/fonts/ — incl. the boot intro's Rubik + VT323 .woff2) are "art" above.
  *  - The page itself: network first, phone copy only when offline.
  *  Bump VERSION to throw every cached file away. */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CODE = `code-${VERSION}`;
 const ART = `art-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
@@ -82,7 +84,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(networkFirst(request));
   } else if (url.pathname.startsWith('/assets/')) {
     event.respondWith(cacheFirst(request));
-  } else if (/^\/audio\/.*\.m4a$/.test(url.pathname)) {
+  } else if (/^\/audio\/.*\.(m4a|wav)$/.test(url.pathname)) {
     event.respondWith(cacheFirstAudio(request));
   } else if (isArt(url.pathname)) {
     event.respondWith(staleWhileRevalidate(request, event));

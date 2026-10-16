@@ -279,6 +279,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
   // Right: ◯ (Circle) -> Dive / Step Out (Water ⇄ Land)
   const handlePressCircle = () => {
+    window.dispatchEvent(new Event('boot:skip')); // ◯ skips the first-open boot intro (no-op otherwise)
     if (identityPress('circle')) return;
     triggerHaptic(18);
     onToggleState();
@@ -312,6 +313,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
 
   // START button -> Pokémon-style START menu
   const handlePressStart = () => {
+    window.dispatchEvent(new Event('boot:skip')); // START skips the first-open boot intro (no-op otherwise)
     if (identityControls) { if (!identityControls.disabled) identityControls.onConfirm(); return; }
     triggerHaptic(15);
     setShowChatModal(false);

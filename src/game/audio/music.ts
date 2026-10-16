@@ -48,6 +48,10 @@ export class MusicManager {
   private masterGainCtx: AudioContext | null = null;
 
   private currentRequestId = 0;
+  // First-open boot intro (src/boot): room music waits until it ends or is skipped, and the shared
+  // AudioContext must stay awake while the intro's own sound plays (see holdForBoot).
+  private bootHold = false;
+  private bootAwake = false;
   private listeners = new Set<() => void>();
   private gestureListenersAttached = false;
 
@@ -122,6 +126,7 @@ export class MusicManager {
   private onContextResumed() {
     const ctx = this.getContext();
     if (!ctx || ctx.state !== 'running') return;
+    if (this.bootHold) return; // the boot intro is playing: room music starts when it ends (holdForBoot(false))
 
     if (this.pendingStart && this.pendingStart.requestId === this.currentRequestId) {
       const { buffer, trackUrl, requestId } = this.pendingStart;
@@ -248,8 +253,9 @@ export class MusicManager {
       }
 
       const state = ctx.state as string;
-      if (state !== 'running') {
+      if (state !== 'running' || this.bootHold) {
         // Autoplay rule: context is suspended/interrupted until first user gesture
+        // (or the boot intro is still playing: it starts when the intro ends)
         this.pendingStart = { buffer, trackUrl: targetTrack, requestId };
       } else {
         const startAt = ctx.currentTime;
@@ -407,7 +413,30 @@ export class MusicManager {
   }
 
   public isPlaying(): boolean {
+    // While the boot intro plays, report "playing" so the SoundManager never suspends the shared
+    // AudioContext under the intro's sound (its idle timer only checks this).
+    if (this.bootAwake) return true;
     return (this.activeSource !== null || this.fadingSource !== null || this.chimeSource !== null) && this.level !== 'off';
+  }
+
+  /**
+   * First-open boot intro: hold = true keeps room music from starting (taps still unlock audio).
+   * Set from app start when the intro will show, so an early tap on the loading screen cannot start it either.
+   */
+  public holdForBoot(hold: boolean): void {
+    this.bootHold = hold;
+    if (!hold) this.bootAwake = false;
+  }
+
+  /** While the intro's own sound plays, keep the shared AudioContext awake. */
+  public setBootSoundActive(active: boolean): void {
+    this.bootAwake = active;
+  }
+
+  /** Start the room music (fades in) once the AudioContext is unlocked — the step after the chime / boot intro. */
+  public startRoomMusic(): void {
+    this.holdForBoot(false);
+    this.onContextResumed();
   }
 
   public getLevel(): MusicLevel {
