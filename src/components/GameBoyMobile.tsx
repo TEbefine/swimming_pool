@@ -32,6 +32,7 @@ interface GameBoyMobileProps {
   playerInputBlocked?: boolean;
   statusLabel?: string;
   hideStatusBadge?: boolean;
+  isPoweredOff?: boolean;
   identityControls?: {
     onInput: (input: ComboInput) => void;
     onDelete: () => void;
@@ -78,6 +79,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   playerInputBlocked = false,
   statusLabel = 'Sunny Poolside',
   hideStatusBadge = false,
+  isPoweredOff = false,
   identityControls,
 }) => {
   const isWater = playerState === 'water';
@@ -433,8 +435,12 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             {/* Red battery / power indicator dot */}
             <div className="flex items-center shrink-0">
               <div
-                className="w-2.5 h-2.5 rounded-full bg-[#e0705c] shadow-[0_0_5px_#e0705c] border border-[var(--gb-bezel-edge)]"
-                title="Power"
+                className={`w-2.5 h-2.5 rounded-full border border-[var(--gb-bezel-edge)] transition-all duration-300 ${
+                  isPoweredOff
+                    ? 'bg-[#2b1715] opacity-35 shadow-none'
+                    : 'bg-[#e0705c] shadow-[0_0_5px_#e0705c]'
+                }`}
+                title={isPoweredOff ? 'Power: Off' : 'Power: On'}
               />
             </div>
           </div>

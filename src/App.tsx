@@ -24,9 +24,11 @@ import type { ItemId } from './game/story/items';
 import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { LoadingScene } from './components/LoadingScene';
+import { GameBoyShutDown } from './components/GameBoyShutDown';
 import { music } from './game/audio/music';
 import { sound } from './game/audio';
-import { bootWillShow, preloadBootIntro, showBootOnce } from './boot/bootSound';
+import { preloadBootIntro, showBootOnce } from './boot/bootSound';
+import { getStartupPlan, recordActiveSession, type StartupPlan } from './boot/bootSession';
 import { attachPlayer, getCloudAddress, recordPendingCatches } from './game/saves/cloud';
 import { FISHING_GUIDES, guideScript, withRecordResult } from './game/saves/guideRecord';
 import { getPendingCatches } from './game/fishing/freeFish';
@@ -55,22 +57,29 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   // Room state stored in React state (runtime room travel)
   const [currentRoom, setCurrentRoom] = useState<RoomDefinition>(() => getRoomForToday());
 
+  // Startup mode:
+  // - Long absence (or first open ever): Game Boy is shut down ("PRESS START TO OPEN"),
+  //   then BOOM boot animation ("SWIMMING POOL / by SAP Co."), into game. No Barista loading screen.
+  // - Reopening within 5 to 10 minutes: Barista loading screen (LoadingScene) shows instead.
+  const [startupPlan] = useState<StartupPlan>(() => getStartupPlan());
+
   // =========================================================================
-  // BOOT INTRO (first open on a device, src/boot): "SWIMMING POOL / by SAP Co." after Press START.
+  // BOOT INTRO (src/boot): "SWIMMING POOL / by SAP Co." after Press START.
   // Dev harnesses (devOverlay) and ?autostart skip it; ?boot forces it again.
   // =========================================================================
   const [bootPlan] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const force = params.has('boot');
     const allowed = !devOverlay && !params.has('autostart');
-    return { force, allowed, willShow: allowed && bootWillShow(force) };
+    const willShow = allowed && (force || startupPlan.flow === 'shutdown');
+    return { force, allowed, willShow };
   });
   const bootHostRef = useRef<HTMLDivElement | null>(null);
   const bootPlayingRef = useRef(false);
   const [bootPlaying, setBootPlaying] = useState(false);
 
   useEffect(() => {
-    // First open: room music must not start before the intro ends — not even from an early tap on the loading screen.
+    // Boot intro: room music must not start before the intro ends — not even from an early tap on the loading screen.
     if (bootPlan.willShow) music.holdForBoot(true);
     music.playForRoom(currentRoom.roomId);
     void music.tryAutoPlay();
@@ -254,6 +263,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   }, [sceneBoxOpen, menu]);
 
   const handleToggleStartMenu = useCallback(() => {
+    // START powers on the Game Boy / enters the game when waiting on the start screen.
+    if (enterGameRef.current) {
+      enterGameRef.current();
+      return;
+    }
     // START closes the whole menu system from anywhere, but never opens it over a dialogue,
     // a trade window or the loading screen.
     if (!menu.isOpen && (dialogOpen || storyPanel || loading)) return;
@@ -266,6 +280,10 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const closeFishing = useCallback(() => stopFishing(), []);
 
   const handleCircleAction = useCallback(() => {
+    if (enterGameRef.current) {
+      enterGameRef.current();
+      return;
+    }
     // Menu open → ◯ confirms: opens a section, opens item actions, or runs an action
     if (menu.isOpen) {
       menu.press('confirm');
@@ -539,9 +557,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       }
     };
 
-    // Press START → (first open) boot intro with its own sound, or (later opens) the start chime → room music.
+    // Press START → (shut-down flow) boot intro with its own sound, or (quick reload) the start chime → room music.
     const runBoot = async (host: HTMLDivElement, leaveLoading: () => void) => {
-      const willShow = bootWillShow(bootPlan.force);
+      const willShow = bootPlan.willShow;
       if (willShow) {
         bootPlayingRef.current = true;
         setBootPlaying(true);
@@ -566,7 +584,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           ctx: sound.getContext(),   // the app's shared AudioContext, unlocked by this tap
           dest: null,                // no separate sound-effects volume node in the app: straight to the speakers
           sound: !sound.isMuted(),   // Options → Sound
-          force: bootPlan.force,
+          force: bootPlan.force || bootPlan.willShow,
         });
         shown = r.shown;
       } catch {
@@ -699,11 +717,15 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           code !== 'KeyO' &&
           code !== 'Enter' &&
           code !== 'NumpadEnter' &&
+          code !== 'KeyM' &&
+          code !== 'KeyP' &&
           key !== ' ' &&
           key !== 'spacebar' &&
           key !== 'o' &&
           key !== 'enter' &&
-          key !== 'return'
+          key !== 'return' &&
+          key !== 'm' &&
+          key !== 'p'
         ) {
           return;
         }
@@ -870,19 +892,45 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   // Canvas blur class for world focus effect
   const canvasBlurClass = dialogOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
 
-  // Loading scene lives INSIDE the game screen (Game Boy window / arcade screen), not over the page.
+  // Loading scene / shut-down screen lives INSIDE the game screen (Game Boy window / arcade screen).
+  const isShutDownScreen = loading && startupPlan.flow === 'shutdown' && !bootPlaying;
   const loadingElement = loading ? (
-    <LoadingScene
-      roomId={currentRoom.roomId}
-      roomName={currentRoom.name}
-      progress={loadProgress}
-      ready={assetsReady}
-      leaving={loadingLeaving}
-      onEnter={() => enterGameRef.current?.()}
-      isMobile={effectiveIsMobile}
-      onEarlyTouch={() => { void music.tryAutoPlay(); }}
-    />
+    startupPlan.flow === 'shutdown' ? (
+      <GameBoyShutDown
+        onStart={() => enterGameRef.current?.()}
+        isMobile={effectiveIsMobile}
+      />
+    ) : (
+      <LoadingScene
+        roomId={currentRoom.roomId}
+        roomName={currentRoom.name}
+        progress={loadProgress}
+        ready={assetsReady}
+        leaving={loadingLeaving}
+        onEnter={() => enterGameRef.current?.()}
+        isMobile={effectiveIsMobile}
+        onEarlyTouch={() => { void music.tryAutoPlay(); }}
+      />
+    )
   ) : null;
+
+  // Track active gameplay session time (quick reload within 5-10 min vs long absence)
+  useEffect(() => {
+    recordActiveSession();
+    const interval = window.setInterval(recordActiveSession, 15000);
+    const onVisibility = () => {
+      if (!document.hidden) recordActiveSession();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('beforeunload', recordActiveSession);
+    window.addEventListener('pagehide', recordActiveSession);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('beforeunload', recordActiveSession);
+      window.removeEventListener('pagehide', recordActiveSession);
+    };
+  }, []);
 
   // The boot intro's stage: covers the whole game screen (handheld window or arcade screen). Empty and click-through
   // except while the intro's .boot layer is inside it (a tap on that layer skips the intro).
@@ -904,8 +952,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           floatColor={floatColor}
           playerCount={playerCount}
           chatLog={bootPlaying ? [] : visibleChatLog}
-          statusLabel={currentRoom.name}
-          hideStatusBadge={dialogOpen || menu.isOpen}
+          statusLabel={isShutDownScreen ? 'STANDBY' : currentRoom.name}
+          hideStatusBadge={dialogOpen || menu.isOpen || isShutDownScreen}
+          isPoweredOff={isShutDownScreen}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
             if (bootPlayingRef.current) {
@@ -960,8 +1009,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         /* Main Game Screen with Retro Arcade Border */
         <div className="relative w-full h-full max-w-[1280px] max-h-[720px] flex items-center justify-center p-1 sm:p-3">
           <div className="relative w-full h-full flex items-center justify-center bg-slate-900 rounded-lg overflow-hidden border-4 border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-            {/* Header UI — hidden while the in-screen menu is open so the menu owns the whole screen */}
-            {!menu.isOpen && (
+            {/* Header UI — hidden while the in-screen menu is open or in shut down state */}
+            {!menu.isOpen && !isShutDownScreen && !bootPlaying && (
               <HeaderBar
                 roomName={currentRoom.name}
                 playerCount={playerCount}
@@ -1018,7 +1067,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
             {/* Action & Emotes Bar + Chat Bar — hidden while a dialogue or story window is open (they covered its text).
                 The emote bar also hides while fishing: at Quiet Bay the float lands in the water right under it. */}
-            {!dialogOpen && !storyPanel && !menu.isOpen && (
+            {!dialogOpen && !storyPanel && !menu.isOpen && !isShutDownScreen && !bootPlaying && (
               <>
                 {!fishingOpen && (
                   <ActionBar

@@ -109,12 +109,15 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - **Files:** `src/game/story/items.ts`, `src/game/story/bagActions.ts`, `src/components/bag/` (`BagScreen.tsx`, `PocketBar.tsx`, `ItemList.tsx`, `ItemActionMenu.tsx`, `PixelBackpack.tsx`, `bag.css`), `src/components/gameMenu/` (`menuModel.ts`, `useGameMenu.ts`, `GameMenu.tsx`), `docs/ui/game-menu.md`, `docs/ai/ID-02-world-bag-plan.md`, `src/App.tsx`, `tests/game-menu.test.mjs`.
 - **Next:** Cards pocket needs a viewer action (Check shows only item facts today). Add Equip / Set bait to `itemActionsFor` + a marker in `ItemList` when equipment exists. Future ID-02 World Bag (see plan in `docs/ai/ID-02-world-bag-plan.md`).
 
-## U-04 · Boot intro "SWIMMING POOL / by SAP Co." (first open only): WIRED 2026-10-16
-- Teera's finished design (animation + sound) lives in `src/boot/` (`boot.css`, `bootIntro.ts`, `bootSound.ts`), ported 1:1 from the project doc `ui/boot-intro-final.html`; spec `ui/boot-intro.md`. **Do not change the look, timing, fonts or sound** — only `BOOT_SOUND.syncMs` / `BOOT_DEFAULTS.speed` when Teera asks.
-- Flow: first open → Press ◯/SPACE on the loading scene → intro (~5 s, its own sound replaces the start chime) → room music fades in. Later opens: chime → room music. `?boot=1` forces it; `?autostart` and `?test=` harnesses skip it. Seen flag `localStorage["swimming_pool.boot.seen.v1"]`.
+## U-04 · Boot intro "SWIMMING POOL / by SAP Co." & Game Boy Shut-Down: UPDATED 2026-10-16
+- Teera's finished design (animation + sound) lives in `src/boot/` (`boot.css`, `bootIntro.ts`, `bootSound.ts`, `bootSession.ts`), ported 1:1 from the project doc `ui/boot-intro-final.html`; spec `ui/boot-intro.md`. **Do not change the look, timing, fonts or sound** — only `BOOT_SOUND.syncMs` / `BOOT_DEFAULTS.speed` when Teera asks.
+- Startup Flow:
+  1. Long absence (or first open ever / `?boot=1`): Game Boy is displayed in shut-down state (`GameBoyShutDown.tsx`, bezel power LED dimmed, "PRESS START TO OPEN"). Pressing START triggers the boot intro animation directly, smoothly transitioning into active gameplay without showing the Barista loading screen (only one screen on cold open).
+  2. Quick reload / reopen within 5–10 minutes: shows the Barista loading screen (`LoadingScene.tsx`), then normal chime into the game.
+- Session time tracking: `src/boot/bootSession.ts` records `swimming_pool.last_active_time` periodically and on page events with a 10-minute threshold (`QUICK_RELOAD_WINDOW_MS = 10 * 60 * 1000`).
 - Skip: tap the screen, any key, ◯ or START (GameBoyMobile dispatches `boot:skip`), ignored in the first 0.6 s. Game input is ignored while it plays; `music.holdForBoot()` keeps room music back and the AudioContext awake.
 - Assets: `public/fonts/Rubik-800-italic-latin.woff2`, `VT323-400-latin.woff2` (+ OFL notes), `public/audio/boot_note.wav`, `boot_glow.wav` (exact bytes from the HTML; sw.js `v4` caches .wav).
-- Checks: `tests/music.test.mjs` (hold), `scripts/test-boot-browser.mjs` (production preview, handheld + desktop). Physical phone check of sync/filter still pending.
+- Checks: `tests/music.test.mjs` (hold), `npm test` (122 tests pass), `tsc -b`, `npm run build`.
 
 ## P-02 · Cleanup (2026-10-11)
 - Removed verified unused starter files, retired greybox tooling, old transfer snapshots, unused public map exports, and superseded font assets. Original production-art sources and active development harnesses remain.
@@ -155,6 +158,6 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-11 · Claude · `npm run dev` plays as a TEST Player ID with local dev saves through the real save rules (branch `dev-test-id`); fixes the iPhone dev error `crypto.subtle.importKey` (insecure http context).
 - 2026-10-11 · Antigravity · U-03: Added generic pocket link row (FISH BOOK with live species + pending badges), pocket-specific empty messages, Mother's line in story rooms only, docs/ui/game-menu.md, and ID-02 World Bag plan.
 - 2026-10-11 · Antigravity · U-03: Disaggregated FISH pocket to list each caught fish directly; moved fish sprite to the left showcase tile (replacing the backpack) with full-width description below.
-
 - 2026-10-11 · Codex · P-02: audited the actual Projects/swimming_pool checkout, removed verified unused files and narrowed generated CSS sources; retained current identity/saves and art pipelines. See the cleanup report for validation and measured savings.
 - 2026-10-16 · Claude · U-04: wired Teera's boot intro into Press START (src/boot, self-hosted fonts + WAVs, sw.js v4, input/music hold, ◯/START skip); npm test, tsc, build and production-preview browser checks (390×844, 1280×720) pass.
+- 2026-10-16 · Antigravity · U-04: Unified startup to single screen flow. Long absence / cold open shows Game Boy shut-down screen ("PRESS START TO OPEN") with unlit power LED, then triggers boot animation straight into game (no Barista loading screen). Quick reopen within 5–10 min shows Barista loading screen.
