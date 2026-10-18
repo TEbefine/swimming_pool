@@ -25,5 +25,8 @@ export const templeObstacles: Rect[] = [
 /** The dark doorway (temple centre). The Spirit stands just in front of it. */
 export const TEMPLE_DOOR = { x: 490, y: 127, w: 44, h: 105 } as const;
 
+/** Walk up the stairs INTO the dark doorway → the Arrival Hall (the island's front office). */
+export const TEMPLE_DOOR_EXIT: [number, number, number, number] = [486, 238, 52, 14];
+
 /** Front steps: walking down them leads back to Lakeside Square. */
 export const TEMPLE_STEPS_EXIT: [number, number, number, number] = [200, 562, 624, 14];

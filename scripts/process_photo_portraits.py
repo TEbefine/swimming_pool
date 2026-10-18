@@ -42,11 +42,34 @@ def cut_rembg(img: Image.Image) -> Image.Image:
         _REMBG = new_session('isnet-general-use')
     cut = remove(img.convert('RGB'), session=_REMBG)
     a = np.array(cut)
+    a = despill(a, np.array(img.convert('RGB')))
     lab, n = ndimage.label(a[..., 3] > 20)
     if n > 1:
         sizes = ndimage.sum(np.ones(lab.shape), lab, range(1, n + 1))
         a[..., 3] = np.where(lab == 1 + int(np.argmax(sizes)), a[..., 3], 0)
     return Image.fromarray(a)
+
+
+def despill(a: np.ndarray, src: np.ndarray) -> np.ndarray:
+    """Coloured backdrops (e.g. purple behind silver hair) leave a tinted fringe on the soft edge.
+    In a band along the edge, pixels that lean toward the backdrop's hue get their colour pulled
+    back to grey (same brightness), so hair edges stay neutral."""
+    border = np.concatenate([src[:6].reshape(-1, 3), src[-6:].reshape(-1, 3), src[:, :6].reshape(-1, 3), src[:, -6:].reshape(-1, 3)])
+    bg = np.median(border, axis=0).astype(float)
+    if bg.max() - bg.min() < 40:          # white / grey backdrop: nothing to remove
+        return a
+    alpha = a[..., 3] > 20
+    band = ndimage.binary_dilation(~alpha, iterations=40) & alpha   # also gaps between hair strands
+    rgb = a[..., :3].astype(float)
+    lum = rgb.mean(axis=2, keepdims=True)
+    tint = bg - bg.mean()                                   # the backdrop's colour direction
+    lean = ((rgb - lum) * tint).sum(axis=2) / (np.linalg.norm(tint) ** 2 + 1e-6)
+    # only pixels that are bluer than they are green (skin and lips never are, the purple tint is)
+    bluish = (rgb[..., 2] - rgb[..., 1]) > 4
+    k = np.clip(lean * 2.5, 0, 1)[..., None] * (band & bluish)[..., None]
+    rgb = rgb * (1 - k) + lum * k
+    a[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+    return a
 
 
 def cut_white(img: Image.Image) -> Image.Image:

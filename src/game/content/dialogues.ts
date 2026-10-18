@@ -13,7 +13,9 @@ export type PortraitFace = 'neutral' | 'smile' | 'happy' | 'thinking' | 'idea' |
   | 'watchful' | 'restrain' | 'fierce'
   // Dalbit market people
   | 'tired' | 'stern' | 'humble' | 'laugh' | 'secret' | 'pleased' | 'grumble' | 'shrug' | 'sigh' | 'soft'
-  | 'shout' | 'wink' | 'thoughtful';
+  | 'shout' | 'wink' | 'thoughtful'
+  // Nagisa-sama
+  | 'bow' | 'serene' | 'listen' | 'crest';
 
 /** A single line of dialog text. */
 export interface DialogLine {
@@ -818,6 +820,46 @@ export const dialogues: Record<string, DialogScript> = {
       bye: {
         lines: [
           { text: 'Take care. If anything goes missing, you know where I am.', pose: 'wai', face: 'wai' },
+        ],
+      },
+    },
+  },
+  // Nagisa-sama — matriarch of the family that opened the Arrival Hall (about 74). Calm, dignified,
+  // a lady of few words (สุขุม ผู้ดี): short lines, long silences. Her gold wave crest is the origin of the
+  // staff's pin. Docs: characters/arrival-nagisa.md
+  nagisa: {
+    name: npcName('nagisa'),
+    portraitDir: '/sprites/npc/nagisa/portrait',
+    faces: ['neutral', 'bow', 'serene', 'listen', 'crest'],
+    accent: '#2E3236',
+    closePose: 'bow',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Welcome home.', pose: 'bow', face: 'bow' },
+        ],
+        choices: [
+          { label: 'Home?', next: 'home' },
+          { label: 'Who are you?', next: 'who' },
+          { label: '(Bow quietly)', next: 'bye' },
+        ],
+      },
+      home: {
+        lines: [
+          { text: 'Everyone who arrives here is family. That is how it has always been.', pose: 'content', face: 'serene' },
+          { text: 'The sea remembers everyone who arrives. So do I.', pose: 'remember', face: 'listen' },
+        ],
+      },
+      who: {
+        lines: [
+          { text: 'Nagisa. My family opened this hall, a long time ago.', pose: 'hand_crest', face: 'crest' },
+          { text: 'The young ones take care of it now. They do it well.', pose: 'nod', face: 'serene' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: '...', pose: 'bow', face: 'bow' },
         ],
       },
     },

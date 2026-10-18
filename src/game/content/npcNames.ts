@@ -19,6 +19,7 @@ export const NPC_NAMES: Record<string, string> = {
   kai: 'Kai',
   fah: 'Fah',
   tawan: 'Tawan',
+  nagisa: 'Nagisa-sama',
 };
 
 export function npcName(id: string): string {

@@ -1,14 +1,15 @@
 import type { RoomDefinition } from '../types';
 import { npcName } from '../content/npcNames';
 import {
-  ARRIVAL_ACTOR_SCALE, ARRIVAL_EXIT_DOOR, FAH_SHIFT, FAH_TALK, FAH_SPOT, TAWAN_SHIFT, TAWAN_SPOT, TAWAN_TALK,
+  ARRIVAL_ACTOR_SCALE, ARRIVAL_EXIT_DOOR, FAH_SHIFT, FAH_TALK, NAGISA_START, NAGISA_STROLL, FAH_SPOT, TAWAN_SHIFT, TAWAN_SPOT, TAWAN_TALK,
   arrivalElements, arrivalObstacles,
 } from './arrivalHallLayout';
 
 // Arrival Hall — the first room in Lumen Bay. Newcomers (no Player ID) and people who lost their
 // memory (cleared browser / new phone) arrive here: Fah at Arrivals (new passport), Tawan at
-// Lost & Found (restore with the 12 words). The registration flow itself comes next (it touches the
-// identity code); for now the staff greet you and explain. Not in the postcard (SELECT) box yet.
+// Lost & Found (restore with the 12 words). Nagisa-sama, whose family opened the hall, strolls the floor.
+// The registration flow itself comes next (it touches the
+// identity code); for now the staff greet you and explain. In the postcard (SELECT) box, last slot.
 // Dev test: ?room=arrival_hall (add &hour=21 for night).
 export const arrivalHallRoom: RoomDefinition = {
   roomId: 'arrival_hall',
@@ -24,7 +25,8 @@ export const arrivalHallRoom: RoomDefinition = {
 
   bounds: { minX: 20, maxX: 1004, minY: 270, maxY: 566 },
   spawnPoint: { x: 104, y: 300 },                        // just stepped out of the arrival arch
-  arrivals: { town: { x: 960, y: 300, facing: -1 } },    // coming back in through the glass doors
+  // coming back in through the glass doors (from the Quiet Temple doorway, or town)
+  arrivals: { temple: { x: 956, y: 326, facing: -1 }, town: { x: 956, y: 326, facing: -1 } },
   walkableZones: [{ x: 0, y: 270, width: 1024, height: 300 }],
   obstacles: arrivalObstacles,
   elements: arrivalElements,
@@ -35,7 +37,7 @@ export const arrivalHallRoom: RoomDefinition = {
   ],
 
   exits: [
-    { triggerBox: ARRIVAL_EXIT_DOOR, targetRoom: 'town' },
+    { triggerBox: ARRIVAL_EXIT_DOOR, targetRoom: 'temple' },   // glass doors → out onto the Quiet Temple stairs
   ],
 
   npcs: [
@@ -43,6 +45,9 @@ export const arrivalHallRoom: RoomDefinition = {
       standAt: FAH_TALK, wander: FAH_SHIFT },
     { id: 'tawan', name: npcName('tawan'), x: TAWAN_SPOT.x, y: TAWAN_SPOT.y, sprite: '/sprites/npc/tawan', facing: -1,
       standAt: TAWAN_TALK, wander: TAWAN_SHIFT },
+    // Nagisa-sama: the family that opened this hall. Strolls slowly across the front, a lady of few words.
+    { id: 'nagisa', name: npcName('nagisa'), x: NAGISA_START.x, y: NAGISA_START.y, sprite: '/sprites/npc/nagisa', facing: -1,
+      standAt: { dx: 64, dy: 4, facing: -1 }, wander: NAGISA_STROLL },
   ],
 
   // indoors: painted room, code sky only through the two windows; a gentle night (the lamps are on)

@@ -53,6 +53,16 @@ export const TAWAN_SHIFT: NpcWander = {
   idlePoses: ['idle_pockets', 'idle_pockets', 'write', 'read', 'sip', 'idle', 'stretch'],
 };
 
+/** Nagisa-sama, matriarch of the family that opened the hall: a slow stroll across the front of the hall
+ *  (never behind the counter). Long pauses, small dignified idles. She is petite (cut at 1.8×, not 2×). */
+export const NAGISA_STROLL: NpcWander = {
+  area: { x: 170, y: 372, width: 680, height: 50 },
+  speed: 9,
+  pauseMs: [9000, 18000],
+  idlePoses: ['idle', 'sleeves', 'hand_crest', 'look_up', 'fan_closed', 'remember', 'smooth_sleeve', 'hold_tea', 'sip', 'content'],
+};
+export const NAGISA_START = { x: 520, y: 392 };
+
 /** Where you stand to talk: in front of the counter, a little to the side, so your head doesn't
  *  hide theirs (you're drawn in front of the counter, they're behind it). */
 export const FAH_TALK = { dx: -62, dy: 70, facing: 1 as const };

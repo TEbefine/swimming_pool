@@ -1,0 +1,35 @@
+{
+  "id": "nagisa",
+  "displayName": "Nagisa-sama",
+  "role": "Matriarch of the oldest family on the island; her family opened the Arrival Hall. About 74, petite, calm and dignified (สุขุม ผู้ดี), a lady of few words.",
+  "room": "arrival_hall",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "short swept-back silver-grey",
+    "kimono": "deep charcoal silk, tone-on-tone seigaiha waves, white under-collar",
+    "obi": "muted olive-gold, jade-green obijime cord",
+    "crest": "small gold wave family crest on her left chest — the origin of the staff's gold wave pin",
+    "accessories": "matching pearl stud earrings",
+    "size": "petite: about 90% of the other staff's height"
+  },
+  "sheets": [
+    ["idle", "side_idle", "back_idle", "walk1",
+     "walk2", "wave", "talk", "content",
+     "walk_down1", "walk_down2", "walk_up1", "walk_up2",
+     "thinking", "bow", "nod", "blink"],
+    ["hand_crest", "give_card", "look_up", "sleeves",
+     "hold_tea", "sip", "sit", "sit_sip",
+     "deep_bow", "quiet_joy", "remember", "reach_out",
+     "smooth_sleeve", "fan_closed", "fan_open", "_blink2"]
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/nagisa/",
+    "spriteManifest": "/sprites/npc/nagisa/manifest.json",
+    "sheetSource": ["src/assets/npc_nagisa_sheet.webp", "src/assets/npc_nagisa_actions_sheet.webp"],
+    "portraits": "/sprites/npc/nagisa/portrait/",
+    "cut": "python3 scripts/process_npc_sheets.py nagisa 1.8 src/assets/npc_nagisa_sheet.webp src/assets/npc_nagisa_actions_sheet.webp",
+    "portraitCut": "PORTRAIT_CUT=rembg python3 scripts/process_photo_portraits.py nagisa docs/characters/nagisa/references/identity.png docs/characters/nagisa/references/grid_1.png bow serene listen crest"
+  },
+  "notes": "Scale 1.8 (not 2) keeps her petite next to Fah and Tawan. 'sit' / 'sit_sip' have their own bench drawn in: only use them where no bench is painted.",
+  "docs": "claude.ai Project: characters/arrival-nagisa.md"
+}

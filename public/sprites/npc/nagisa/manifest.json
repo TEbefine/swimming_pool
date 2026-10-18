@@ -1,0 +1,157 @@
+{
+  "idle": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/idle.webp"
+  },
+  "side_idle": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/back_idle.webp"
+  },
+  "walk1": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/walk1.webp"
+  },
+  "walk2": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/walk2.webp"
+  },
+  "wave": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/wave.webp"
+  },
+  "talk": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/talk.webp"
+  },
+  "content": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/content.webp"
+  },
+  "walk_down1": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/thinking.webp"
+  },
+  "bow": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/bow.webp"
+  },
+  "nod": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/nod.webp"
+  },
+  "blink": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/blink.webp"
+  },
+  "hand_crest": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/hand_crest.webp"
+  },
+  "give_card": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/give_card.webp"
+  },
+  "look_up": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/look_up.webp"
+  },
+  "sleeves": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/sleeves.webp"
+  },
+  "hold_tea": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/hold_tea.webp"
+  },
+  "sip": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/sip.webp"
+  },
+  "sit": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/sit.webp"
+  },
+  "sit_sip": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/sit_sip.webp"
+  },
+  "deep_bow": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/deep_bow.webp"
+  },
+  "quiet_joy": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/quiet_joy.webp"
+  },
+  "remember": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/remember.webp"
+  },
+  "reach_out": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/reach_out.webp"
+  },
+  "smooth_sleeve": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/smooth_sleeve.webp"
+  },
+  "fan_closed": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/fan_closed.webp"
+  },
+  "fan_open": {
+    "width": 118,
+    "height": 144,
+    "path": "/sprites/npc/nagisa/fan_open.webp"
+  }
+}
