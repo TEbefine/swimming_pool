@@ -1,0 +1,162 @@
+{
+  "idle": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/idle.webp"
+  },
+  "side_idle": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/back_idle.webp"
+  },
+  "walk1": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/walk1.webp"
+  },
+  "walk2": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/walk2.webp"
+  },
+  "wave": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/wave.webp"
+  },
+  "talk": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/talk.webp"
+  },
+  "happy": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/happy.webp"
+  },
+  "walk_down1": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/thinking.webp"
+  },
+  "bow": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/bow.webp"
+  },
+  "laugh": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/laugh.webp"
+  },
+  "smile_closed": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/smile_closed.webp"
+  },
+  "idle_clasped": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/idle_clasped.webp"
+  },
+  "wai": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/wai.webp"
+  },
+  "point": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/point.webp"
+  },
+  "write": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/write.webp"
+  },
+  "stamp_up": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/stamp_up.webp"
+  },
+  "stamp_down": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/stamp_down.webp"
+  },
+  "give_card": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/give_card.webp"
+  },
+  "reassure": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/reassure.webp"
+  },
+  "thumbsup": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/thumbsup.webp"
+  },
+  "explain": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/explain.webp"
+  },
+  "surprised": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/surprised.webp"
+  },
+  "welcome_wave": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/welcome_wave.webp"
+  },
+  "sip": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/sip.webp"
+  },
+  "tuck_hair": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/tuck_hair.webp"
+  },
+  "read": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/read.webp"
+  },
+  "blink": {
+    "width": 130,
+    "height": 160,
+    "path": "/sprites/npc/fah/blink.webp"
+  }
+}

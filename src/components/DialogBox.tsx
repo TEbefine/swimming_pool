@@ -798,6 +798,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                 // Fallback for NPCs without a head crop yet
                 const img = e.currentTarget;
                 if (!img.src.endsWith('/idle.webp')) img.src = `/sprites/npc/${npcId}/idle.webp`;
+                else img.style.visibility = 'hidden'; // not an NPC (e.g. a board): no head
               }}
               style={{
                 width: '100%',

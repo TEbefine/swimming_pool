@@ -24,6 +24,14 @@ export const CITY_OFFSET_X: Record<string, number> = {
 
 /** Warm lamp glows drawn at night (layer 4). */
 export const ROOM_LIGHTS: Record<string, { x: number; y: number; radius: number; color: RGB }[]> = {
+  // Arrival Hall: the three pendant lamps over the counter, the desk lamp, and a warm glow by the doors
+  arrival_hall: [
+    { x: 385, y: 50, radius: 130, color: [255, 214, 150] },
+    { x: 511, y: 50, radius: 130, color: [255, 214, 150] },
+    { x: 636, y: 50, radius: 130, color: [255, 214, 150] },
+    { x: 772, y: 200, radius: 46, color: [255, 220, 150] },
+    { x: 60, y: 180, radius: 70, color: [255, 205, 140] },
+  ],
   cafe: [
     { x: 170, y: 58, radius: 140, color: [255, 214, 150] },
     { x: 555, y: 58, radius: 140, color: [255, 214, 150] },

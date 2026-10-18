@@ -554,6 +554,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       }
       if (actionId === 'talk' && dialogues[targetId]) {
         openDialog(targetId);
+        return;
+      }
+      // Things you read that have their own script (e.g. the Arrival Hall board)
+      if (actionId === 'read' && dialogues[targetId]) {
+        openDialog(targetId);
       }
     };
 

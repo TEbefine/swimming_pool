@@ -17,6 +17,8 @@ export const NPC_NAMES: Record<string, string> = {
   yeot_seller: 'Yeot Seller',
   nami: 'Nami',
   kai: 'Kai',
+  fah: 'Fah',
+  tawan: 'Tawan',
 };
 
 export function npcName(id: string): string {

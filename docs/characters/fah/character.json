@@ -1,0 +1,33 @@
+{
+  "id": "fah",
+  "displayName": "Fah",
+  "role": "Arrival Hall staff, Arrivals desk (new passport). About 25, the first friendly face.",
+  "room": "arrival_hall",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "black, centre-parted, soft low bun, loose strand by each cheek",
+    "cardigan": "slightly cropped sage-green knit V-neck (same pixels as Tawan)",
+    "top": "white top",
+    "trousers": "black wide-leg",
+    "staff": "small gold wave pin + white staff ID card",
+    "signature": "pearl earrings, face-framing strands, coral lips"
+  },
+  "sheets": [
+    ["idle", "side_idle", "back_idle", "walk1",
+     "walk2", "wave", "talk", "happy",
+     "walk_down1", "walk_down2", "walk_up1", "walk_up2",
+     "thinking", "bow", "laugh", "smile_closed"],
+    ["idle_clasped", "wai", "point", "write",
+     "stamp_up", "stamp_down", "give_card", "reassure",
+     "thumbsup", "explain", "surprised", "welcome_wave",
+     "sip", "tuck_hair", "read", "blink"]
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/fah/",
+    "spriteManifest": "/sprites/npc/fah/manifest.json",
+    "sheetSource": ["src/assets/npc_fah_sheet.webp", "src/assets/npc_fah_desk_sheet.webp"],
+    "portraits": "/sprites/npc/fah/portrait/",
+    "cut": "python3 scripts/process_npc_sheets.py fah 2 src/assets/npc_fah_sheet.webp src/assets/npc_fah_desk_sheet.webp"
+  },
+  "docs": "claude.ai Project: characters/arrival-staff-fah.md"
+}

@@ -7,7 +7,7 @@ import { getNewsLine } from './aiNews';
 import { getTodayOmen, OMEN_CLOSING } from './spiritOmens';
 
 /** Face expression shown on the portrait photo. */
-export type PortraitFace = 'neutral' | 'smile' | 'thinking' | 'idea' | 'wai' | 'finger_heart' | 'whistle' | 'explain' | 'confident' | 'shy' | 'grin'
+export type PortraitFace = 'neutral' | 'smile' | 'happy' | 'thinking' | 'idea' | 'wai' | 'finger_heart' | 'whistle' | 'explain' | 'confident' | 'shy' | 'grin'
   // Dalbit story faces
   | 'careful' | 'sorrow' | 'wistful' | 'determined' | 'worried' | 'surprised'
   | 'watchful' | 'restrain' | 'fierce'
@@ -691,6 +691,149 @@ export const dialogues: Record<string, DialogScript> = {
       bye: {
         lines: [
           { text: 'Mind the edge in the dark. Good fishing.', pose: 'bow', face: 'neutral' },
+        ],
+      },
+    },
+  },
+
+  // ---- Arrival Hall staff (about 25). Fah = Arrivals (new passport), Tawan = Lost & Found (restore with
+  //      the 12 words). The registration flow comes next; for now they greet and explain. NEVER ask for the
+  //      12 words in a dialogue — they are typed only in the private identity screen. Docs: characters/arrival-staff-*.md
+  fah: {
+    name: npcName('fah'),
+    portraitDir: '/sprites/npc/fah/portrait',
+    faces: ['neutral', 'wai', 'explain', 'thinking', 'happy'],
+    accent: '#8A9A7E',
+    closePose: 'wai',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: '{greeting}! Welcome to Lumen Bay.', pose: 'wai', face: 'wai' },
+          { text: "I'm Fah, from the Arrivals desk. You made it!", pose: 'welcome_wave', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'What is this place?', next: 'place' },
+          { label: 'How do I get a passport?', next: 'passport' },
+          { label: 'Who is Tawan?', next: 'tawan' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      place: {
+        lines: [
+          { text: 'This is the Arrival Hall. Everyone who comes to Lumen Bay starts right here.', pose: 'explain', face: 'explain' },
+          { text: 'Through the glass doors is the town. The square, the café, the pool, the quiet bay...', pose: 'point', face: 'explain' },
+          { text: 'No rush. The hall is always open.', pose: 'smile_closed', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      passport: {
+        lines: [
+          { text: 'Your passport is your Player ID. It keeps your things and your memories safe.', pose: 'give_card', face: 'happy' },
+          { text: 'You choose a secret stamp, and you write twelve memory words on paper.', pose: 'write', face: 'thinking' },
+          { text: 'Keep those words to yourself. Not even I should see them.', pose: 'reassure', face: 'neutral' },
+          { text: 'The passport desk opens very soon. I\'m still sorting the stamps!', pose: 'stamp_up', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      tawan: {
+        lines: [
+          { text: 'Tawan runs Lost & Found, the desk next to mine.', pose: 'point', face: 'explain' },
+          { text: 'If you ever lose your memory, he helps you find your way back. He\'s very calm.', pose: 'laugh', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      more: {
+        lines: [
+          { text: 'Anything else?', pose: 'idle_clasped', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'What is this place?', next: 'place' },
+          { label: 'How do I get a passport?', next: 'passport' },
+          { label: 'Who is Tawan?', next: 'tawan' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'See you around! Come back any time.', pose: 'wai', face: 'wai' },
+        ],
+      },
+    },
+  },
+  tawan: {
+    name: npcName('tawan'),
+    portraitDir: '/sprites/npc/tawan/portrait',
+    faces: ['neutral', 'wai', 'explain', 'thinking', 'happy'],
+    accent: '#8A9A7E',
+    closePose: 'wai',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: "{greeting}. I'm Tawan, from Lost & Found.", pose: 'wai', face: 'wai' },
+          { text: "Lost something? Don't worry, we'll find it.", pose: 'reassure', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'What is Lost & Found?', next: 'what' },
+          { label: 'I lost my memory', next: 'lost' },
+          { label: 'Who is Fah?', next: 'fah' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      what: {
+        lines: [
+          { text: 'Sometimes a phone forgets. Or you come back on a new one.', pose: 'thinking', face: 'thinking' },
+          { text: 'Your passport is still yours. Your twelve memory words bring it back.', pose: 'give_card', face: 'happy' },
+          { text: 'Keep them on paper, and keep them secret. Not even I should see them.', pose: 'talk', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      lost: {
+        lines: [
+          { text: 'That happens more than you think.', pose: 'reassure', face: 'neutral' },
+          { text: 'Bring your twelve memory words, and I\'ll help you restore your passport.', pose: 'write', face: 'explain' },
+          { text: 'The restore desk opens soon. Until then, look around and rest a little.', pose: 'sip', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      fah: {
+        lines: [
+          { text: 'Fah works Arrivals, right next to me. She greets everyone who comes in.', pose: 'talk', face: 'explain' },
+          { text: "Honestly, she's the reason this place feels warm.", pose: 'happy', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      more: {
+        lines: [
+          { text: 'Anything else?', pose: 'idle_pockets', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'What is Lost & Found?', next: 'what' },
+          { label: 'I lost my memory', next: 'lost' },
+          { label: 'Who is Fah?', next: 'fah' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'Take care. If anything goes missing, you know where I am.', pose: 'wai', face: 'wai' },
+        ],
+      },
+    },
+  },
+  // The arrivals board behind the counter (Read). Later it shows "What's new" with flip letters.
+  arrival_board: {
+    name: 'Arrivals Board',
+    accent: '#2F4A3A',
+    closePose: 'none',
+    start: 'read',
+    nodes: {
+      read: {
+        lines: [
+          { text: 'LUMEN BAY · ARRIVALS' },
+          { text: 'Welcome! New here? Fah at Arrivals. Lost your memory? Tawan at Lost & Found.' },
+          { text: 'Lakeside Square: through the glass doors.' },
         ],
       },
     },

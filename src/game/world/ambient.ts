@@ -7,6 +7,7 @@
 //   'glow'  → after the night lights (lighthouse beacon)
 
 import type { RGB } from './cityView';
+import { bangkokHour } from './cityView';
 import { drawBayLife } from './bayLife';
 
 export type AmbientPass = 'sky' | 'back' | 'front' | 'glow';
@@ -25,6 +26,8 @@ export interface AmbientConfig {
   portal?: { x: number; y: number; w: number; h: number; color: RGB };
   /** Dotted ring on the floor, turning very slowly (centre x/y, radii rx/ry) */
   ring?: { x: number; y: number; rx: number; ry: number; dots: number; periodMs: number };
+  /** A painted wall clock with its hands erased: the code draws real Bangkok time (centre x/y, hand lengths) */
+  clock?: { x: number; y: number; hourLen: number; minLen: number; color: string };
 }
 
 /** Stable 0..1 random from an integer seed */
@@ -35,6 +38,11 @@ const rand = (i: number, salt = 0) => {
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 export const AMBIENT: Record<string, AmbientConfig> = {
+  // Arrival Hall: stars through the two windows at night, and the wall clock shows the real time
+  arrival_hall: {
+    stars: { count: 40, maxY: 110 },
+    clock: { x: 848, y: 91, hourLen: 10, minLen: 15, color: '#4A2E1A' },
+  },
   town: {
     stars: { count: 70, maxY: 160 },
     glints: [
@@ -123,7 +131,7 @@ export function renderAmbient(ctx: CanvasRenderingContext2D, roomId: string, pas
   const cfg = density >= 1 ? full : thinned(roomId, full, density);
   ctx.save();
   if (pass === 'sky') drawStars(ctx, cfg, t, night);
-  if (pass === 'back') { drawGlints(ctx, cfg, t, night); drawRing(ctx, cfg, t, night); drawPortalSpecks(ctx, cfg, t, night); }
+  if (pass === 'back') { drawGlints(ctx, cfg, t, night); drawRing(ctx, cfg, t, night); drawPortalSpecks(ctx, cfg, t, night); drawClock(ctx, cfg); }
   if (pass === 'front') { drawSparkles(ctx, cfg, t, night); drawPetals(ctx, cfg, t); }
   // motes go after the night overlay so fireflies really glow in the dark
   if (pass === 'glow') { drawBeacons(ctx, cfg, t, night); drawPortalGlow(ctx, cfg, t, night); drawMotes(ctx, cfg, t, night); }
@@ -150,6 +158,26 @@ function thinned(roomId: string, cfg: AmbientConfig, density: number): AmbientCo
   };
   thinCache.set(key, out);
   return out;
+}
+
+/** Clock hands as chunky pixel lines (a 2-px hour hand, a 1-px minute hand) + the centre pin. */
+function drawClock(ctx: CanvasRenderingContext2D, cfg: AmbientConfig) {
+  const c = cfg.clock;
+  if (!c) return;
+  const h = bangkokHour();
+  const minutes = (h % 1) * 60;
+  const hand = (turns: number, len: number, size: number) => {
+    const a = turns * Math.PI * 2 - Math.PI / 2;
+    for (let i = 0; i <= len; i++) {
+      ctx.fillRect(Math.round(c.x + Math.cos(a) * i - size / 2), Math.round(c.y + Math.sin(a) * i - size / 2), size, size);
+    }
+  };
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = c.color;
+  hand(((h % 12) + 0) / 12, c.hourLen, 2);
+  hand(minutes / 60, c.minLen, 1);
+  ctx.fillStyle = '#C8503F';
+  ctx.fillRect(c.x - 1, c.y - 1, 3, 3);
 }
 
 function drawStars(ctx: CanvasRenderingContext2D, cfg: AmbientConfig, t: number, night: number) {

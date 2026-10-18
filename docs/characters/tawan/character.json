@@ -1,0 +1,33 @@
+{
+  "id": "tawan",
+  "displayName": "Tawan",
+  "role": "Arrival Hall staff, Lost & Found desk (restore with the 12 words). About 25, calm and kind.",
+  "room": "arrival_hall",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "soft black-brown, side-swept fringe, covers the tops of the ears",
+    "cardigan": "oversized sage-green knit V-neck (slim in pixels)",
+    "top": "plain white t-shirt",
+    "trousers": "black wide-leg",
+    "staff": "small gold wave pin + white staff ID card",
+    "signature": "faint freckles, lopsided gentle smile, hands in pockets"
+  },
+  "sheets": [
+    ["idle", "side_idle", "back_idle", "walk1",
+     "walk2", "wave", "talk", "happy",
+     "walk_down1", "walk_down2", "walk_up1", "walk_up2",
+     "thinking", "_sit", "_lie", "_jump"],
+    ["idle_pockets", "wai", "point", "write",
+     "stamp_up", "stamp_down", "give_card", "reassure",
+     "thumbsup", "explain", "surprised", "bye",
+     "sip", "stretch", "read", "blink"]
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/tawan/",
+    "spriteManifest": "/sprites/npc/tawan/manifest.json",
+    "sheetSource": ["src/assets/npc_tawan_sheet.webp", "src/assets/npc_tawan_desk_sheet.webp"],
+    "portraits": "/sprites/npc/tawan/portrait/",
+    "cut": "python3 scripts/process_npc_sheets.py tawan 2 src/assets/npc_tawan_sheet.webp src/assets/npc_tawan_desk_sheet.webp"
+  },
+  "docs": "claude.ai Project: characters/arrival-staff-tawan.md"
+}

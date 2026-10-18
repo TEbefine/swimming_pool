@@ -9,6 +9,10 @@ Writes public/sprites/npc/<id>/portrait/{neutral,<faces>}.webp — 700×696, tra
 framing as Mother / Father: the face is found with OpenCV and scaled/placed to one size and spot,
 so the head doesn't jump between expressions. Faces that OpenCV can't find (head tilted back,
 bowed, turned away) use the grid's average scale and the head's outline instead.
+
+Busy or off-white backdrops (a room behind the identity photo, a white t-shirt that touches the
+white wall): run with PORTRAIT_CUT=rembg to cut the person out with rembg instead of the white
+flood fill (pip install "rembg[cpu]"; needs OpenCV 4.x for the face finder, not 5.x).
 """
 import os
 import sys
@@ -18,13 +22,31 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.environ.get('SP_ROOT') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 W, H = 700, 696            # portrait canvas (same as mother/father)
 FACE_W = 236               # target face-box width (OpenCV frontal face box)
 FACE_CX, FACE_TOP = 322, 228
 
 CASCADES = [cv2.CascadeClassifier(cv2.data.haarcascades + n) for n in
             ('haarcascade_frontalface_default.xml', 'haarcascade_frontalface_alt2.xml')]
+
+
+_REMBG = None
+
+
+def cut_rembg(img: Image.Image) -> Image.Image:
+    """Cut the person out with rembg (isnet-general-use), keep only the biggest piece."""
+    global _REMBG
+    from rembg import new_session, remove
+    if _REMBG is None:
+        _REMBG = new_session('isnet-general-use')
+    cut = remove(img.convert('RGB'), session=_REMBG)
+    a = np.array(cut)
+    lab, n = ndimage.label(a[..., 3] > 20)
+    if n > 1:
+        sizes = ndimage.sum(np.ones(lab.shape), lab, range(1, n + 1))
+        a[..., 3] = np.where(lab == 1 + int(np.argmax(sizes)), a[..., 3], 0)
+    return Image.fromarray(a)
 
 
 def cut_white(img: Image.Image) -> Image.Image:
@@ -98,6 +120,7 @@ def place(cut: Image.Image, s: float, cx: float, top: float) -> Image.Image:
 
 
 def main(npc, ident_path, grid_path, faces):
+    cutter = cut_rembg if os.environ.get('PORTRAIT_CUT') == 'rembg' else cut_white
     out_dir = os.path.join(ROOT, 'public', 'sprites', 'npc', npc, 'portrait')
     os.makedirs(out_dir, exist_ok=True)
     grid = Image.open(grid_path).convert('RGB')
@@ -114,11 +137,11 @@ def main(npc, ident_path, grid_path, faces):
     for (name, img) in items[1:]:
         f = found[name]
         if f is not None:
-            hx, htop = head_outline(cut_white(img))
+            hx, htop = head_outline(cutter(img))
             offsets.append(((f[0] + f[2] / 2) - hx, f[1] - htop))
 
     for name, img in items:
-        cut = cut_white(img)
+        cut = cutter(img)
         f = found[name]
         if f is not None:
             # the 4 grid cells are one photo size, so they share one scale (a tilted face

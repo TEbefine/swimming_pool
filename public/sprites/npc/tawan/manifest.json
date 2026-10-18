@@ -1,0 +1,147 @@
+{
+  "idle": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/idle.webp"
+  },
+  "side_idle": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/back_idle.webp"
+  },
+  "walk1": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/walk1.webp"
+  },
+  "walk2": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/walk2.webp"
+  },
+  "wave": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/wave.webp"
+  },
+  "talk": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/talk.webp"
+  },
+  "happy": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/happy.webp"
+  },
+  "walk_down1": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/walk_up2.webp"
+  },
+  "thinking": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/thinking.webp"
+  },
+  "idle_pockets": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/idle_pockets.webp"
+  },
+  "wai": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/wai.webp"
+  },
+  "point": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/point.webp"
+  },
+  "write": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/write.webp"
+  },
+  "stamp_up": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/stamp_up.webp"
+  },
+  "stamp_down": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/stamp_down.webp"
+  },
+  "give_card": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/give_card.webp"
+  },
+  "reassure": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/reassure.webp"
+  },
+  "thumbsup": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/thumbsup.webp"
+  },
+  "explain": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/explain.webp"
+  },
+  "surprised": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/surprised.webp"
+  },
+  "bye": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/bye.webp"
+  },
+  "sip": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/sip.webp"
+  },
+  "stretch": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/stretch.webp"
+  },
+  "read": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/read.webp"
+  },
+  "blink": {
+    "width": 136,
+    "height": 160,
+    "path": "/sprites/npc/tawan/blink.webp"
+  }
+}
