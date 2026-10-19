@@ -1,0 +1,162 @@
+{
+  "idle": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/idle.webp"
+  },
+  "side_idle": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/back_idle.webp"
+  },
+  "blink": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/blink.webp"
+  },
+  "walk1": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/walk1.webp"
+  },
+  "walk2": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/walk2.webp"
+  },
+  "walk_down1": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/walk_down1.webp"
+  },
+  "walk_down2": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/walk_down2.webp"
+  },
+  "walk_up1": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/walk_up1.webp"
+  },
+  "walk_up2": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/walk_up2.webp"
+  },
+  "wave": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/wave.webp"
+  },
+  "talk": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/talk.webp"
+  },
+  "laugh": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/laugh.webp"
+  },
+  "thinking": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/thinking.webp"
+  },
+  "nod": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/nod.webp"
+  },
+  "point": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/point.webp"
+  },
+  "stop": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/stop.webp"
+  },
+  "block": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/block.webp"
+  },
+  "arms_crossed": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/arms_crossed.webp"
+  },
+  "thumbs_hooked": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/thumbs_hooked.webp"
+  },
+  "guard_stance": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/guard_stance.webp"
+  },
+  "beckon": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/beckon.webp"
+  },
+  "welcome": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/welcome.webp"
+  },
+  "small_bow": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/small_bow.webp"
+  },
+  "hold_door": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/hold_door.webp"
+  },
+  "carry_case": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/carry_case.webp"
+  },
+  "stretch": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/stretch.webp"
+  },
+  "check_watch": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/check_watch.webp"
+  },
+  "sip_coffee": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/sip_coffee.webp"
+  },
+  "shy_scratch": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/shy_scratch.webp"
+  },
+  "thumbs_up": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/thumbs_up.webp"
+  },
+  "fist_bump": {
+    "width": 180,
+    "height": 176,
+    "path": "/sprites/npc/phu/fist_bump.webp"
+  }
+}

@@ -63,6 +63,18 @@ export const NAGISA_STROLL: NpcWander = {
 };
 export const NAGISA_START = { x: 520, y: 392 };
 
+/** Phu, the door guard: stands just left of the glass doors, facing into the hall. He barely moves —
+ *  a small shuffle, then guard idles (hands behind back, arms crossed, coffee, watch). Cut at 2.2×: the big one. */
+export const PHU_SPOT = { x: 880, y: 304 };
+export const PHU_POST: NpcWander = {
+  area: { x: 868, y: 298, width: 26, height: 12 },
+  speed: 12,
+  pauseMs: [8000, 16000],
+  idlePoses: ['guard_stance', 'guard_stance', 'thumbs_hooked', 'arms_crossed', 'idle', 'check_watch', 'sip_coffee', 'stretch'],
+};
+/** Talk to Phu from his left (the hall side), so you don't stand in the doorway. */
+export const PHU_TALK = { dx: -58, dy: 8, facing: 1 as const };
+
 /** Where you stand to talk: in front of the counter, a little to the side, so your head doesn't
  *  hide theirs (you're drawn in front of the counter, they're behind it). */
 export const FAH_TALK = { dx: -62, dy: 70, facing: 1 as const };

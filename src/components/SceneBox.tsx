@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import type { RoomDefinition } from '../game/types';
 import { rooms, isRoomOpen, scheduleLabel, closedLabel } from '../game/rooms';
 import { sound } from '../game/audio';
@@ -17,10 +17,18 @@ export interface SceneBoxProps {
 }
 
 const COLS = 3;
-const ROWS = 2;
+/** The window shows 3 columns × 2 rows (6 maps); the rest scroll into view (wheel / swipe / D-pad). */
+const VISIBLE_ROWS = 2;
 
-// Ordered slot layout: poolside, cafe, home, club, Quiet Bay, Arrival Hall (null = a locked "???" slot)
-const SLOT_ROOM_IDS: (string | null)[] = ['poolside', 'cafe', 'home', 'club', 'lake_pier', 'arrival_hall'];
+// Every map you can travel to, in order. Story rooms (dalbit_*) stay out: you only enter them through the story.
+const MAP_ROOM_IDS: string[] = ['town', 'poolside', 'cafe', 'home', 'club', 'lake_pier', 'arrival_hall', 'temple'];
+// Fill the last row (and at least the 3×2 window) with locked "???" slots = maps still to come.
+const SLOT_ROOM_IDS: (string | null)[] = [
+  ...MAP_ROOM_IDS,
+  ...Array(Math.max(COLS * VISIBLE_ROWS, Math.ceil(MAP_ROOM_IDS.length / COLS) * COLS) - MAP_ROOM_IDS.length).fill(null),
+];
+const TOTAL_ROWS = Math.ceil(SLOT_ROOM_IDS.length / COLS);
+const PAGES = Math.max(1, Math.ceil(TOTAL_ROWS / VISIBLE_ROWS));
 
 export const SceneBox: React.FC<SceneBoxProps> = ({
   isOpen,
@@ -39,6 +47,45 @@ export const SceneBox: React.FC<SceneBoxProps> = ({
 
   const [cursorIdx, setCursorIdx] = useState(initialIdx);
   const [shaking, setShaking] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const tileRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [gridMaxH, setGridMaxH] = useState<number | undefined>(undefined);
+
+  // Every time the box opens, the cursor starts on the map you're in
+  useEffect(() => {
+    if (isOpen) setCursorIdx(initialIdx);
+  }, [isOpen, initialIdx]);
+
+  // The scroll window is exactly VISIBLE_ROWS rows tall, whatever the screen width (tiles keep their 16:10 shape)
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    const measure = () => {
+      const first = grid.children[0] as HTMLElement | undefined;
+      if (!first) return;
+      const cs = getComputedStyle(grid);
+      const gap = parseFloat(cs.rowGap) || 0;
+      const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      setGridMaxH(Math.ceil(first.offsetHeight * VISIBLE_ROWS + gap * (VISIBLE_ROWS - 1) + pad));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(grid);
+    return () => ro.disconnect();
+  }, [isOpen]);
+
+  // Keep the cursor's tile in view: jump straight to it when the box opens (after the window has its
+  // 2-row height), glide when the D-pad moves past the window
+  const jumpedOnOpen = useRef(false);
+  useEffect(() => {
+    if (!isOpen) { jumpedOnOpen.current = false; return; }
+    if (gridMaxH === undefined) return;
+    const tile = tileRefs.current[cursorIdx];
+    if (!tile) return;
+    tile.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: jumpedOnOpen.current ? 'smooth' : 'auto' });
+    jumpedOnOpen.current = true;
+  }, [isOpen, cursorIdx, gridMaxH]);
 
   // Resolve room for each slot
   const slots: (RoomDefinition | null)[] = useMemo(() => {
@@ -83,23 +130,21 @@ export const SceneBox: React.FC<SceneBoxProps> = ({
     onTravel(targetRoom.roomId);
   }, [slots, currentRoomId, triggerShake, onTravel]);
 
-  // Movement helpers
+  // Movement helpers: ◀ ▶ walk through the list (wrapping to the next / previous row), ▲ ▼ move a row
   const moveCursor = useCallback((dx: number, dy: number) => {
     sound.playCursor();
     setCursorIdx((prev) => {
-      const col = prev % COLS;
-      const row = Math.floor(prev / COLS);
-
-      let nextCol = col + dx;
-      let nextRow = row + dy;
-
-      if (nextCol < 0) nextCol = 0;
-      if (nextCol >= COLS) nextCol = COLS - 1;
-      if (nextRow < 0) nextRow = 0;
-      if (nextRow >= ROWS) nextRow = ROWS - 1;
-
-      return nextRow * COLS + nextCol;
+      const last = SLOT_ROOM_IDS.length - 1;
+      if (dx !== 0) return Math.max(0, Math.min(last, prev + dx));
+      return Math.max(0, Math.min(last, prev + dy * COLS));
     });
+  }, []);
+
+  const cursorPage = Math.floor(Math.floor(cursorIdx / COLS) / VISIBLE_ROWS);
+  /** Header ◀ ▶: jump a whole page (3×2) */
+  const jumpPage = useCallback((dir: number) => {
+    sound.playCursor();
+    setCursorIdx((prev) => Math.max(0, Math.min(SLOT_ROOM_IDS.length - 1, prev + dir * COLS * VISIBLE_ROWS)));
   }, []);
 
   // Mobile D-pad nudge watcher
@@ -193,8 +238,11 @@ export const SceneBox: React.FC<SceneBoxProps> = ({
         {/* Top Header: Retro PC-box title */}
         <div className="flex items-center justify-between px-3 py-1.5 bg-[#1b2640] border-b-2 border-sky-500">
           <div className="flex items-center gap-2">
-            <span className="text-[14px] sm:text-[16px] text-amber-300 font-bold tracking-wider">
-              SCENES ◀ 1/1 ▶
+            <span className="text-[14px] sm:text-[16px] text-amber-300 font-bold tracking-wider flex items-center gap-1">
+              SCENES
+              <button type="button" onClick={() => jumpPage(-1)} className={cursorPage > 0 ? 'text-amber-300' : 'text-slate-600'} aria-label="Previous page">◀</button>
+              {cursorPage + 1}/{PAGES}
+              <button type="button" onClick={() => jumpPage(1)} className={cursorPage < PAGES - 1 ? 'text-amber-300' : 'text-slate-600'} aria-label="Next page">▶</button>
             </span>
           </div>
           <button
@@ -206,8 +254,12 @@ export const SceneBox: React.FC<SceneBoxProps> = ({
           </button>
         </div>
 
-        {/* 3×2 Grid of Slots */}
-        <div className="p-2 sm:p-3 bg-[#0d1424] grid grid-cols-3 gap-2 sm:gap-2.5">
+        {/* 3×2 window of map slots — scrolls to show the rest */}
+        <div
+          ref={gridRef}
+          className="p-2 sm:p-3 bg-[#0d1424] grid grid-cols-3 gap-2 sm:gap-2.5 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:#38bdf8_#0d1424]"
+          style={{ maxHeight: gridMaxH, scrollPaddingBlock: 10 }}
+        >
           {slots.map((room, idx) => {
             const isSelected = cursorIdx === idx;
             const isHere = room?.roomId === currentRoomId;
@@ -216,6 +268,7 @@ export const SceneBox: React.FC<SceneBoxProps> = ({
             return (
               <div
                 key={idx}
+                ref={(el) => { tileRefs.current[idx] = el; }}
                 onClick={() => {
                   if (cursorIdx !== idx) {
                     sound.playCursor();

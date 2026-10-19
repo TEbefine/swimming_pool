@@ -15,7 +15,9 @@ export type PortraitFace = 'neutral' | 'smile' | 'happy' | 'thinking' | 'idea' |
   | 'tired' | 'stern' | 'humble' | 'laugh' | 'secret' | 'pleased' | 'grumble' | 'shrug' | 'sigh' | 'soft'
   | 'shout' | 'wink' | 'thoughtful'
   // Nagisa-sama
-  | 'bow' | 'serene' | 'listen' | 'crest';
+  | 'bow' | 'serene' | 'listen' | 'crest'
+  // Phu (Arrival Hall door)
+  | 'greet' | 'stop' | 'point';
 
 /** A single line of dialog text. */
 export interface DialogLine {
@@ -860,6 +862,88 @@ export const dialogues: Record<string, DialogScript> = {
       bye: {
         lines: [
           { text: '...', pose: 'bow', face: 'bow' },
+        ],
+      },
+    },
+  },
+  // Phu (ภู, "mountain") — the Arrival Hall's door guard, about 45, tall, big and strong, calm and warm.
+  // Stands by the glass doors. First-timers who head out before checking in at the counter get a
+  // friendly stop ('block', opened by App's exit guard; see content/arrivalDoor.ts). Docs: characters/arrival-phu.md
+  phu: {
+    name: npcName('phu'),
+    portraitDir: '/sprites/npc/phu/portrait',
+    faces: ['neutral', 'greet', 'stop', 'point', 'laugh'],
+    accent: '#44624F',
+    closePose: 'nod',
+    start: 'greet',
+    nodes: {
+      // talking to him after you've checked in
+      greet: {
+        lines: [
+          { text: 'Hey, welcome back, friend.', pose: 'wave', face: 'greet' },
+        ],
+        choices: [
+          { label: "What's outside?", next: 'out' },
+          { label: 'Who are you?', next: 'who' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      // talking to him before you've checked in
+      greet_new: {
+        lines: [
+          { text: 'Welcome to the Arrival Hall. First time here?', pose: 'wave', face: 'greet' },
+          { text: 'Check in at the counter first. Fah or Tawan will look after you.', pose: 'point', face: 'point' },
+        ],
+        choices: [
+          { label: 'Who are you?', next: 'who' },
+          { label: 'Okay!', next: 'ok' },
+        ],
+      },
+      // walked into the glass doors before checking in
+      block: {
+        lines: [
+          { text: 'Whoa, easy there, friend.', pose: 'stop', face: 'stop' },
+          { text: 'First time in Lumen Bay? Everyone checks in at the counter before heading out.', pose: 'point', face: 'point' },
+          { text: "Fah's at Arrivals, Tawan's at Lost & Found. Say hi to either one, and the door's all yours.", pose: 'talk', face: 'greet' },
+        ],
+        choices: [
+          { label: 'Okay, got it', next: 'ok' },
+          { label: 'Who are you?', next: 'who' },
+        ],
+      },
+      ok: {
+        lines: [
+          { text: "Good. I'll hold the door for you.", pose: 'thumbs_up', face: 'greet' },
+        ],
+      },
+      who: {
+        lines: [
+          { text: "Phu. It means 'mountain'.", pose: 'thumbs_hooked', face: 'neutral' },
+          { text: "Tawan's the sun, Fah's the sky... and I'm the big thing by the door that doesn't move.", pose: 'laugh', face: 'laugh' },
+          { text: 'Lost your bags, your way, or your memory? Come find me. I\'ll walk you to the right desk.', pose: 'nod', face: 'greet' },
+        ],
+        next: 'more',
+      },
+      out: {
+        lines: [
+          { text: 'Lakeside Square. The fountain, the café, the bookshop. The pool is west, the music club east.', pose: 'point', face: 'point' },
+          { text: "Try the café. Tell them Phu sent you. It won't get you a discount, but they'll smile.", pose: 'laugh', face: 'laugh' },
+        ],
+        next: 'more',
+      },
+      more: {
+        lines: [
+          { text: 'Anything else?', pose: 'thumbs_hooked', face: 'neutral' },
+        ],
+        choices: [
+          { label: "What's outside?", next: 'out' },
+          { label: 'Who are you?', next: 'who' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [
+          { text: 'See you around, friend.', pose: 'wave', face: 'greet' },
         ],
       },
     },

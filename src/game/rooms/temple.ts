@@ -3,8 +3,7 @@ import { npcName } from '../content/npcNames';
 import { templeElements, templeObstacles, TEMPLE_ACTOR_SCALE, TEMPLE_DOOR_EXIT, TEMPLE_STEPS_EXIT } from './templeLayout';
 
 // Quiet Temple — the Spirit's sanctuary on the hill above Lumen Bay. White marble, sea view, silence.
-// Not in the postcard (SELECT) box on purpose. The way here: Arrival Hall glass doors → out onto the
-// temple stairs. The dark doorway leads back into the Arrival Hall; the front steps go down to town.
+// In the postcard (SELECT) box. The dark doorway leads into the Arrival Hall; the front steps go down to town.
 // Dev test: open the game with ?room=temple
 // Layers: code sky + stars · sea glints · floor ring + doorway specks (behind people) ·
 // two walk-behind columns · light motes (in front) · doorway glow at night (see world/ambient.ts).
@@ -22,7 +21,6 @@ export const templeRoom: RoomDefinition = {
 
   bounds: { minX: 8, maxX: 1016, minY: 238, maxY: 572 },
   spawnPoint: { x: 512, y: 470 },
-  arrivals: { arrival_hall: { x: 512, y: 306, facing: 1 } },   // just stepped out of the doorway, on the stairs
   walkableZones: [
     { x: 0, y: 268, width: 1024, height: 308 },   // marble floor + front steps
     { x: 392, y: 238, width: 240, height: 32 },   // temple stairs up to the doorway

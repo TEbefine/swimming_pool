@@ -1,0 +1,33 @@
+{
+  "id": "phu",
+  "displayName": "Phu",
+  "role": "Arrival Hall door guard and greeter. About 45, tall, big and strong, calm and warm. Stops first-timers at the glass doors (warmly) and sends them to the counter first.",
+  "room": "arrival_hall",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "short black, pushed back",
+    "face": "square jaw, small calm eyes, heavy brows, light stubble, warm tan skin",
+    "polo": "deep sage-green short-sleeve knit polo",
+    "trousers": "black work trousers, black belt with a small silver buckle, black shoes",
+    "staff": "small gold wave pin + white staff ID card on a sage lanyard",
+    "signature": "calm half-smile, thumbs hooked in pockets; a rare big laugh"
+  },
+  "sheets": [
+    ["idle", "side_idle", "back_idle", "blink",
+     "walk1", "walk2", "walk_down1", "walk_down2",
+     "walk_up1", "walk_up2", "wave", "talk",
+     "laugh", "thinking", "nod", "point"],
+    ["stop", "block", "arms_crossed", "thumbs_hooked",
+     "guard_stance", "beckon", "welcome", "small_bow",
+     "hold_door", "carry_case", "stretch", "check_watch",
+     "sip_coffee", "shy_scratch", "thumbs_up", "fist_bump"]
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/phu/",
+    "spriteManifest": "/sprites/npc/phu/manifest.json",
+    "sheetSource": ["src/assets/npc_phu_sheet.webp", "src/assets/npc_phu_door_sheet.webp"],
+    "portraits": "/sprites/npc/phu/portrait/",
+    "cut": "python3 scripts/process_npc_sheets.py phu 2.2 src/assets/npc_phu_sheet.webp src/assets/npc_phu_door_sheet.webp"
+  },
+  "docs": "claude.ai Project: characters/arrival-phu.md"
+}
