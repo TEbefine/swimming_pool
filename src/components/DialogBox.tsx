@@ -3,17 +3,51 @@ import type { DialogScript, DialogNode, DialogLine, PortraitFace, DialogChoice }
 import { resolveDialogText, isTipLine } from '../game/content/dialogues';
 
 // =========================================================================
-// TUNABLE LAYOUT CONSTANTS
+// TALK SCREEN v2 (approved 2026-10-19 — see project doc ui/talk-screen.md)
+// Plain cream bubble · max 2 rows · curved pointer · tilted name tag on the
+// right · pixel friendship heart instead of ▼ · outlined portrait that the
+// box overlaps by ~6% · "A2 soft" choice card on the left.
 // =========================================================================
+
+const INK = '#2B1E14';
+const PAPER = '#FFF8EC';
+const FONT = "'Pool Pixel Default', monospace";
+
+const BOX = {
+  inset: 6,        // px from the screen's left / right / bottom edges
+  oneRow: 84,      // box height when the page has 1 row (text centred)
+  twoRows: 112,    // box height when the page has 2 rows
+  padX: 18,
+  heartRoom: 28,   // the 2nd row stops this much earlier so it never hits the heart
+};
+
+const TEXT = { size: 30, lineHeight: 36, maxRows: 2 };
 
 const PORTRAIT = {
   narrowHeight: 0.70,   // share of overlay height when w < 420 (phone / GameBoy)
   wideHeight:   0.94,   // share of overlay height on wide screens
-  maxWidth:     1.15,   // share of overlay width (allows portrait to scale larger without premature width cap)
-  tuck:         24,     // px of the chest cut hidden behind the box top
+  maxWidth:     1.15,   // share of overlay width
+  overlap:      0.06,   // the message box covers the bottom ~6% of the character
+  fade:         12,     // px soft fade at the very bottom of the picture
   rightNarrow:  -10,    // px, may bleed slightly off the right edge
   rightWide:    24,
 };
+
+// 3px dark outline + hard shadow around the cut-out photo.
+// TODO(perf): bake this into the portrait files so low-end phones skip the filter work.
+const PORTRAIT_FILTER =
+  `drop-shadow(3px 0 0 ${INK}) drop-shadow(-3px 0 0 ${INK}) drop-shadow(0 3px 0 ${INK}) drop-shadow(0 -3px 0 ${INK}) drop-shadow(5px 5px 0 rgba(20,10,5,0.45))`;
+
+/** Friendship heart, low → max: black → purple → pink → red. o/b/s/l = outline/base/shade/light, w = shine. */
+const HEARTS = [
+  { o: '#1A1412', b: '#3B3431', s: '#2A2421', l: '#6B625D', w: 0.3, name: 'stranger' },
+  { o: '#2A1636', b: '#5A3A8A', s: '#432A6E', l: '#8A6BB8', w: 0.5, name: 'hello' },
+  { o: '#301642', b: '#8550C8', s: '#6A3DAA', l: '#B48AE8', w: 0.75, name: 'friendly' },
+  { o: '#3A1640', b: '#B455C8', s: '#9140A8', l: '#DD95EA', w: 0.8, name: 'friend' },
+  { o: '#48163A', b: '#E060A8', s: '#BE4A8C', l: '#F59ACB', w: 0.85, name: 'good friend' },
+  { o: '#4E1426', b: '#EE4A72', s: '#C9365A', l: '#FF92A8', w: 0.9, name: 'close friend' },
+  { o: '#4A0E14', b: '#EE2A36', s: '#C21C28', l: '#FF8C8C', w: 1, name: 'best friend' },
+];
 
 interface DialogBoxProps {
   npcId: string;
@@ -24,10 +58,11 @@ interface DialogBoxProps {
   onNodeEnter?: (nodeId: string) => void;
   directionNudge?: { dx: number; dy: number; timestamp: number } | null;
   confirmTrigger?: number;
+  /** Friendship level 0–6 (0 = black heart, 6 = red). The points system comes later; every NPC starts at 0. */
+  friendship?: number;
 }
 
 const CHARS_PER_SEC = 40;
-const MAX_LINES_PER_PAGE = 3;
 const TIP_LS_KEY = 'pixel_pool_tip_read';
 
 /** Mark today's tip as read in localStorage. */
@@ -49,69 +84,72 @@ function getMeasureCtx(): CanvasRenderingContext2D | null {
   return measureCtx;
 }
 
-/** Wrap text using measured width from offscreen canvas context. */
-function wrapTextMeasured(text: string, maxWidth: number, font: string): string[] {
-  if (!text) return [''];
-  const ctx = getMeasureCtx();
-  if (ctx) {
-    ctx.font = font;
+/** "*word*" marks a highlighted word. Returns the plain text and a highlight flag per character. */
+function parseHighlights(raw: string): { plain: string; hl: boolean[] } {
+  let plain = '';
+  const hl: boolean[] = [];
+  let on = false;
+  for (const ch of raw) {
+    if (ch === '*') { on = !on; continue; }
+    plain += ch;
+    hl.push(on);
   }
-
-  const lines: string[] = [];
-  const paragraphs = text.split('\n');
-
-  for (const para of paragraphs) {
-    const words = para.split(' ');
-    let currentLine = '';
-
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      if (!word) {
-        if (!currentLine && i < words.length - 1) continue;
-      }
-
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      const metrics = ctx ? ctx.measureText(testLine) : { width: testLine.length * 10 };
-
-      if (metrics.width > maxWidth && currentLine) {
-        lines.push(currentLine);
-        // Check if single word itself exceeds maxWidth
-        const wordMetrics = ctx ? ctx.measureText(word) : { width: word.length * 10 };
-        if (wordMetrics.width > maxWidth) {
-          let chunk = '';
-          for (const char of word) {
-            const testChunk = chunk + char;
-            const chunkWidth = ctx ? ctx.measureText(testChunk).width : testChunk.length * 10;
-            if (chunkWidth > maxWidth && chunk) {
-              lines.push(chunk);
-              chunk = char;
-            } else {
-              chunk = testChunk;
-            }
-          }
-          currentLine = chunk;
-        } else {
-          currentLine = word;
-        }
-      } else {
-        currentLine = testLine;
-      }
-    }
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-  }
-
-  return lines.length > 0 ? lines : [''];
+  return { plain, hl };
 }
 
-/** Split measured lines into pages of MAX_LINES_PER_PAGE lines each. */
-function paginateText(lines: string[]): string[] {
-  const pages: string[] = [];
-  for (let i = 0; i < lines.length; i += MAX_LINES_PER_PAGE) {
-    pages.push(lines.slice(i, i + MAX_LINES_PER_PAGE).join('\n'));
+/**
+ * Wrap text into rows as [start, end) ranges of `plain`. Row widths alternate: the 1st row of each
+ * 2-row page may use `fullW`, the 2nd row only `lastW` (room for the heart).
+ */
+function wrapRows(plain: string, fullW: number, lastW: number, font: string): Array<[number, number]> {
+  const ctx = getMeasureCtx();
+  if (ctx) ctx.font = font;
+  const measure = (s: string) => (ctx ? ctx.measureText(s).width : s.length * TEXT.size * 0.5);
+  const rows: Array<[number, number]> = [];
+  const limit = () => (rows.length % TEXT.maxRows === TEXT.maxRows - 1 ? lastW : fullW);
+
+  let paraStart = 0;
+  const paragraphs = plain.split('\n');
+  for (const para of paragraphs) {
+    let start = paraStart;
+    const end = paraStart + para.length;
+    let lastSpace = -1;
+    let i = start;
+    while (i < end) {
+      if (plain[i] === ' ') lastSpace = i;
+      if (i > start && measure(plain.slice(start, i + 1)) > limit()) {
+        const cut = lastSpace > start ? lastSpace : i;   // break at the last space, or mid-word for long words / Thai
+        rows.push([start, cut]);
+        start = plain[cut] === ' ' ? cut + 1 : cut;
+        lastSpace = -1;
+        i = start;
+        continue;
+      }
+      i++;
+    }
+    rows.push([start, end]);
+    paraStart = end + 1; // skip the '\n'
   }
-  return pages.length > 0 ? pages : [''];
+  return rows.length > 0 ? rows : [[0, 0]];
+}
+
+type Page = { text: string; hl: boolean[]; rows: number };
+
+/** Group rows into pages of at most TEXT.maxRows rows. */
+function paginate(plain: string, hl: boolean[], rows: Array<[number, number]>): Page[] {
+  const pages: Page[] = [];
+  for (let r = 0; r < rows.length; r += TEXT.maxRows) {
+    const chunk = rows.slice(r, r + TEXT.maxRows);
+    let text = '';
+    const mask: boolean[] = [];
+    chunk.forEach(([a, b], idx) => {
+      if (idx > 0) { text += '\n'; mask.push(false); }
+      text += plain.slice(a, b);
+      for (let k = a; k < b; k++) mask.push(hl[k] ?? false);
+    });
+    pages.push({ text, hl: mask, rows: chunk.length });
+  }
+  return pages.length > 0 ? pages : [{ text: '', hl: [], rows: 1 }];
 }
 
 /** Preload images into browser cache. */
@@ -122,6 +160,27 @@ function preloadImages(paths: string[]): void {
   }
 }
 
+/** Pixel friendship heart (11×10 grid drawn at 2×). */
+const PixelHeart: React.FC<{ level: number }> = ({ level }) => {
+  const h = HEARTS[Math.max(0, Math.min(HEARTS.length - 1, Math.round(level)))];
+  return (
+    <svg role="img" aria-label={`Friendship: ${h.name}`} width="22" height="20" viewBox="0 0 11 10" shapeRendering="crispEdges">
+      <path d="M2 0h3v1h-3z M6 0h3v1h-3z M1 1h9v1h-9z M0 2h11v3h-11z M1 5h9v1h-9z M2 6h7v1h-7z M3 7h5v1h-5z M4 8h3v1h-3z M5 9h1v1h-1z" fill={h.o} />
+      <path d="M2 1h3v1h-3z M6 1h3v1h-3z M1 2h9v3h-9z M2 5h7v1h-7z M3 6h5v1h-5z M4 7h3v1h-3z M5 8h1v1h-1z" fill={h.b} />
+      <path d="M9 3h1v1h-1z M8 4h2v1h-2z M7 5h2v1h-2z M6 6h2v1h-2z M6 7h1v1h-1z M5 8h1v1h-1z" fill={h.s} />
+      <path d="M3 1h2v1h-2z M3 2h1v1h-1z M2 3h1v1h-1z" fill={h.l} />
+      <path d="M2 2h1v1h-1z" fill="#FFFFFF" opacity={h.w} />
+    </svg>
+  );
+};
+
+/** Small white pixel arrow for the selected choice. */
+const PixelArrow: React.FC = () => (
+  <svg aria-hidden="true" width="8" height="14" viewBox="0 0 4 7" shapeRendering="crispEdges">
+    <path d="M0 0h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1z" fill="#FFFFFF" />
+  </svg>
+);
+
 export const DialogBox: React.FC<DialogBoxProps> = ({
   npcId,
   script,
@@ -130,6 +189,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   onNodeEnter,
   directionNudge,
   confirmTrigger,
+  friendship = 0,
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -160,7 +220,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const [pageIndex, setPageIndex] = useState(0);
 
   // Typewriter state
-  const [displayedText, setDisplayedText] = useState('');
+  const [displayedCount, setDisplayedCount] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const charIndexRef = useRef(0);
   const timerRef = useRef<number>(0);
@@ -178,8 +238,8 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const [portraitVisible, setPortraitVisible] = useState(false);
   const [portraitExiting, setPortraitExiting] = useState(false);
 
-  // Lean animation trigger
-  const [leanKey, setLeanKey] = useState(0);
+  // Re-measure text once the pixel font has loaded (the first measure may use the fallback font)
+  const [fontTick, setFontTick] = useState(0);
 
   // Story hook: report every node we enter (keep the latest callback in a ref so it fires once per node)
   const onNodeEnterRef = useRef(onNodeEnter);
@@ -196,55 +256,58 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const { w, h } = dims;
   const narrow = w > 0 ? w < 420 : true;
 
-  // Box real measured height & inner width with ResizeObserver
-  const [boxH, setBoxH] = useState(narrow ? 128 : 140);
+  // Box inner width (measured) for text wrapping
   const [boxInnerW, setBoxInnerW] = useState(0);
-
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
     const updateBox = () => {
-      setBoxH(el.offsetHeight || (narrow ? 128 : 140));
-      const inner = el.clientWidth - 32;
+      const inner = el.clientWidth - BOX.padX * 2;
       if (inner > 0) setBoxInnerW(inner);
     };
     updateBox();
-    const ro = new ResizeObserver(() => {
-      updateBox();
-    });
+    const ro = new ResizeObserver(() => updateBox());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [narrow]);
+  }, []);
 
-  // Portrait dimensions based on real measured box height
-  const portraitHeight = Math.round(h * (narrow ? PORTRAIT.narrowHeight : PORTRAIT.wideHeight));
-  const portraitMaxWidth = Math.round(w * PORTRAIT.maxWidth);
-  // Portrait sits on the TALK box (its min height), not the measured height, so it never
-  // jumps when the choices open and the box grows (the box simply overlaps the chest).
-  const baseBoxH = narrow ? 128 : 140;
-  const portraitBottom = 10 + baseBoxH - PORTRAIT.tuck;
-  const portraitRight = narrow ? PORTRAIT.rightNarrow : PORTRAIT.rightWide;
-
-  const fontSize = 18; // Same bilingual face for wrapping measurements and rendered text.
   const accent = script.accent || '#5A3A22';
+  const fontSpec = `500 ${TEXT.size}px ${FONT}`;
 
-  // Measure box inner width for wrap calculation (with a slight right safety buffer)
-  const innerWidth = Math.max(120, (boxInnerW > 0 ? boxInnerW : (w > 0 ? w - 52 : 300)) - 14);
+  useEffect(() => {
+    if (typeof document === 'undefined' || !document.fonts?.load) return;
+    let alive = true;
+    document.fonts.load(fontSpec, 'A').then(() => { if (alive) setFontTick((t) => t + 1); }).catch(() => {});
+    return () => { alive = false; };
+  }, [fontSpec]);
+
+  const innerWidth = Math.max(120, boxInnerW > 0 ? boxInnerW : (w > 0 ? w - BOX.inset * 2 - 6 - BOX.padX * 2 : 300));
   const resolvedText = currentLine ? resolveDialogText(currentLine.text) : '';
-  const fontSpec = `400 ${fontSize}px 'Pool Pixel Default', monospace`;
 
   const pages = useMemo(() => {
-    const lines = wrapTextMeasured(resolvedText, innerWidth, fontSpec);
-    return paginateText(lines);
-  }, [resolvedText, innerWidth, fontSpec]);
+    const { plain, hl } = parseHighlights(resolvedText);
+    const rows = wrapRows(plain, innerWidth - 2, innerWidth - BOX.heartRoom, fontSpec);
+    return paginate(plain, hl, rows);
+    // fontTick: re-wrap once the pixel font is ready
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedText, innerWidth, fontSpec, fontTick]);
 
   const safePageIndex = pageIndex >= pages.length ? 0 : pageIndex;
-  const currentPageText = pages[safePageIndex] ?? '';
+  const currentPage = pages[safePageIndex] ?? { text: '', hl: [], rows: 1 };
+  const currentPageText = currentPage.text;
   const isLastPage = safePageIndex >= pages.length - 1;
   const isLastLine = node ? lineIndex >= node.lines.length - 1 : true;
 
-  const hasMoreToRead = !isLastPage || !isLastLine || Boolean(node?.next) || Boolean(node?.choices && node.choices.length > 0);
-  const showContinueArrow = isComplete && !showChoices && hasMoreToRead;
+  // Box height follows the text: 1 row → short box, 2 rows → tall box (never more than 2 rows)
+  const boxH = currentPage.rows <= 1 ? BOX.oneRow : BOX.twoRows;
+
+  // Portrait: fixed size/position; the box covers its bottom ~6% (measured against the short box)
+  const portraitHeight = Math.round(h * (narrow ? PORTRAIT.narrowHeight : PORTRAIT.wideHeight));
+  const portraitMaxWidth = Math.round(w * PORTRAIT.maxWidth);
+  const portraitBottom = BOX.inset + BOX.oneRow - Math.round(portraitHeight * PORTRAIT.overlap);
+  const portraitRight = narrow ? PORTRAIT.rightNarrow : PORTRAIT.rightWide;
+
+  const showHeart = isComplete && !showChoices;
 
   const closingRef = useRef(false);
   const lastConfirmRef = useRef(confirmTrigger);
@@ -314,7 +377,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   // Typewriter effect
   useEffect(() => {
     charIndexRef.current = 0;
-    setDisplayedText('');
+    setDisplayedCount(0);
     setIsComplete(false);
 
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -323,8 +386,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     const interval = charsPerTick * 1000 / CHARS_PER_SEC;
     const tick = () => {
       charIndexRef.current = Math.min(currentPageText.length, charIndexRef.current + charsPerTick);
-      const next = currentPageText.slice(0, charIndexRef.current);
-      setDisplayedText(next);
+      setDisplayedCount(charIndexRef.current);
       if (charIndexRef.current >= currentPageText.length) {
         setIsComplete(true);
         window.clearInterval(timerRef.current);
@@ -334,7 +396,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       window.clearInterval(timerRef.current);
       if (motion.matches || !currentPageText) {
         charIndexRef.current = currentPageText.length;
-        setDisplayedText(currentPageText);
+        setDisplayedCount(currentPageText.length);
         setIsComplete(true);
       } else if (!document.hidden && charIndexRef.current < currentPageText.length) {
         timerRef.current = window.setInterval(tick, interval);
@@ -351,6 +413,20 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     };
   }, [currentPageText]);
 
+  // Visible text split into plain / highlighted runs
+  const segments = useMemo(() => {
+    const out: Array<{ text: string; hl: boolean }> = [];
+    const n = Math.min(displayedCount, currentPageText.length);
+    for (let k = 0; k < n; k++) {
+      const ch = currentPageText[k];
+      const hl = currentPage.hl[k] ?? false;
+      const last = out[out.length - 1];
+      if (last && last.hl === hl) last.text += ch;
+      else out.push({ text: ch, hl });
+    }
+    return out;
+  }, [displayedCount, currentPageText, currentPage.hl]);
+
   // Navigate to a graph node
   const goToNode = useCallback((nextNodeId: string) => {
     setNodeId(nextNodeId);
@@ -358,7 +434,6 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     setPageIndex(0);
     setShowChoices(false);
     setChoiceIndex(0);
-    setLeanKey(k => k + 1);
   }, []);
 
   const lastAdvanceTimeRef = useRef(0);
@@ -374,21 +449,19 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       // Skip typewriter — show full page text immediately
       window.clearInterval(timerRef.current);
       charIndexRef.current = currentPageText.length;
-      setDisplayedText(currentPageText);
+      setDisplayedCount(currentPageText.length);
       setIsComplete(true);
       return;
     }
 
     if (!isLastPage) {
       setPageIndex(p => p + 1);
-      setLeanKey(k => k + 1);
       return;
     }
 
     if (!isLastLine) {
       setLineIndex(i => i + 1);
       setPageIndex(0);
-      setLeanKey(k => k + 1);
       return;
     }
 
@@ -502,6 +575,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 
   const portraitSrc = hasPortrait ? `${script.portraitDir}/${currentFace}.webp` : '';
   const prevPortraitSrc = hasPortrait && prevFace ? `${script.portraitDir}/${prevFace}.webp` : null;
+  const fadeMask = `linear-gradient(180deg, #000 0, #000 calc(100% - ${PORTRAIT.fade}px), transparent 100%)`;
 
   // Debug flag (?debugDialog=1)
   const isDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debugDialog') === '1';
@@ -515,12 +589,15 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         inset: 0,
         zIndex: 30,
         pointerEvents: 'auto',
-        fontFamily: "'Pool Pixel Default', monospace",
+        fontFamily: FONT,
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
         textRendering: 'geometricPrecision',
       }}
     >
+      {/* Soft dim over the scene (no blur — cheaper on phones and keeps the room readable) */}
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'rgba(43,30,20,0.28)', pointerEvents: 'none' }} />
+
       {/* ============================================= */}
       {/* DEBUG OVERLAY (?debugDialog=1)               */}
       {/* ============================================= */}
@@ -542,18 +619,18 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             border: '1px solid rgba(0,255,100,0.4)',
           }}
         >
-          node:{nodeId} | line:{lineIndex} | page:{safePageIndex + 1}/{pages.length}
+          node:{nodeId} | line:{lineIndex} | page:{safePageIndex + 1}/{pages.length} | rows:{currentPage.rows}
           <br />
           complete:{String(isComplete)} | choices:{String(showChoices)} ({choiceIndex})
           <br />
-          face:{currentFace} | overlay:{w}×{h} | boxH:{boxH}
+          face:{currentFace} | overlay:{w}×{h} | boxH:{boxH} | textW:{innerWidth}
           <br />
-          portrait:{portraitMaxWidth}×{portraitHeight}
+          portrait:{portraitMaxWidth}×{portraitHeight} bottom:{portraitBottom}
         </div>
       )}
 
       {/* ============================================= */}
-      {/* PORTRAIT (right side, chest cut hidden)      */}
+      {/* PORTRAIT (outlined; the box covers its bottom) */}
       {/* ============================================= */}
       {hasPortrait && (
         <div
@@ -566,95 +643,75 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
             maxWidth: `${portraitMaxWidth}px`,
             zIndex: 31,
             pointerEvents: 'none',
-            transformOrigin: 'bottom center',
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'flex-end',
+            WebkitMaskImage: fadeMask,
+            maskImage: fadeMask,
           }}
         >
-          {/* Continuous breathing wrapper */}
-          <div
-            className="dialog-portrait-breathe"
-            style={{
-              position: 'relative',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'flex-end',
-              transformOrigin: 'bottom center',
-            }}
-          >
-            {/* Lean wrapper (re-triggered on each new line / page) */}
-            <div
-              key={leanKey}
-              className="dialog-portrait-lean"
-              style={{
-                position: 'relative',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'flex-end',
-                transformOrigin: 'bottom center',
-              }}
-            >
-              {/* Previous face (crossfade out) */}
-              {prevPortraitSrc && faceTransition && (
-                <img
-                  src={prevPortraitSrc}
-                  alt=""
-                  className="dialog-portrait-face-out"
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    bottom: 0,
-                    height: '100%',
-                    width: 'auto',
-                    maxWidth: '100%',
-                    objectFit: 'contain',
-                    objectPosition: 'right bottom',
-                    imageRendering: 'auto',
-                    filter: 'drop-shadow(0 8px 18px rgba(40,25,15,.28))',
-                  }}
-                />
-              )}
-              {/* Current face */}
+          <div style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'flex-end' }}>
+            {/* Previous face (crossfade out) */}
+            {prevPortraitSrc && faceTransition && (
               <img
-                src={portraitSrc}
-                alt={script.name}
-                className={faceTransition ? 'dialog-portrait-face-in' : ''}
+                src={prevPortraitSrc}
+                alt=""
+                className="dialog-portrait-face-out"
                 style={{
+                  position: 'absolute',
+                  right: 0,
+                  bottom: 0,
                   height: '100%',
                   width: 'auto',
                   maxWidth: '100%',
                   objectFit: 'contain',
                   objectPosition: 'right bottom',
                   imageRendering: 'auto',
-                  filter: 'drop-shadow(0 8px 18px rgba(40,25,15,.28))',
+                  filter: PORTRAIT_FILTER,
                 }}
               />
-            </div>
+            )}
+            {/* Current face */}
+            <img
+              src={portraitSrc}
+              alt={script.name}
+              className={faceTransition ? 'dialog-portrait-face-in' : ''}
+              style={{
+                height: '100%',
+                width: 'auto',
+                maxWidth: '100%',
+                objectFit: 'contain',
+                objectPosition: 'right bottom',
+                imageRendering: 'auto',
+                filter: PORTRAIT_FILTER,
+              }}
+            />
           </div>
         </div>
       )}
 
-      {/* Choices: separate card above the message box, left side (like the old layout) */}
+      {/* ============================================= */}
+      {/* CHOICES — "A2 soft" card, left, above the box  */}
+      {/* ============================================= */}
       {showChoices && node?.choices && node.choices.length > 0 && (
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
-            left: '10px',
-            bottom: `${10 + boxH + 6}px`,
+            left: `${BOX.inset}px`,
+            bottom: `${BOX.inset + boxH + 16}px`,
             zIndex: 36,
             width: 'max-content',
-            minWidth: '168px',
-            maxWidth: 'calc(100% - 20px)',
-            background: 'rgba(58, 32, 16, 0.95)',
-            border: '2.5px solid #FFF8EC',
-            borderRadius: '12px',
-            padding: '5px',
-            boxShadow: '0 8px 22px rgba(20,10,5,.45)',
+            minWidth: '220px',
+            maxWidth: `calc(100% - ${BOX.inset * 2 + 6}px)`,
+            boxSizing: 'border-box',
+            background: '#3A2A1E',
+            border: `3px solid ${INK}`,
+            borderRadius: '22px',
+            padding: '8px 6px',
+            boxShadow: `4px 5px 0 ${INK}`,
             display: 'flex',
             flexDirection: 'column',
-            gap: '2px',
           }}
         >
           {node.choices.map((choice: DialogChoice, idx: number) => {
@@ -670,17 +727,13 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   goToNode(choice.next);
                 }}
                 style={{
-                  height: '42px',
-                  borderRadius: '8px',
-                  padding: '0 12px',
-                  fontFamily: "'Pool Pixel Default', monospace",
-                  fontSize: '17px',
-                  fontWeight: 600,
-                  WebkitFontSmoothing: 'antialiased',
-                  MozOsxFontSmoothing: 'grayscale',
-                  textRendering: 'geometricPrecision',
-                  color: isSelected ? '#3A2010' : '#FFF8EC',
-                  backgroundColor: isSelected ? '#FFF8EC' : 'transparent',
+                  height: '44px',
+                  padding: '0 18px 0 12px',
+                  fontFamily: FONT,
+                  fontSize: '26px',
+                  fontWeight: 400,
+                  color: isSelected ? '#FFFFFF' : '#B8A28C',
+                  background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
                   display: 'flex',
@@ -688,29 +741,12 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   width: '100%',
                   textAlign: 'left',
                   outline: 'none',
-                  transition: 'background-color 0.1s ease, color 0.1s ease',
                 }}
               >
-                <span
-                  style={{
-                    width: '12px',
-                    display: 'inline-block',
-                    flexShrink: 0,
-                    fontSize: '16px',
-                    lineHeight: 1,
-                    color: accent,
-                  }}
-                >
-                  {isSelected ? '▸' : ''}
+                <span style={{ width: '18px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+                  {isSelected ? <PixelArrow /> : null}
                 </span>
-                <span
-                  style={{
-                    flex: 1,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {choice.label}
                 </span>
               </button>
@@ -720,7 +756,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
       )}
 
       {/* ============================================= */}
-      {/* MESSAGE BOX (bottom 10px, left/right 10px)    */}
+      {/* MESSAGE BOX                                    */}
       {/* ============================================= */}
       <div
         ref={boxRef}
@@ -734,45 +770,62 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         }}
         style={{
           position: 'absolute',
-          bottom: '10px',
-          left: '10px',
-          right: '10px',
-          minHeight: narrow ? '128px' : '140px',
-          background: '#FFF8EC',
-          border: '2.5px solid #5A3A22',
-          borderRadius: '16px',
-          padding: '20px 16px 14px',
-          boxShadow: '0 6px 0 rgba(90,58,34,.18), 0 10px 24px rgba(40,25,15,.25)',
+          bottom: `${BOX.inset}px`,
+          left: `${BOX.inset}px`,
+          right: `${BOX.inset}px`,
+          height: `${boxH}px`,
+          boxSizing: 'border-box',
+          background: PAPER,
+          border: `3px solid ${INK}`,
+          borderRadius: '22px',
+          padding: `12px ${BOX.padX}px 10px`,
+          boxShadow: `4px 5px 0 ${INK}`,
           zIndex: 33,
           cursor: 'pointer',
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
+          alignItems: 'center',
         }}
       >
-        {/* Name tag pill on top of the box */}
+        {/* Curved pointer — its line runs along the top border so the join is seamless */}
+        <svg
+          aria-hidden="true"
+          width="60"
+          height="22"
+          viewBox="-10 0 60 22"
+          style={{ position: 'absolute', top: '-18px', left: 'calc(62% - 31px)', overflow: 'visible', pointerEvents: 'none' }}
+        >
+          <path d="M6 16.5 C12 16.5 14.5 13.5 17 9 C18.6 6.2 19.6 5 21 5 C22.4 5 23.4 6.2 25 9 C27.5 13.5 30 16.5 36 16.5 L36 22 L6 22 Z" fill={PAPER} />
+          <path
+            d="M-10 16.5 H6 C12 16.5 14.5 13.5 17 9 C18.6 6.2 19.6 5 21 5 C22.4 5 23.4 6.2 25 9 C27.5 13.5 30 16.5 36 16.5 H52"
+            fill="none"
+            stroke={INK}
+            strokeWidth="3"
+            strokeLinejoin="round"
+            strokeLinecap="butt"
+          />
+        </svg>
+
+        {/* Name tag — right side, tilted */}
         <div
           style={{
             position: 'absolute',
-            top: '-17px',
-            right: '14px',
+            top: '-18px',
+            right: '16px',
+            transform: 'rotate(-3deg)',
             height: '30px',
-            padding: '0 12px 0 5px',
-            borderRadius: '999px',
-            background: '#5A3A22',
-            color: '#FFF8EC',
-            fontFamily: "'Pool Pixel Default', monospace",
+            boxSizing: 'border-box',
+            padding: '0 12px 0 4px',
+            borderRadius: '8px',
+            background: accent,
+            border: `3px solid ${INK}`,
+            boxShadow: `2px 3px 0 ${INK}`,
+            color: PAPER,
+            fontFamily: FONT,
             fontSize: '16px',
-            fontWeight: 600,
-            lineHeight: '30px',
-            letterSpacing: 0,
-            WebkitFontSmoothing: 'antialiased',
-            MozOsxFontSmoothing: 'grayscale',
-            textRendering: 'geometricPrecision',
-            boxShadow: '0 2px 6px rgba(40,25,15,.35)',
+            fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '7px',
             zIndex: 10,
             pointerEvents: 'none',
           }}
@@ -782,8 +835,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
               width: '22px',
               height: '22px',
               borderRadius: '50%',
-              border: '2px solid #FFF8EC',
-              backgroundColor: accent,
+              backgroundColor: PAPER,
               overflow: 'hidden',
               flexShrink: 0,
               display: 'flex',
@@ -812,59 +864,45 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
           <span style={{ whiteSpace: 'nowrap' }}>{script.name}</span>
         </div>
 
-        {/* Text content */}
+        {/* Text — max 2 rows, centred vertically in the box */}
         <div
           style={{
-            fontFamily: "'Pool Pixel Default', monospace",
-            fontSize: `${fontSize}px`,
-            fontWeight: 400,
-            lineHeight: '29px',
+            fontFamily: FONT,
+            fontSize: `${TEXT.size}px`,
+            fontWeight: 500,
+            lineHeight: `${TEXT.lineHeight}px`,
             letterSpacing: 0,
-            color: '#4A3424',
-            wordBreak: 'break-word',
-            whiteSpace: 'pre-wrap',
-            flex: 1,
+            color: INK,
+            whiteSpace: 'pre',
+            overflow: 'hidden',
+            width: '100%',
             WebkitFontSmoothing: 'antialiased',
             MozOsxFontSmoothing: 'grayscale',
             textRendering: 'geometricPrecision',
           }}
         >
-          {displayedText}
+          {segments.length === 0
+            ? ' '
+            : segments.map((s, i) => (
+                <span key={i} style={s.hl ? { color: accent } : undefined}>{s.text}</span>
+              ))}
         </div>
 
-        {/* Continue arrow */}
-        {showContinueArrow && (
-          <div
-            className="dialog-bob-arrow"
-            style={{
-              position: 'absolute',
-              right: '14px',
-              bottom: '10px',
-              color: accent,
-              fontFamily: "'Pool Pixel Default', monospace",
-              fontSize: '16px',
-              lineHeight: 1,
-              pointerEvents: 'none',
-              userSelect: 'none',
-            }}
-          >
-            ▼
+        {/* Friendship heart (where ▼ used to be) */}
+        {showHeart && (
+          <div className="dialog-heart-beat" style={{ position: 'absolute', right: '13px', bottom: '10px', lineHeight: 0, pointerEvents: 'none' }}>
+            <PixelHeart level={friendship} />
           </div>
         )}
       </div>
 
-      {/* Keyframe injection for bob */}
       <style>{`
-        @keyframes dialogBob {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-4px);
-          }
+        @keyframes dialogHeartBeat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-1px); }
         }
-        .dialog-bob-arrow {
-          animation: dialogBob 1s ease-in-out infinite;
+        .dialog-heart-beat {
+          animation: dialogHeartBeat 1.4s steps(2, end) infinite;
         }
       `}</style>
     </div>

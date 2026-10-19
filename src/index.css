@@ -426,7 +426,8 @@ html, body {
 /* ========================================================= */
 
 .dialog-world-blur {
-  filter: blur(6px) saturate(1.05) brightness(0.9);
+  /* Talk screen v2: no blur — the dialog draws its own soft dim overlay */
+  filter: none;
   transition: filter 250ms ease;
 }
 .dialog-world-unblur {
