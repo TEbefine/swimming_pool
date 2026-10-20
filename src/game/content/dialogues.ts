@@ -78,10 +78,26 @@ export const dialogues: Record<string, DialogScript> = {
     accent: '#A0673F',
     start: 'greet',
     nodes: {
+      // Like a real café: she asks first — order something, or just talk?
       greet: {
         lines: [
           { text: '{greeting}! Welcome to the cafe.', pose: 'wave', face: 'smile' },
-          { text: 'What can I do for you?', pose: 'talk', face: 'neutral' },
+          { text: 'Would you like to order, or just talk?', pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'Order a drink', next: 'order' },
+          { label: 'Just talk', next: 'talk' },
+        ],
+      },
+      // App opens the order app (components/cafe/CafeOrder.tsx) when this node's dialogue closes.
+      order: {
+        lines: [
+          { text: "Here's our menu. Take your time!", pose: 'point', face: 'smile' },
+        ],
+      },
+      talk: {
+        lines: [
+          { text: "Sure! I'm all ears.", pose: 'happy', face: 'smile' },
         ],
         choices: [
           { label: "Today's tip", next: 'tip' },
