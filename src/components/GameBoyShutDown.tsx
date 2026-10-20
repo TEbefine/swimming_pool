@@ -6,7 +6,7 @@ interface GameBoyShutDownProps {
   isMobile?: boolean;
 }
 
-export const GameBoyShutDown: React.FC<GameBoyShutDownProps> = ({ onStart, isMobile }) => {
+export const GameBoyShutDown: React.FC<GameBoyShutDownProps> = ({ onStart }) => {
   return (
     <div
       className="gb-shutdown ls-ready ls-root"
@@ -19,24 +19,9 @@ export const GameBoyShutDown: React.FC<GameBoyShutDownProps> = ({ onStart, isMob
       }}
       role="button"
       tabIndex={0}
-      aria-label="Game Boy Shut Down. Press START to open."
+      aria-label="press on start to open"
     >
-      <div className="gb-shutdown-content">
-        <div className="gb-shutdown-badge">
-          <span className="gb-shutdown-dot" />
-          <span>GAME BOY SHUT DOWN</span>
-        </div>
-
-        <div className="gb-shutdown-prompt">
-          <span className="gb-shutdown-arrow">▶</span>
-          <span>PRESS START TO OPEN</span>
-          <span className="gb-shutdown-arrow">◀</span>
-        </div>
-
-        <div className="gb-shutdown-hint">
-          {isMobile ? '[ TAP SCREEN OR PRESS START ]' : '[ PRESS SPACE, ENTER OR START ]'}
-        </div>
-      </div>
+      <span className="gb-shutdown-line">press on start to open</span>
     </div>
   );
 };

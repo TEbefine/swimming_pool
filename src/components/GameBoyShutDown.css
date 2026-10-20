@@ -1,17 +1,18 @@
-/* Game Boy Shut-Down / Standby Screen */
+/* Game Boy Shut-Down / Standby Screen: Minimal retro LCD off-screen */
 
 .gb-shutdown {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #060a08;
-  background-image: 
-    radial-gradient(ellipse at 50% 50%, rgba(16, 32, 22, 0.45) 0%, rgba(5, 10, 7, 0.95) 100%),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.4) 0px, rgba(0, 0, 0, 0.4) 1px, transparent 1px, transparent 2px);
-  color: #a7f3d0;
+  /* Authentic unpowered Game Boy LCD screen color: soft muted grey-sage / minimal sora tone */
+  background-color: #8c9786;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(0, 0, 0, 0.08) 100%),
+    radial-gradient(rgba(0, 0, 0, 0.12) 15%, transparent 16%);
+  background-size: 100% 100%, 3px 3px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.28);
   user-select: none;
   cursor: pointer;
   overflow: hidden;
@@ -19,100 +20,37 @@
   outline: none;
 }
 
-/* Subtle corner glass glare */
+/* Subtle corner glass sheen */
 .gb-shutdown::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 28%, transparent 45%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.03) 30%, transparent 55%);
   pointer-events: none;
 }
 
-/* Subtle LCD dot-matrix texture */
-.gb-shutdown::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(34, 197, 94, 0.08) 15%, transparent 16%);
-  background-size: 4px 4px;
-  pointer-events: none;
-  opacity: 0.7;
-}
-
-.gb-shutdown-content {
+.gb-shutdown-line {
   position: relative;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  text-align: center;
+  font-family: 'VT323', 'Pool Pixel Default', monospace;
+  font-size: clamp(17px, 4.4cqw, 24px);
+  letter-spacing: 0.07em;
+  /* Authentic unlit liquid crystal pixel tone */
+  color: #1e261c;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
+  animation: gb-minimal-pulse 2.2s ease-in-out infinite;
+  transition: opacity 0.2s ease;
 }
 
-.gb-shutdown-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-  background: rgba(0, 0, 0, 0.65);
-  border: 1px solid rgba(52, 211, 153, 0.2);
-  color: rgba(110, 231, 183, 0.7);
-  font-family: 'VT323', monospace;
-  font-size: 13px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  margin-bottom: 0.85rem;
-}
-
-.gb-shutdown-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  background: #059669;
-  opacity: 0.6;
-  box-shadow: 0 0 6px rgba(5, 150, 105, 0.8);
-}
-
-.gb-shutdown-prompt {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: 'VT323', 'Rubik', monospace;
-  font-size: clamp(18px, 4.5cqw, 28px);
-  letter-spacing: 0.12em;
-  color: #34d399;
-  text-shadow: 0 0 10px rgba(52, 211, 153, 0.6), 0 0 20px rgba(16, 185, 129, 0.3);
-  animation: gb-pulse 1.6s ease-in-out infinite;
-  font-weight: bold;
-}
-
-.gb-shutdown-arrow {
-  font-size: 0.8em;
-  opacity: 0.8;
-}
-
-.gb-shutdown-hint {
-  margin-top: 0.6rem;
-  font-family: 'VT323', monospace;
-  font-size: clamp(12px, 2.5cqw, 15px);
-  color: rgba(110, 231, 183, 0.6);
-  letter-spacing: 0.08em;
-}
-
-@keyframes gb-pulse {
+@keyframes gb-minimal-pulse {
   0%, 100% {
-    opacity: 0.95;
-    transform: scale(1);
+    opacity: 0.85;
   }
   50% {
-    opacity: 0.4;
-    transform: scale(0.985);
+    opacity: 0.32;
   }
 }
 
-.gb-shutdown:hover .gb-shutdown-prompt {
-  color: #6ee7b7;
-  text-shadow: 0 0 14px rgba(110, 231, 183, 0.8), 0 0 26px rgba(52, 211, 153, 0.5);
+.gb-shutdown:hover .gb-shutdown-line {
+  opacity: 1;
 }
