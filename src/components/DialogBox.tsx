@@ -13,15 +13,39 @@ const INK = '#2B1E14';
 const PAPER = '#FFF8EC';
 const FONT = "'Pool Pixel Default', monospace";
 
-const BOX = {
-  inset: 6,        // px from the screen's left / right / bottom edges
-  oneRow: 84,      // box height when the page has 1 row (text centred)
-  twoRows: 112,    // box height when the page has 2 rows
-  padX: 18,
-  heartRoom: 28,   // the 2nd row stops this much earlier so it never hits the heart
-};
+const MAX_ROWS = 2;
 
-const TEXT = { size: 30, lineHeight: 36, maxRows: 2 };
+/**
+ * All talk-box sizes, scaled to the game screen. Base sizes (s = 1) are tuned for the phone
+ * Game Boy screen (~330×450 CSS px on an iPhone 13); bigger screens scale up, tiny phones a little down.
+ */
+function makeLayout(w: number, h: number) {
+  const s = w > 0 && h > 0 ? Math.min(1.4, Math.max(0.85, Math.min(w / 330, h / 450))) : 1;
+  const r = (n: number) => Math.round(n * s);
+  const border = s >= 1.25 ? 3 : 2;
+  const pixel = s >= 1.25 ? 2 : 1.5;           // size of one "pixel" in the heart / arrow art
+  const ptr = 0.72 * s;                         // pointer SVG scale
+  return {
+    s,
+    inset: r(5),
+    border,
+    radius: r(15),
+    shadow: `${r(3)}px ${r(3) + 1}px 0 ${INK}`,
+    text: r(20),
+    lineHeight: r(26),
+    padX: r(13),
+    oneRow: r(52),                              // box height for 1 row (text centred)
+    twoRows: r(76),                             // box height for 2 rows
+    heartRoom: r(22),                           // the 2nd row stops this much earlier (heart)
+    heartRight: r(10),
+    heartBottom: r(8),
+    pixel,
+    ptr,
+    tag: { h: r(24), font: r(13), head: r(17), top: -r(14), right: r(12), padL: r(3), padR: r(9), radius: r(7), gap: r(5) },
+    choice: { font: r(17), row: r(30), padY: r(5), padX: r(4), radius: r(14), minW: r(150), gap: r(10), rowPadL: r(9), rowPadR: r(14), arrowSlot: r(14) },
+    outline: s >= 1.25 ? 3 : 2,
+  };
+}
 
 const PORTRAIT = {
   narrowHeight: 0.70,   // share of overlay height when w < 420 (phone / GameBoy)
@@ -33,10 +57,10 @@ const PORTRAIT = {
   rightWide:    24,
 };
 
-// 3px dark outline + hard shadow around the cut-out photo.
+// Dark outline + hard shadow around the cut-out photo (2px on phones, 3px on big screens).
 // TODO(perf): bake this into the portrait files so low-end phones skip the filter work.
-const PORTRAIT_FILTER =
-  `drop-shadow(3px 0 0 ${INK}) drop-shadow(-3px 0 0 ${INK}) drop-shadow(0 3px 0 ${INK}) drop-shadow(0 -3px 0 ${INK}) drop-shadow(5px 5px 0 rgba(20,10,5,0.45))`;
+const portraitFilter = (o: number) =>
+  `drop-shadow(${o}px 0 0 ${INK}) drop-shadow(-${o}px 0 0 ${INK}) drop-shadow(0 ${o}px 0 ${INK}) drop-shadow(0 -${o}px 0 ${INK}) drop-shadow(${o + 2}px ${o + 2}px 0 rgba(20,10,5,0.45))`;
 
 /** Friendship heart, low → max: black → purple → pink → red. o/b/s/l = outline/base/shade/light, w = shine. */
 const HEARTS = [
@@ -103,12 +127,12 @@ function parseHighlights(raw: string): { plain: string; hl: boolean[] } {
  * Wrap text into rows as [start, end) ranges of `plain`. Row widths alternate: the 1st row of each
  * 2-row page may use `fullW`, the 2nd row only `lastW` (room for the heart).
  */
-function wrapRows(plain: string, fullW: number, lastW: number, font: string): Array<[number, number]> {
+function wrapRows(plain: string, fullW: number, lastW: number, font: string, size: number): Array<[number, number]> {
   const ctx = getMeasureCtx();
   if (ctx) ctx.font = font;
-  const measure = (s: string) => (ctx ? ctx.measureText(s).width : s.length * TEXT.size * 0.5);
+  const measure = (s: string) => (ctx ? ctx.measureText(s).width : s.length * size * 0.5);
   const rows: Array<[number, number]> = [];
-  const limit = () => (rows.length % TEXT.maxRows === TEXT.maxRows - 1 ? lastW : fullW);
+  const limit = () => (rows.length % MAX_ROWS === MAX_ROWS - 1 ? lastW : fullW);
 
   let paraStart = 0;
   const paragraphs = plain.split('\n');
@@ -132,16 +156,32 @@ function wrapRows(plain: string, fullW: number, lastW: number, font: string): Ar
     rows.push([start, end]);
     paraStart = end + 1; // skip the '\n'
   }
+  // A page that ends with only 1 row also shows the heart: if that row would reach the heart,
+  // move its last word down to a 2nd row.
+  if (rows.length % MAX_ROWS === 1) {
+    const [a, b] = rows[rows.length - 1];
+    if (b - a > 1 && measure(plain.slice(a, b)) > lastW) {
+      let cut = plain.lastIndexOf(' ', b - 1);
+      if (cut > a) {
+        rows.splice(rows.length - 1, 1, [a, cut], [cut + 1, b]);
+      } else {
+        // no space (long word / Thai): move the last few letters, never splitting a Thai mark from its letter
+        cut = Math.max(a + 1, b - 3);
+        while (cut > a + 1 && /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/.test(plain[cut])) cut--;
+        rows.splice(rows.length - 1, 1, [a, cut], [cut, b]);
+      }
+    }
+  }
   return rows.length > 0 ? rows : [[0, 0]];
 }
 
 type Page = { text: string; hl: boolean[]; rows: number };
 
-/** Group rows into pages of at most TEXT.maxRows rows. */
+/** Group rows into pages of at most MAX_ROWS rows. */
 function paginate(plain: string, hl: boolean[], rows: Array<[number, number]>): Page[] {
   const pages: Page[] = [];
-  for (let r = 0; r < rows.length; r += TEXT.maxRows) {
-    const chunk = rows.slice(r, r + TEXT.maxRows);
+  for (let r = 0; r < rows.length; r += MAX_ROWS) {
+    const chunk = rows.slice(r, r + MAX_ROWS);
     let text = '';
     const mask: boolean[] = [];
     chunk.forEach(([a, b], idx) => {
@@ -163,10 +203,10 @@ function preloadImages(paths: string[]): void {
 }
 
 /** Pixel friendship heart (11×10 grid drawn at 2×). */
-const PixelHeart: React.FC<{ level: number }> = ({ level }) => {
+const PixelHeart: React.FC<{ level: number; pixel: number }> = ({ level, pixel }) => {
   const h = HEARTS[Math.max(0, Math.min(HEARTS.length - 1, Math.round(level)))];
   return (
-    <svg role="img" aria-label={`Friendship: ${h.name}`} width="22" height="20" viewBox="0 0 11 10" shapeRendering="crispEdges">
+    <svg role="img" aria-label={`Friendship: ${h.name}`} width={11 * pixel} height={10 * pixel} viewBox="0 0 11 10" shapeRendering="crispEdges">
       <path d="M2 0h3v1h-3z M6 0h3v1h-3z M1 1h9v1h-9z M0 2h11v3h-11z M1 5h9v1h-9z M2 6h7v1h-7z M3 7h5v1h-5z M4 8h3v1h-3z M5 9h1v1h-1z" fill={h.o} />
       <path d="M2 1h3v1h-3z M6 1h3v1h-3z M1 2h9v3h-9z M2 5h7v1h-7z M3 6h5v1h-5z M4 7h3v1h-3z M5 8h1v1h-1z" fill={h.b} />
       <path d="M9 3h1v1h-1z M8 4h2v1h-2z M7 5h2v1h-2z M6 6h2v1h-2z M6 7h1v1h-1z M5 8h1v1h-1z" fill={h.s} />
@@ -177,8 +217,8 @@ const PixelHeart: React.FC<{ level: number }> = ({ level }) => {
 };
 
 /** Small white pixel arrow for the selected choice. */
-const PixelArrow: React.FC = () => (
-  <svg aria-hidden="true" width="8" height="14" viewBox="0 0 4 7" shapeRendering="crispEdges">
+const PixelArrow: React.FC<{ pixel: number }> = ({ pixel }) => (
+  <svg aria-hidden="true" width={4 * pixel} height={7 * pixel} viewBox="0 0 4 7" shapeRendering="crispEdges">
     <path d="M0 0h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1z" fill="#FFFFFF" />
   </svg>
 );
@@ -257,6 +297,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   // Layout calculations based on overlay dimensions
   const { w, h } = dims;
   const narrow = w > 0 ? w < 420 : true;
+  const L = useMemo(() => makeLayout(w, h), [w, h]);
 
   // Box inner width (measured) for text wrapping
   const [boxInnerW, setBoxInnerW] = useState(0);
@@ -264,17 +305,17 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     const el = boxRef.current;
     if (!el) return;
     const updateBox = () => {
-      const inner = el.clientWidth - BOX.padX * 2;
+      const inner = el.clientWidth - L.padX * 2;
       if (inner > 0) setBoxInnerW(inner);
     };
     updateBox();
     const ro = new ResizeObserver(() => updateBox());
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [L.padX]);
 
   const accent = script.accent || '#5A3A22';
-  const fontSpec = `500 ${TEXT.size}px ${FONT}`;
+  const fontSpec = `500 ${L.text}px ${FONT}`;
 
   useEffect(() => {
     if (typeof document === 'undefined' || !document.fonts?.load) return;
@@ -283,16 +324,16 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     return () => { alive = false; };
   }, [fontSpec]);
 
-  const innerWidth = Math.max(120, boxInnerW > 0 ? boxInnerW : (w > 0 ? w - BOX.inset * 2 - 6 - BOX.padX * 2 : 300));
+  const innerWidth = Math.max(120, boxInnerW > 0 ? boxInnerW : (w > 0 ? w - L.inset * 2 - L.border * 2 - L.padX * 2 : 300));
   const resolvedText = currentLine ? resolveDialogText(currentLine.text) : '';
 
   const pages = useMemo(() => {
     const { plain, hl } = parseHighlights(resolvedText);
-    const rows = wrapRows(plain, innerWidth - 2, innerWidth - BOX.heartRoom, fontSpec);
+    const rows = wrapRows(plain, innerWidth - 2, innerWidth - L.heartRoom, fontSpec, L.text);
     return paginate(plain, hl, rows);
     // fontTick: re-wrap once the pixel font is ready
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedText, innerWidth, fontSpec, fontTick]);
+  }, [resolvedText, innerWidth, fontSpec, fontTick, L.heartRoom, L.text]);
 
   const safePageIndex = pageIndex >= pages.length ? 0 : pageIndex;
   const currentPage = pages[safePageIndex] ?? { text: '', hl: [], rows: 1 };
@@ -301,13 +342,18 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   const isLastLine = node ? lineIndex >= node.lines.length - 1 : true;
 
   // Box height follows the text: 1 row → short box, 2 rows → tall box (never more than 2 rows)
-  const boxH = currentPage.rows <= 1 ? BOX.oneRow : BOX.twoRows;
+  const boxH = currentPage.rows <= 1 ? L.oneRow : L.twoRows;
 
   // Portrait: fixed size/position; the box covers its bottom ~6% (measured against the short box)
   const portraitHeight = Math.round(h * (narrow ? PORTRAIT.narrowHeight : PORTRAIT.wideHeight));
   const portraitMaxWidth = Math.round(w * PORTRAIT.maxWidth);
-  const portraitBottom = BOX.inset + BOX.oneRow - Math.round(portraitHeight * PORTRAIT.overlap);
+  const portraitBottom = L.inset + L.oneRow - Math.round(portraitHeight * PORTRAIT.overlap);
   const portraitRight = narrow ? PORTRAIT.rightNarrow : PORTRAIT.rightWide;
+
+  const pointerRight = Math.max(
+    Math.round(100 * L.s),
+    Math.round(portraitRight + portraitHeight * 0.5 - L.inset - (50 - 21) * L.ptr),
+  );
 
   const showHeart = isComplete && !showChoices;
 
@@ -625,7 +671,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
           <br />
           complete:{String(isComplete)} | choices:{String(showChoices)} ({choiceIndex})
           <br />
-          face:{currentFace} | overlay:{w}×{h} | boxH:{boxH} | textW:{innerWidth}
+          face:{currentFace} | overlay:{w}×{h} | scale:{L.s.toFixed(2)} | boxH:{boxH} | textW:{innerWidth}
           <br />
           portrait:{portraitMaxWidth}×{portraitHeight} bottom:{portraitBottom}
         </div>
@@ -669,7 +715,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   objectFit: 'contain',
                   objectPosition: 'right bottom',
                   imageRendering: 'auto',
-                  filter: PORTRAIT_FILTER,
+                  filter: portraitFilter(L.outline),
                 }}
               />
             )}
@@ -685,7 +731,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                 objectFit: 'contain',
                 objectPosition: 'right bottom',
                 imageRendering: 'auto',
-                filter: PORTRAIT_FILTER,
+                filter: portraitFilter(L.outline),
               }}
             />
           </div>
@@ -700,18 +746,18 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
           onClick={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
-            left: `${BOX.inset}px`,
-            bottom: `${BOX.inset + boxH + 16}px`,
+            left: `${L.inset}px`,
+            bottom: `${L.inset + boxH + L.choice.gap}px`,
             zIndex: 36,
             width: 'max-content',
-            minWidth: '220px',
-            maxWidth: `calc(100% - ${BOX.inset * 2 + 6}px)`,
+            minWidth: `${L.choice.minW}px`,
+            maxWidth: `calc(100% - ${L.inset * 2 + 6}px)`,
             boxSizing: 'border-box',
             background: '#3A2A1E',
-            border: `3px solid ${INK}`,
-            borderRadius: '22px',
-            padding: '8px 6px',
-            boxShadow: `4px 5px 0 ${INK}`,
+            border: `${L.border}px solid ${INK}`,
+            borderRadius: `${L.choice.radius}px`,
+            padding: `${L.choice.padY}px ${L.choice.padX}px`,
+            boxShadow: L.shadow,
             display: 'flex',
             flexDirection: 'column',
           }}
@@ -729,10 +775,10 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   goToNode(choice.next);
                 }}
                 style={{
-                  height: '44px',
-                  padding: '0 18px 0 12px',
+                  height: `${L.choice.row}px`,
+                  padding: `0 ${L.choice.rowPadR}px 0 ${L.choice.rowPadL}px`,
                   fontFamily: FONT,
-                  fontSize: '26px',
+                  fontSize: `${L.choice.font}px`,
                   fontWeight: 400,
                   color: isSelected ? '#FFFFFF' : '#B8A28C',
                   background: 'transparent',
@@ -745,8 +791,8 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                   outline: 'none',
                 }}
               >
-                <span style={{ width: '18px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
-                  {isSelected ? <PixelArrow /> : null}
+                <span style={{ width: `${L.choice.arrowSlot}px`, flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+                  {isSelected ? <PixelArrow pixel={L.pixel} /> : null}
                 </span>
                 <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {choice.label}
@@ -772,16 +818,16 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         }}
         style={{
           position: 'absolute',
-          bottom: `${BOX.inset}px`,
-          left: `${BOX.inset}px`,
-          right: `${BOX.inset}px`,
+          bottom: `${L.inset}px`,
+          left: `${L.inset}px`,
+          right: `${L.inset}px`,
           height: `${boxH}px`,
           boxSizing: 'border-box',
           background: PAPER,
-          border: `3px solid ${INK}`,
-          borderRadius: '22px',
-          padding: `12px ${BOX.padX}px 10px`,
-          boxShadow: `4px 5px 0 ${INK}`,
+          border: `${L.border}px solid ${INK}`,
+          borderRadius: `${L.radius}px`,
+          padding: `0 ${L.padX}px`,
+          boxShadow: L.shadow,
           zIndex: 33,
           cursor: 'pointer',
           display: 'flex',
@@ -791,17 +837,25 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         {/* Curved pointer — its line runs along the top border so the join is seamless */}
         <svg
           aria-hidden="true"
-          width="60"
-          height="22"
+          width={60 * L.ptr}
+          height={22 * L.ptr}
           viewBox="-10 0 60 22"
-          style={{ position: 'absolute', top: '-18px', left: 'calc(62% - 31px)', overflow: 'visible', pointerEvents: 'none' }}
+          style={{
+            position: 'absolute',
+            // keep the SVG's line (y = 16.5) exactly on the middle of the box's top border
+            top: `${-L.border / 2 - 16.5 * L.ptr}px`,
+            // point at the middle of the portrait (portraits are about as wide as they are tall), clear of the name tag
+            right: `${pointerRight}px`,
+            overflow: 'visible',
+            pointerEvents: 'none',
+          }}
         >
           <path d="M6 16.5 C12 16.5 14.5 13.5 17 9 C18.6 6.2 19.6 5 21 5 C22.4 5 23.4 6.2 25 9 C27.5 13.5 30 16.5 36 16.5 L36 22 L6 22 Z" fill={PAPER} />
           <path
             d="M-10 16.5 H6 C12 16.5 14.5 13.5 17 9 C18.6 6.2 19.6 5 21 5 C22.4 5 23.4 6.2 25 9 C27.5 13.5 30 16.5 36 16.5 H52"
             fill="none"
             stroke={INK}
-            strokeWidth="3"
+            strokeWidth={L.border / L.ptr}
             strokeLinejoin="round"
             strokeLinecap="butt"
           />
@@ -811,31 +865,31 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         <div
           style={{
             position: 'absolute',
-            top: '-18px',
-            right: '16px',
+            top: `${L.tag.top}px`,
+            right: `${L.tag.right}px`,
             transform: 'rotate(-3deg)',
-            height: '30px',
+            height: `${L.tag.h}px`,
             boxSizing: 'border-box',
-            padding: '0 12px 0 4px',
-            borderRadius: '8px',
+            padding: `0 ${L.tag.padR}px 0 ${L.tag.padL}px`,
+            borderRadius: `${L.tag.radius}px`,
             background: accent,
-            border: `3px solid ${INK}`,
-            boxShadow: `2px 3px 0 ${INK}`,
+            border: `${L.border}px solid ${INK}`,
+            boxShadow: `2px 2px 0 ${INK}`,
             color: PAPER,
             fontFamily: FONT,
-            fontSize: '16px',
+            fontSize: `${L.tag.font}px`,
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
-            gap: '7px',
+            gap: `${L.tag.gap}px`,
             zIndex: 10,
             pointerEvents: 'none',
           }}
         >
           <div
             style={{
-              width: '22px',
-              height: '22px',
+              width: `${L.tag.head}px`,
+              height: `${L.tag.head}px`,
               borderRadius: '50%',
               backgroundColor: PAPER,
               overflow: 'hidden',
@@ -870,9 +924,9 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
         <div
           style={{
             fontFamily: FONT,
-            fontSize: `${TEXT.size}px`,
+            fontSize: `${L.text}px`,
             fontWeight: 500,
-            lineHeight: `${TEXT.lineHeight}px`,
+            lineHeight: `${L.lineHeight}px`,
             letterSpacing: 0,
             color: INK,
             whiteSpace: 'pre',
@@ -892,8 +946,8 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 
         {/* Friendship heart (where ▼ used to be) */}
         {showHeart && (
-          <div className="dialog-heart-beat" style={{ position: 'absolute', right: '13px', bottom: '10px', lineHeight: 0, pointerEvents: 'none' }}>
-            <PixelHeart level={friendship} />
+          <div className="dialog-heart-beat" style={{ position: 'absolute', right: `${L.heartRight}px`, bottom: `${L.heartBottom}px`, lineHeight: 0, pointerEvents: 'none' }}>
+            <PixelHeart level={friendship} pixel={L.pixel} />
           </div>
         )}
       </div>
