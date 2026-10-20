@@ -63,6 +63,8 @@ interface DialogBoxProps {
 }
 
 const CHARS_PER_SEC = 40;
+/** Bump when portrait files are replaced, so phones fetch the new art instead of a cached copy. */
+const PORTRAIT_REV = '2026-10-19';
 const TIP_LS_KEY = 'pixel_pool_tip_read';
 
 /** Mark today's tip as read in localStorage. */
@@ -335,7 +337,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
   // Preload all portrait faces on mount (only when portraits are defined)
   useEffect(() => {
     if (!hasPortrait || !script.portraitDir || !script.faces) return;
-    const paths = script.faces.map(f => `${script.portraitDir}/${f}.webp`);
+    const paths = script.faces.map(f => `${script.portraitDir}/${f}.webp?v=${PORTRAIT_REV}`);
     preloadImages(paths);
     const t = setTimeout(() => setPortraitVisible(true), 50);
     return () => clearTimeout(t);
@@ -573,8 +575,8 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
     return null;
   }
 
-  const portraitSrc = hasPortrait ? `${script.portraitDir}/${currentFace}.webp` : '';
-  const prevPortraitSrc = hasPortrait && prevFace ? `${script.portraitDir}/${prevFace}.webp` : null;
+  const portraitSrc = hasPortrait ? `${script.portraitDir}/${currentFace}.webp?v=${PORTRAIT_REV}` : '';
+  const prevPortraitSrc = hasPortrait && prevFace ? `${script.portraitDir}/${prevFace}.webp?v=${PORTRAIT_REV}` : null;
   const fadeMask = `linear-gradient(180deg, #000 0, #000 calc(100% - ${PORTRAIT.fade}px), transparent 100%)`;
 
   // Debug flag (?debugDialog=1)
