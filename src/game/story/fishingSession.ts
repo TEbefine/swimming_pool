@@ -18,6 +18,7 @@ import { cast, difficultyOf, isOver, newFishing, press as pressRule, step, TUNIN
 import { ITEMS, itemIcon, withArticle, type ItemId } from './items';
 import { addItem, addLedger, getStory, recordSize, setEnergy, setFlag } from './storyStore';
 import { BOTTLE_NOTES, FREE_BY_ID, FREE_TABLE, TIERS, addToFishBook, freeIcon, freeTableNow } from '../fishing/freeFish';
+import { catchToCooler } from '../economy/walletStore';
 import { bangkokHour } from '../world/cityView';
 
 /** 'story' = The Heir of Dalbit (energy, bag, Ledger) · 'free' = Free Fishing with friends (Fish Book). */
@@ -375,6 +376,7 @@ function finish(now: number) {
       const r = addToFishBook(fish, fs.sizeCm);
       record = r.record;
       info.isNew = r.isNew;
+      catchToCooler(fish, fs.sizeCm); // ECO-01: fish you can sell go in the cooler (off in the live game)
       // tell everyone in the room about the big ones (chat bubble over your head)
       const f = FREE_BY_ID[fish];
       if (TIERS[f.tier].announce) {

@@ -9,6 +9,7 @@ import type { FishBookEntry, PendingCatch } from '../fishing/freeFish';
 import { attachStory, getDraftMeta, getStory, setDraftMeta, storyForSave, subscribeStory } from '../story/storyStore';
 import type { StoryState } from '../story/storyStore';
 import { DEV_TEST_ADDRESS, DEV_TEST_TOKEN } from '../../identity/devTestIdentity';
+import { attachWallet } from '../economy/walletStore';
 
 interface StorySave { day: number; step: string; revision: number; savedAt: number; state: StoryState }
 interface ServerView {
@@ -99,10 +100,12 @@ export async function attachPlayer(next: string | null): Promise<void> {
     status = 'guest'; storyStatus = 'idle'; lastCatchAt = null;
     attachFishBook(null);
     attachStory(null, null);
+    attachWallet(null);
     emit();
     return;
   }
   status = 'loading'; storyStatus = 'idle';
+  attachWallet(next); // device-only wallet for now (ECO-01); the server copy comes in step 8
   emit();
   try {
     const view = await call({ op: 'load' });

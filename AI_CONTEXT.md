@@ -128,6 +128,13 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - **Files:** `src/game/cafe/cafeMenu.ts` (pure menu data + prices + basket helpers), `src/game/cafe/cafeBarista.ts` (her read-back lines), `src/components/cafe/` (`CafeOrder.tsx`, `CupIcon.tsx`, `cafeOrder.css`), barista nodes `greet`/`order`/`talk` in `dialogues.ts`, wiring in `App.tsx` (search "Café order app"), `tests/cafe-menu.test.mjs`.
 - **Next (Teera decides):** one cup a day (Bangkok day) · "guess while she brews" question · drink → random NPC scene (watch-only vs. NPC talks to you) · a cup item in the bag.
 
+## ECO-01 · Fish shop economy: buy, sell, money (logic built 2026-10-27, not committed)
+- Loop: Quiet Bay catch → cooler (10 slots, fish spoil in 30 min) → Harbour Fish Shop: **Gen** buys fish, **Minato** sells sashimi/meals/drinks, Gen sells pantry/supplies → goods in the bag (gifts later).
+- Fish price = tier × size × freshness × "Gen wants today" (2 species/day, ×1.5, same for everyone) × glut (×0.9 per same species sold today, floor ×0.5). God tier, protected animals and treasure are not for sale. ≈23 coins/catch.
+- 48 goods from Teera's 3 sheets (icons cut to `public/sprites/shop/`), daily specials and limits, ice (+15 min freshness), cooler upgrades (+5 slots ×2). Shop goods can never be sold back. Minato never makes sashimi from freshwater fish (liver fluke).
+- **Off in the live game** (`ECONOMY_ON` = `npm run dev` or `?test=shop|free`) until the save server holds the wallet (step 8).
+- Doc: `docs/tech/fish-economy.md`. Code: `src/game/economy/` (pure `market.ts`, `wallet.ts`; store `walletStore.ts`), `tests/economy.test.mjs`. Next: the shop room + sell/buy screens.
+
 ## P-02 · Cleanup (2026-10-11)
 - Removed verified unused starter files, retired greybox tooling, old transfer snapshots, unused public map exports, and superseded font assets. Original production-art sources and active development harnesses remain.
 - Tailwind scans application source and the HTML entry only; design documents no longer add unused utility styles.
@@ -171,3 +178,4 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-16 · Claude · U-04: wired Teera's boot intro into Press START (src/boot, self-hosted fonts + WAVs, sw.js v4, input/music hold, ◯/START skip); npm test, tsc, build and production-preview browser checks (390×844, 1280×720) pass.
 - 2026-10-16 · Antigravity · U-04: Unified startup to single screen flow. Long absence / cold open shows Game Boy shut-down screen ("PRESS START TO OPEN") with unlit power LED, then triggers boot animation straight into game (no Barista loading screen). Quick reopen within 5–10 min shows Barista loading screen.
 - 2026-10-20 · Claude · CAFE-01 steps 1–2: barista asks Order / Just talk; delivery-app style order screen (menu, options, basket, place order) with touch + D-pad + keyboard; barista reads the order back and says "Here you are!" (fake). tsc, vite build, `npm test` (+5 café tests) and browser runs at 390×844 + 1280×760 pass.
+- 2026-10-27 · Claude · ECO-01: fish shop economy logic (market, cooler, sell/buy, ice, cooler upgrades, daily limits, safe save parsing), 48 shop icons + cutter, catch → cooler wiring, dev console; 24 new tests, 151 total pass, tsc clean. Not committed.
