@@ -36,6 +36,11 @@ import { getPendingCatches } from './game/fishing/freeFish';
 import { CafeOrder, type CafeInput } from './components/cafe/CafeOrder';
 import type { OrderLine } from './game/cafe/cafeMenu';
 import { orderCancelled, orderReadBack } from './game/cafe/cafeBarista';
+import { ShopCounter, type ShopInput } from './components/shop/ShopCounter';
+import { WalletChip } from './components/shop/WalletChip';
+import { ECONOMY_ON } from './game/economy/flags';
+import { SHOP_NODE_OPENS, SHOP_NPCS, genScript, minatoScript, shopAfter, type ShopTab, type ShopVisit } from './game/economy/shopTalk';
+import type { Vendor } from './game/economy/shopCatalog';
 import { DpadAdapter } from './components/gameMenu/menuInput';
 
 /** Context-action IDs that should route through engine.interact(). */
@@ -175,6 +180,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const cafeOrderPending = useRef(false);
   const cafeInputRef = useRef<((input: CafeInput) => void) | null>(null);
   const cafeDpad = useMemo(() => new DpadAdapter((dir) => cafeInputRef.current?.(dir as CafeInput)), []);
+  // Fish shop counter (ECO-01): Gen's "Sell my fish" / "Buy supplies" and Minato's "See the menu" open it
+  // when their line closes (components/shop/ShopCounter.tsx, game/economy/shopTalk.ts).
+  const [shop, setShop] = useState<{ vendor: Vendor; tab: ShopTab } | null>(null);
+  const shopPending = useRef<{ vendor: Vendor; tab: ShopTab } | null>(null);
+  const shopInputRef = useRef<((input: ShopInput) => void) | null>(null);
+  const shopDpad = useMemo(() => new DpadAdapter((dir) => shopInputRef.current?.(dir as ShopInput)), []);
+  /** A counter screen (café order app or fish shop) owns the controls. */
+  const counterOpen = cafeOrderOpen || shop !== null;
 
   /** Open a dialog with the given NPC without moving the player. */
   const openDialog = useCallback((npcId: string, scriptOverride?: DialogScript) => {
@@ -232,8 +245,22 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         engine.setDialogFrozen(true, npcId ?? undefined);
         setCafeOrderOpen(true);
       }
+      // Gen / Minato said their line → open the fish shop counter (the player stays at the counter)
+      if (shopPending.current) {
+        const open = shopPending.current;
+        shopPending.current = null;
+        engine.setDialogFrozen(true, npcId ?? undefined);
+        setShop(open);
+      }
     }
   }, [dialogNpcId]);
+
+  /** The fish shop counter closed: the NPC says a line about what you did there. */
+  const finishShop = useCallback((visit: ShopVisit) => {
+    shopDpad.reset();
+    setShop(null);
+    openDialog(visit.vendor, shopAfter(visit));
+  }, [shopDpad, openDialog]);
 
   /** The order app closed: the barista reads the order back ("Here you are!") or says "No rush". */
   const finishCafeOrder = useCallback((lines: OrderLine[] | null) => {
@@ -277,14 +304,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   }, []);
 
   const handleToggleSceneBox = useCallback(() => {
-    if (cafeOrderOpen) return; // ordering at the counter: SELECT waits
+    if (counterOpen) return; // ordering at a counter: SELECT waits
     const next = !sceneBoxOpen;
     // SELECT closes the START menu if it is open. Never two overlays at once.
     if (next) menu.close();
     setSceneBoxOpen(next);
     setSceneBoxConfirmTrigger(0);
     setSceneBoxDpadNudge(null);
-  }, [sceneBoxOpen, menu, cafeOrderOpen]);
+  }, [sceneBoxOpen, menu, counterOpen]);
 
   const handleToggleStartMenu = useCallback(() => {
     // START powers on the Game Boy / enters the game when waiting on the start screen.
@@ -294,9 +321,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     }
     // START closes the whole menu system from anywhere, but never opens it over a dialogue,
     // a trade window or the loading screen.
-    if (!menu.isOpen && (dialogOpen || storyPanel || loading || cafeOrderOpen)) return;
+    if (!menu.isOpen && (dialogOpen || storyPanel || loading || counterOpen)) return;
     menu.toggleStart();
-  }, [menu, dialogOpen, storyPanel, loading, cafeOrderOpen]);
+  }, [menu, dialogOpen, storyPanel, loading, counterOpen]);
 
   // =========================================================================
   // ◯ BUTTON / E KEY / O KEY — unified interact handler
@@ -316,6 +343,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     // Café order app → ◯ picks / confirms the focused row
     if (cafeOrderOpen) {
       cafeInputRef.current?.('confirm');
+      return;
+    }
+    // Fish shop counter → ◯ picks / buys / sells the focused row
+    if (shop) {
+      shopInputRef.current?.('confirm');
       return;
     }
     // A story window is open → use its buttons (tap / click)
@@ -348,7 +380,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       // Fallback: toggleWaterLand
       engine.toggleWaterLand();
     }
-  }, [menu, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel, cafeOrderOpen]);
+  }, [menu, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel, cafeOrderOpen, shop]);
 
   // =========================================================================
   // ✕ BUTTON — jump / splash, cancel SceneBox, or advances dialog
@@ -362,6 +394,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     // Café order app → ✕ goes back one screen (menu → closes the app)
     if (cafeOrderOpen) {
       cafeInputRef.current?.('back');
+      return;
+    }
+    // Fish shop counter → ✕ leaves the counter
+    if (shop) {
+      shopInputRef.current?.('back');
       return;
     }
     // A story window is open → ✕ closes it
@@ -396,7 +433,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     } else {
       engine.triggerEmote('jump');
     }
-  }, [menu, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel, cafeOrderOpen]);
+  }, [menu, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel, cafeOrderOpen, shop]);
 
   // =========================================================================
   // KEYBOARD: Tab for SceneBox, E and O for ◯, Escape for ✕
@@ -589,6 +626,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       // Fishing Guides record this Player ID's pending catches (ID-01 c)
       if (actionId === 'talk' && FISHING_GUIDES.has(targetId) && dialogues[targetId]) {
         openDialog(targetId, guideScript(dialogues[targetId], getPendingCatches().length, getCloudAddress() !== null));
+        return;
+      }
+      // Harbour Fish Shop (ECO-01): Gen / Minato talk about today's market and your cooler
+      if (actionId === 'talk' && SHOP_NPCS.has(targetId)) {
+        openDialog(targetId, targetId === 'gen' ? genScript() : minatoScript());
         return;
       }
       // Arrival Hall: talking to Fah or Tawan = checked in (Phu lets you out after that)
@@ -903,6 +945,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       onNodeEnter={(nodeId) => {
         if (storyActive) onStoryNode(dialogNpcId, nodeId);
         if (dialogNpcId === 'barista' && nodeId === 'order') cafeOrderPending.current = true;
+        const shopTab = SHOP_NODE_OPENS[dialogNpcId]?.[nodeId];
+        if (shopTab) shopPending.current = { vendor: dialogNpcId as Vendor, tab: shopTab };
         if (FISHING_GUIDES.has(dialogNpcId) && nodeId === 'record') {
           void recordPendingCatches().then((r) => setDialogScript((cur) => (cur ? withRecordResult(cur, r) : cur)));
         }
@@ -920,6 +964,23 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       onPlace={(lines) => finishCafeOrder(lines)}
       onClose={() => finishCafeOrder(null)}
     />
+  ) : null;
+
+  const shopElement = shop ? (
+    <ShopCounter
+      key={`${shop.vendor}-${shop.tab}`}
+      vendor={shop.vendor}
+      tab={shop.tab}
+      compact={effectiveIsMobile}
+      inputRef={shopInputRef}
+      onClose={finishShop}
+    />
+  ) : null;
+
+  // Coins + cooler in the corner at Quiet Bay and the fish shop (money system on only: npm run dev, ?test=shop|free)
+  const walletChipElement = (ECONOMY_ON && (currentRoom.roomId === 'lake_pier' || currentRoom.roomId === 'fish_shop')
+    && !dialogOpen && !counterOpen && !menu.isOpen && !fishingOpen && !loading) ? (
+    <WalletChip compact={effectiveIsMobile} />
   ) : null;
 
   const sceneBoxElement = sceneBoxOpen ? (
@@ -950,7 +1011,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   );
 
   // Canvas blur class for world focus effect
-  const canvasBlurClass = dialogOpen || cafeOrderOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
+  const canvasBlurClass = dialogOpen || counterOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
 
   // Loading scene / shut-down screen lives INSIDE the game screen (Game Boy window / arcade screen).
   const isShutDownScreen = loading && startupPlan.flow === 'shutdown' && !bootPlaying;
@@ -1013,7 +1074,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           playerCount={playerCount}
           chatLog={bootPlaying ? [] : visibleChatLog}
           statusLabel={isShutDownScreen ? 'STANDBY' : currentRoom.name}
-          hideStatusBadge={dialogOpen || cafeOrderOpen || menu.isOpen || isShutDownScreen}
+          hideStatusBadge={dialogOpen || counterOpen || menu.isOpen || isShutDownScreen}
           isPoweredOff={isShutDownScreen}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
@@ -1032,6 +1093,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
             } else if (cafeOrderOpen) {
               // Order app: one step per press, repeats while held (same feel as the START menu)
               cafeDpad.feed(dx, dy);
+            } else if (shop) {
+              shopDpad.feed(dx, dy);
             } else if (dialogOpen) {
               if (Math.abs(dy) > 0.4) {
                 setDialogDpadNudge({ dx, dy, timestamp: Date.now() });
@@ -1043,7 +1106,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           onToggleState={bootPlaying ? ignore : handleCircleAction}
           onCircleHold={bootPlaying ? ignore : fishingHold}
           onActionA={bootPlaying ? ignore : handleCrossAction}
-          onTriggerEmote={bootPlaying ? ignore : (action) => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen && !cafeOrderOpen) handleTriggerEmote(action); }}
+          onTriggerEmote={bootPlaying ? ignore : (action) => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen && !counterOpen) handleTriggerEmote(action); }}
           onSendMessage={handleSendMessage}
           onOpenFloatPicker={bootPlaying ? ignore : () => setFloatModalOpen(true)}
           onOpenNameModal={bootPlaying ? ignore : () => setNameModalOpen(true)}
@@ -1051,16 +1114,18 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           onToggleSceneBox={bootPlaying ? ignore : handleToggleSceneBox}
           onToggleStartMenu={bootPlaying ? ignore : handleToggleStartMenu}
           startMenuOpen={menu.isOpen}
-          playerInputBlocked={sceneBoxOpen || dialogOpen || cafeOrderOpen || bootPlaying}
+          playerInputBlocked={sceneBoxOpen || dialogOpen || counterOpen || bootPlaying}
           screenOverlay={
             <>
               {loadingElement ?? (
                 <>
                   {storyHudElement}
+                  {walletChipElement}
                   {fishingElement}
                   {standaloneFishBook}
                   {dialogBoxElement}
                   {cafeOrderElement}
+                  {shopElement}
                   {sceneBoxElement}
                   {gameMenuElement}
                 </>
@@ -1104,6 +1169,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
             {/* Story mode HUD (Dalbit rooms only) */}
             {storyHudElement}
 
+            {walletChipElement}
+
             {/* Fishing panel (Dalbit river mouth) */}
             {fishingElement}
             {standaloneFishBook}
@@ -1119,6 +1186,13 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
             {cafeOrderElement && (
               <div className="absolute inset-0 z-[30]">
                 {cafeOrderElement}
+              </div>
+            )}
+
+            {/* Desktop fish shop counter */}
+            {shopElement && (
+              <div className="absolute inset-0 z-[30]">
+                {shopElement}
               </div>
             )}
 
@@ -1138,7 +1212,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
             {/* Action & Emotes Bar + Chat Bar — hidden while a dialogue or story window is open (they covered its text).
                 The emote bar also hides while fishing: at Quiet Bay the float lands in the water right under it. */}
-            {!dialogOpen && !storyPanel && !cafeOrderOpen && !menu.isOpen && !isShutDownScreen && !bootPlaying && (
+            {!dialogOpen && !storyPanel && !counterOpen && !menu.isOpen && !isShutDownScreen && !bootPlaying && (
               <>
                 {!fishingOpen && (
                   <ActionBar

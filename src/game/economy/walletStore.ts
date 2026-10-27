@@ -13,10 +13,9 @@ import {
 } from './wallet';
 import type { CartLine, Fail, Wallet } from './wallet';
 
-const TEST = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('test') : null;
-const SANDBOX = TEST === 'shop' || TEST === 'free';
-/** Is the money system on in this build/page? (Off in the live game until the server step.) */
-export const ECONOMY_ON = import.meta.env.DEV || SANDBOX;
+import { ECONOMY_ON, ECONOMY_SANDBOX as SANDBOX } from './flags';
+
+export { ECONOMY_ON };
 
 const keyFor = (scope: string | null) => (SANDBOX ? 'sp_wallet_test' : `sp_wallet_v1_${scope ?? 'guest'}`);
 let scope: string | null = null;
@@ -87,7 +86,7 @@ export const takeBagItem = (uid: string) => run(takeGoods(wallet, uid, Date.now(
 
 // ---- dev console (npm run dev only; not in the production bundle) ----------------------------
 // In the browser console:  __shop.wallet()  __shop.sellAll()  __shop.buy('sashimi_akami')  __shop.coins(500)
-if (import.meta.env.DEV && typeof window !== 'undefined') {
+if (typeof import.meta.env !== 'undefined' && import.meta.env.DEV && typeof window !== 'undefined') {
   (window as unknown as Record<string, unknown>).__shop = {
     wallet: () => refreshWallet(),
     sellAll: () => sellToGen(wallet.cooler.map((c) => c.uid)),

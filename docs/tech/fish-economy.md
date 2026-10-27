@@ -56,7 +56,13 @@ Tuning (unit test prints it): **≈ 23 coins per catch** on average → a full s
 | `src/game/economy/market.ts` | Bangkok day, daily market (seeded), freshness, size, glut, fish quote, item price — pure |
 | `src/game/economy/wallet.ts` | the wallet: addCatch, quoteSell/sellFish, quoteBuy/buy, useGoods (ice), takeGoods (gifts), settle, parseWallet — pure, all-or-nothing |
 | `src/game/economy/walletStore.ts` | device storage per Player ID, `useWallet()`, actions, `ECONOMY_ON` gate, dev console `__shop` |
+| `src/game/economy/flags.ts` | `ECONOMY_ON` (dev or `?test=shop|free`), safe under plain Node |
+| `src/game/economy/shopTalk.ts` | Gen's and Minato's talk (built fresh: today's wanted fish, special, your cooler), which node opens which counter tab, the line after you leave |
+| `src/components/shop/ShopCounter.tsx` + `shop.css` | the counter screen: Sell fish (price in parts, freshness countdown) · Supplies / Sashimi / Meals (cart + Pay) · My bag (use ice) |
+| `src/components/shop/WalletChip.tsx` | coins + cooler chip at Quiet Bay and the shop |
+| `src/game/rooms/fishShop.ts`, `fishShopLayout.ts` | the room; `scripts/process_fish_shop.py` keys its sky |
 | `tests/economy.test.mjs` | 24 tests incl. limits, exploits, broken saves, tuning band, icons exist |
+| `tests/fish-shop.test.mjs` | the live game has no shop/exit/money; room geometry; every talk choice, pose and line length |
 | wiring | `fishingSession.ts` (catch → cooler), `cloud.ts` (wallet follows the Player ID) |
 
 Failures return a reason code; `REASON_LINES` gives a line in a character's voice (never an error pop-up).
@@ -64,13 +70,14 @@ Failures return a reason code; `REASON_LINES` gives a line in a character's voic
 ## 7. Safety: test never touches live
 - `ECONOMY_ON = import.meta.env.DEV || ?test=shop|free`. In the live game the cooler stays empty and no money exists yet.
 - Sandbox pages use their own wallet (`sp_wallet_test`). The dev console `__shop` exists only in `npm run dev`.
-- Try it now: `npm run dev` → Quiet Bay → catch fish → browser console: `__shop.wallet()`, `__shop.quote()`, `__shop.sellAll()`, `__shop.buy('sashimi_akami')`.
+- The shop room, the path to it from Quiet Bay and the coin chip are only registered when `ECONOMY_ON`.
+- Try it: `npm run dev` → Quiet Bay → catch fish → walk off the LEFT shore → talk to Gen ("Sell my fish") or Minato ("See the menu"). Console helpers still work: `__shop.coins(500)`, `__shop.reset()`.
 
 ## 8. Steps
 1. ✅ Logic + tests + icons (this doc)
-2. Shop room next to Quiet Bay (scene `fish_shop_src.webp`) + Gen & Minato standing in front of the counter
-3. Sell screen at Gen (cooler list with the price breakdown, Sell / Sell all)
-4. Buy screen at Minato/Gen — reuse the café order app layout (store header, tabs, basket)
+2. ✅ Shop room next to Quiet Bay (left shore) + Gen & Minato in front of the counter (2026-10-27, branch `feat/fish-shop`)
+3. ✅ Sell screen at Gen (cooler list, price in parts, freshness countdown, Select all, ice)
+4. ✅ Buy screen at Minato/Gen (tabs, cart, daily limits, special, Pay) — in the Bag look, not the café app look (a shop counter in a pixel harbour, not a phone app)
 5. Cooler + goods in the Bag; coins in the Bag header outside Dalbit (today it shows story coins)
 6. Gift goods to NPCs (`takeGoods`) — relationship spec
 7. Café coffee costs coins (first new sink)

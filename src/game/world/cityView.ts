@@ -67,6 +67,12 @@ export const ROOM_LIGHTS: Record<string, { x: number; y: number; radius: number;
     { x: 700, y: 161, radius: 16, color: [255, 200, 130] },
     { x: 758, y: 158, radius: 16, color: [255, 205, 140] },
   ],
+  // Harbour Fish Shop: the paper lantern and the light inside the shop
+  fish_shop: [
+    { x: 718, y: 196, radius: 44, color: [255, 214, 150] },   // paper lantern
+    { x: 490, y: 232, radius: 70, color: [255, 205, 140] },   // inside the shop, behind the noren
+    { x: 440, y: 272, radius: 50, color: [200, 228, 255] },   // the ice display
+  ],
   dalbit_yard: [
     { x: 430, y: 206, radius: 70, color: [255, 205, 140] },   // paper doors, lamp inside
     { x: 595, y: 200, radius: 45, color: [255, 205, 140] },   // small window

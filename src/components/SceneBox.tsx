@@ -21,7 +21,8 @@ const COLS = 3;
 const VISIBLE_ROWS = 2;
 
 // Every map you can travel to, in order. Story rooms (dalbit_*) stay out: you only enter them through the story.
-const MAP_ROOM_IDS: string[] = ['town', 'poolside', 'cafe', 'home', 'club', 'lake_pier', 'arrival_hall', 'temple'];
+// fish_shop is only registered where the money system is on (rooms/index.ts), so filter by what exists.
+const MAP_ROOM_IDS: string[] = ['town', 'poolside', 'cafe', 'home', 'club', 'lake_pier', 'fish_shop', 'arrival_hall', 'temple'].filter((id) => rooms[id]);
 // Fill the last row (and at least the 3×2 window) with locked "???" slots = maps still to come.
 const SLOT_ROOM_IDS: (string | null)[] = [
   ...MAP_ROOM_IDS,

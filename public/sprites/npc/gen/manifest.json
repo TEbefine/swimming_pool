@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/idle.webp"
+  },
+  "side_idle": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/back_idle.webp"
+  },
+  "walk1": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/walk1.webp"
+  },
+  "walk2": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/walk2.webp"
+  },
+  "wave": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/wave.webp"
+  },
+  "talk": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/talk.webp"
+  },
+  "happy": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/happy.webp"
+  },
+  "thinking": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/thinking.webp"
+  },
+  "serve": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/serve.webp"
+  },
+  "hold_fish": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/hold_fish.webp"
+  },
+  "headband": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/headband.webp"
+  },
+  "bow": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/bow.webp"
+  },
+  "thumbsup": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/thumbsup.webp"
+  },
+  "proud": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/proud.webp"
+  },
+  "blink": {
+    "width": 76,
+    "height": 79,
+    "path": "/sprites/npc/gen/blink.webp"
+  }
+}

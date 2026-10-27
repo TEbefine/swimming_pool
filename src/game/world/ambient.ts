@@ -106,6 +106,15 @@ export const AMBIENT: Record<string, AmbientConfig> = {
     ],
     beacons: [{ x: 866, y: 166, radius: 26, periodMs: 4000, color: [255, 236, 170] }],
   },
+  // Harbour Fish Shop (next to Quiet Bay): stars over the hills, the lantern pulses softly at night.
+  fish_shop: {
+    stars: { count: 80, maxY: 101 },
+    glints: [
+      [40, 210, 4], [180, 220, 3], [820, 214, 5], [905, 226, 4], [990, 240, 3], [60, 262, 5], [860, 270, 4],
+      [140, 500, 5], [330, 512, 4], [520, 520, 5], [700, 508, 3], [880, 530, 5], [240, 548, 4], [620, 556, 5],
+    ],
+    beacons: [{ x: 718, y: 196, radius: 18, periodMs: 5000, color: [255, 214, 150] }],
+  },
   // Quiet Temple: magic stays SUBTLE (quiet, sacred, never flashy). Everything here is code, not paint,
   // so it moves and reacts to day/night.
   temple: {
