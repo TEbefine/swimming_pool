@@ -119,6 +119,12 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - Assets: `public/fonts/Rubik-800-italic-latin.woff2`, `VT323-400-latin.woff2` (+ OFL notes), `public/audio/boot_note.wav`, `boot_glow.wav` (exact bytes from the HTML; sw.js `v4` caches .wav).
 - Checks: `tests/music.test.mjs` (hold), `npm test` (122 tests pass), `tsc -b`, `npm run build`.
 
+## U-05 · Destination loading stories: FIRST CAFÉ SCENE (2026-10-27, review pending)
+- Intent: real-photo NPC in a pixel setting, with one small pixel motion and a short line; the same identity can have different actions. First scene: Sun watches the train at the café. Photo pose generated from the existing server portrait, needs Teera’s identity/visual review.
+- Room-transition lifecycle comes from `GameEngine.changeRoom` and does not block loading. A 420 ms display threshold includes the existing fade, with immediate removal on completion. Boot/startup remains separate. Only one scene is prepared ahead, with a simple fallback when unavailable; future scene selection avoids the last story when possible. Reduced motion uses a still.
+- Files: `src/components/roomTransition/`, `src/App.tsx`, `src/game/Engine.ts`, `public/ui/stories/sun-window.webp`, `tests/room-transition.test.mjs`, `tests/engine-integration.test.mjs`, `docs/ui/room-transition-stories.md`.
+- Validate on iPhone 13 for real smoothness, temperature, visual identity and network/memory before treating performance as confirmed. See the doc for extension and one-scene cache limits.
+
 ## CAFE-01 · Café: order a drink (steps 1–2 built 2026-10-20, on `main` working tree, not committed)
 - **Idea (Teera):** the café is a once-a-day place to rest and learn by doing: order a coffee, learn whether it's strong or soft, drink it, and a random NPC scene plays. Knowledge told by an NPC is boring; knowledge found through an action sticks.
 - **Step 1 (done):** the barista asks first, like a real café: "Would you like to order, or just talk?" → **Order a drink** / **Just talk** (the old Today's tip / About / Bye menu).
@@ -181,3 +187,5 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-20 · Claude · CAFE-01 steps 1–2: barista asks Order / Just talk; delivery-app style order screen (menu, options, basket, place order) with touch + D-pad + keyboard; barista reads the order back and says "Here you are!" (fake). tsc, vite build, `npm test` (+5 café tests) and browser runs at 390×844 + 1280×760 pass.
 - 2026-10-27 · Claude · ECO-01: fish shop economy logic (market, cooler, sell/buy, ice, cooler upgrades, daily limits, safe save parsing), 48 shop icons + cutter, catch → cooler wiring, dev console; 24 new tests, 151 total pass, tsc clean. Not committed.
 - 2026-10-27 · Claude · ECO-01 steps 2–4 on `feat/fish-shop`: Harbour Fish Shop room (exit from Quiet Bay's left shore), Gen + Minato sprites and talk, sell/buy/bag counter screen, coins + cooler chip; dev/sandbox only. 155 tests, tsc, vite build pass; dev-server browser runs at 1280×760 and 390×844.
+
+- 2026-10-27 · Codex · U-05: first destination story framework and café Sun scene; test and iPhone/visual review pending.

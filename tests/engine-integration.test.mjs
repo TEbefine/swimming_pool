@@ -269,3 +269,41 @@ test('missing optional and scaled manifests preserve playable fallback art', asy
   assert.ok(env.drawCalls.length > 0);
   assert.equal(env.frames.size, 1);
 });
+
+test('room travel reports the true lifecycle and clears held movement', async (t) => {
+  const env = environment(t);
+  const engine = env.engine();
+  await engine.loadAssets();
+  engine.start();
+  const events = [];
+  engine.onRoomTransition = (room) => events.push(room?.roomId ?? null);
+  engine.setVirtualDpad(1, 0);
+  const travel = engine.changeRoom('home');
+  assert.equal(engine.isRoomTransitioning(), true);
+  assert.deepEqual(events, ['home']);
+  assert.equal(engine.virtualDpad.dx, 0);
+  assert.equal(await engine.changeRoom('poolside'), false);
+  for (let i = 0; i < 45; i++) { env.frame(); await flush(); }
+  assert.equal(await travel, true);
+  assert.equal(engine.isRoomTransitioning(), false);
+  assert.deepEqual(events, ['home', null]);
+});
+
+test('a failed room load ends the transition instead of trapping the overlay', async (t) => {
+  const env = environment(t);
+  const engine = env.engine();
+  await engine.loadAssets();
+  engine.start();
+  const events = [];
+  engine.onRoomTransition = (room) => events.push(room?.roomId ?? null);
+  engine.loadAssets = async () => { throw new Error('simulated failure'); };
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const travel = engine.changeRoom('home');
+    for (let i = 0; i < 45; i++) { env.frame(); await flush(); }
+    assert.equal(await travel, false);
+    assert.equal(engine.isRoomTransitioning(), false);
+    assert.deepEqual(events, ['home', null]);
+  } finally { console.error = originalError; }
+});

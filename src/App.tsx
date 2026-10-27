@@ -25,6 +25,8 @@ import type { ItemId } from './game/story/items';
 import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { LoadingScene } from './components/LoadingScene';
+import { RoomTransition } from './components/roomTransition/RoomTransition';
+import { usePreparedStory } from './components/roomTransition/usePreparedStory';
 import { GameBoyShutDown } from './components/GameBoyShutDown';
 import { music } from './game/audio/music';
 import { sound } from './game/audio';
@@ -96,6 +98,21 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   }, []);
 
   const [loading, setLoading] = useState(true);
+  const [transitionRoom, setTransitionRoom] = useState<RoomDefinition | null>(null);
+  const [transitionVisible, setTransitionVisible] = useState(false);
+  const lastShownStory = useRef<Record<string, string>>({});
+  const preparedStory = usePreparedStory(loading || !!transitionRoom, lastShownStory);
+  useEffect(() => {
+    if (!transitionRoom) { setTransitionVisible(false); return; }
+    // Includes the existing 300ms fade; fast loads never flash a loading screen.
+    const timer = window.setTimeout(() => setTransitionVisible(true), 420);
+    return () => window.clearTimeout(timer);
+  }, [transitionRoom]);
+  useEffect(() => {
+    if (transitionVisible && transitionRoom && preparedStory?.story.roomId === transitionRoom.roomId) {
+      lastShownStory.current[transitionRoom.roomId] = preparedStory.story.id;
+    }
+  }, [transitionVisible, transitionRoom, preparedStory]);
   const [loadProgress, setLoadProgress] = useState(0);
   // Loading scene: assets ready → wait for the player's tap, then fade out
   const [assetsReady, setAssetsReady] = useState(false);
@@ -304,7 +321,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   }, []);
 
   const handleToggleSceneBox = useCallback(() => {
-    if (counterOpen) return; // ordering at a counter: SELECT waits
+    if (counterOpen || engineRef.current?.isRoomTransitioning()) return; // SELECT waits during travel
     const next = !sceneBoxOpen;
     // SELECT closes the START menu if it is open. Never two overlays at once.
     if (next) menu.close();
@@ -315,6 +332,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
   const handleToggleStartMenu = useCallback(() => {
     // START powers on the Game Boy / enters the game when waiting on the start screen.
+    if (engineRef.current?.isRoomTransitioning()) return;
     if (enterGameRef.current) {
       enterGameRef.current();
       return;
@@ -331,6 +349,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const closeFishing = useCallback(() => stopFishing(), []);
 
   const handleCircleAction = useCallback(() => {
+    if (engineRef.current?.isRoomTransitioning()) return;
     if (enterGameRef.current) {
       enterGameRef.current();
       return;
@@ -386,6 +405,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   // ✕ BUTTON — jump / splash, cancel SceneBox, or advances dialog
   // =========================================================================
   const handleCrossAction = useCallback(() => {
+    if (engineRef.current?.isRoomTransitioning()) return;
     // Menu open → ✕ goes back exactly one level (item actions → Bag → field menu → game)
     if (menu.isOpen) {
       menu.press('back');
@@ -440,7 +460,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   // =========================================================================
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (identityPaused) return;
+      if (identityPaused || engineRef.current?.isRoomTransitioning()) return;
       if (bootPlayingRef.current) return; // the boot intro owns the keys (any key skips it)
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       // While the in-screen menu is open it owns the keyboard (the only menu key handler).
@@ -571,6 +591,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       setPlayerCountByRoom(engine.getPlayerCountByRoom());
     };
 
+    engine.onRoomTransition = (room) => { if (!cancelled) setTransitionRoom(room); };
     engine.onRoomChanged = (newRoom) => {
       setCurrentRoom(newRoom);
       setPlayerCountByRoom(engine.getPlayerCountByRoom());
@@ -1033,6 +1054,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         onEarlyTouch={() => { void music.tryAutoPlay(); }}
       />
     )
+  ) : transitionVisible && transitionRoom ? (
+    <RoomTransition roomName={transitionRoom.name} story={preparedStory?.story.roomId === transitionRoom.roomId ? preparedStory : null} />
   ) : null;
 
   // Track active gameplay session time (quick reload within 5-10 min vs long absence)
@@ -1078,7 +1101,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           isPoweredOff={isShutDownScreen}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
-            if (bootPlayingRef.current) {
+            if (engineRef.current?.isRoomTransitioning()) {
+              // No controller input while travelling.
+            } else if (bootPlayingRef.current) {
               // boot intro: no walking, no menus
             } else if (fishingOpen) {
               // no walking while the line is out
@@ -1103,18 +1128,18 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
               engineRef.current?.setVirtualDpad(dx, dy);
             }
           }}
-          onToggleState={bootPlaying ? ignore : handleCircleAction}
-          onCircleHold={bootPlaying ? ignore : fishingHold}
-          onActionA={bootPlaying ? ignore : handleCrossAction}
-          onTriggerEmote={bootPlaying ? ignore : (action) => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen && !counterOpen) handleTriggerEmote(action); }}
+          onToggleState={bootPlaying || !!transitionRoom ? ignore : handleCircleAction}
+          onCircleHold={bootPlaying || !!transitionRoom ? ignore : fishingHold}
+          onActionA={bootPlaying || !!transitionRoom ? ignore : handleCrossAction}
+          onTriggerEmote={bootPlaying || !!transitionRoom ? ignore : (action) => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen && !counterOpen) handleTriggerEmote(action); }}
           onSendMessage={handleSendMessage}
           onOpenFloatPicker={bootPlaying ? ignore : () => setFloatModalOpen(true)}
           onOpenNameModal={bootPlaying ? ignore : () => setNameModalOpen(true)}
           onOpenHelpModal={bootPlaying ? ignore : () => setHelpModalOpen(true)}
-          onToggleSceneBox={bootPlaying ? ignore : handleToggleSceneBox}
-          onToggleStartMenu={bootPlaying ? ignore : handleToggleStartMenu}
+          onToggleSceneBox={bootPlaying || !!transitionRoom ? ignore : handleToggleSceneBox}
+          onToggleStartMenu={bootPlaying || !!transitionRoom ? ignore : handleToggleStartMenu}
           startMenuOpen={menu.isOpen}
-          playerInputBlocked={sceneBoxOpen || dialogOpen || counterOpen || bootPlaying}
+          playerInputBlocked={sceneBoxOpen || dialogOpen || counterOpen || bootPlaying || !!transitionRoom}
           screenOverlay={
             <>
               {loadingElement ?? (
