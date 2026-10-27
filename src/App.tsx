@@ -26,6 +26,7 @@ import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { LoadingScene } from './components/LoadingScene';
 import { RoomTransition } from './components/roomTransition/RoomTransition';
+import { pickStory, TRANSITION_STORIES } from './components/roomTransition/stories';
 import { usePreparedStory } from './components/roomTransition/usePreparedStory';
 import { GameBoyShutDown } from './components/GameBoyShutDown';
 import { music } from './game/audio/music';
@@ -102,6 +103,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const [transitionVisible, setTransitionVisible] = useState(false);
   const lastShownStory = useRef<Record<string, string>>({});
   const preparedStory = usePreparedStory(loading || !!transitionRoom, lastShownStory);
+  const cafeStory = useMemo(() => transitionRoom?.roomId === 'cafe'
+    ? pickStory(TRANSITION_STORIES, 'cafe', lastShownStory.current.cafe) : null, [transitionRoom]);
   useEffect(() => {
     if (!transitionRoom) { setTransitionVisible(false); return; }
     // Includes the existing 300ms fade; fast loads never flash a loading screen.
@@ -109,10 +112,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     return () => window.clearTimeout(timer);
   }, [transitionRoom]);
   useEffect(() => {
-    if (transitionVisible && transitionRoom && preparedStory?.story.roomId === transitionRoom.roomId) {
-      lastShownStory.current[transitionRoom.roomId] = preparedStory.story.id;
+    const shown = preparedStory && transitionRoom && preparedStory.story.roomId === transitionRoom.roomId ? preparedStory.story : cafeStory;
+    if (transitionRoom && shown && (transitionVisible || transitionRoom.roomId === 'cafe')) {
+      lastShownStory.current[transitionRoom.roomId] = shown.id;
     }
-  }, [transitionVisible, transitionRoom, preparedStory]);
+  }, [transitionVisible, transitionRoom, preparedStory, cafeStory]);
   const [loadProgress, setLoadProgress] = useState(0);
   // Loading scene: assets ready → wait for the player's tap, then fade out
   const [assetsReady, setAssetsReady] = useState(false);
@@ -1054,8 +1058,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         onEarlyTouch={() => { void music.tryAutoPlay(); }}
       />
     )
-  ) : transitionVisible && transitionRoom ? (
-    <RoomTransition roomName={transitionRoom.name} story={preparedStory?.story.roomId === transitionRoom.roomId ? preparedStory : null} />
+  ) : transitionRoom && (transitionVisible || transitionRoom.roomId === 'cafe') ? (
+    <RoomTransition roomName={transitionRoom.name} story={preparedStory?.story.roomId === transitionRoom.roomId ? preparedStory : null} fallbackStory={cafeStory} />
   ) : null;
 
   // Track active gameplay session time (quick reload within 5-10 min vs long absence)
