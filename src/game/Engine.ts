@@ -430,6 +430,10 @@ export class GameEngine {
 
   // Room change callback
   public onRoomChanged?: (room: RoomDefinition) => void;
+  /** Reports accepted travel and completion; artwork never gates loadAssets. */
+  public onRoomTransition?: (room: RoomDefinition | null) => void;
+
+  public isRoomTransitioning(): boolean { return this.roomLoading; }
 
   // Callbacks to UI
   public onChatMessageReceived?: (msg: ChatMessage) => void;
@@ -710,6 +714,9 @@ export class GameEngine {
 
     return new Promise<boolean>((resolve) => {
       this.roomLoading = true;
+      this.clearKeys();
+      this.virtualDpad = { dx: 0, dy: 0 };
+      this.onRoomTransition?.(targetRoom);
       this.fadeDirection = 'out';
       this.fadeCallback = async () => {
         try {
@@ -768,11 +775,17 @@ export class GameEngine {
 
           // Fade back in
           this.roomLoading = false;
+          this.clearKeys();
+          this.virtualDpad = { dx: 0, dy: 0 };
+          this.onRoomTransition?.(null);
           this.fadeDirection = 'in';
           resolve(true);
         } catch (e) {
           console.error('Failed to change room:', e);
           this.roomLoading = false;
+          this.clearKeys();
+          this.virtualDpad = { dx: 0, dy: 0 };
+          this.onRoomTransition?.(null);
           this.fadeDirection = 'in';
           resolve(false);
         }
@@ -1037,7 +1050,7 @@ export class GameEngine {
   }
 
   private handleKeyDown = (e: KeyboardEvent) => {
-    if (this.identityPaused) return;
+    if (this.identityPaused || this.roomLoading) return;
     // If typing inside an input element, do not capture movement
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
       return;
@@ -1082,7 +1095,7 @@ export class GameEngine {
   };
 
   private handlePointerDown = (e: PointerEvent) => {
-    if (this.identityPaused) return;
+    if (this.identityPaused || this.roomLoading) return;
     if (!this.touchMoveEnabled) return;
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.canvas.width / rect.width;
@@ -1816,7 +1829,7 @@ export class GameEngine {
   private updateLocalPlayer(dt: number) {
     // If seated, dialog frozen, menu open, or fading out, don't process movement
     // Multiplayer note: The world does NOT pause: other players and NPCs keep moving.
-    if (this.seatedIndex >= 0 || this.dialogFrozen || this.menuFrozen || this.walkToActive || this.fadeDirection === 'out') return;
+    if (this.seatedIndex >= 0 || this.dialogFrozen || this.menuFrozen || this.walkToActive || this.roomLoading || this.fadeDirection === 'out') return;
 
     let dx = 0;
     let dy = 0;
