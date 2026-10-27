@@ -5,6 +5,7 @@ import { registerHooks } from 'node:module';
 import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { TRANSITION_STORIES } from '../src/components/roomTransition/stories.ts';
 
 registerHooks({
   resolve(specifier, context, next) {
@@ -29,12 +30,23 @@ const { LoadingScene } = await import('../src/components/LoadingScene.tsx');
 const props = { roomId: 'cafe', roomName: 'Weekday Chill Café', progress: 32, ready: false, leaving: false, onEnter() {} };
 const render = (overrides = {}) => renderToStaticMarkup(React.createElement(LoadingScene, { ...props, ...overrides }));
 
-test('café startup selects photographic Sun and pixel window rather than the meadow barista', () => {
+test('café startup composes the supplied reader, café, garden and ambient layers', () => {
   const html = render();
-  assert.match(html, /sun-cup-v2.webp/);
-  assert.match(html, /cafe-window-v2.webp/);
-  assert.match(html, /train_day.webp/);
+  for (const layer of ['sun', 'cafe', 'garden', 'leaves', 'steam', 'bird', 'leaf', 'spark']) {
+    assert.match(html, new RegExp(`${layer}-v1.webp`));
+  }
   assert.doesNotMatch(html, /barista_stand|meadow.webp/);
+});
+test('automatic entry has a truthful readiness message and no extra enter button', () => {
+  const html = render({ ready: true, automatic: true });
+  assert.match(html, /The café is ready/);
+  assert.doesNotMatch(html, /<button|Press SPACE|cfl-progress/);
+});
+test('startup keeps the selected variant instead of reverting to the first catalogue entry', () => {
+  const html = render({ story: { ...TRANSITION_STORIES[0], id: 'another-reading-scene', character: '/ui/loading/another-sun.webp', line: 'Another small chapter.' } });
+  assert.match(html, /another-sun.webp/);
+  assert.match(html, /Another small chapter/);
+  assert.doesNotMatch(html, /sun-v1.webp/);
 });
 test('ready café preserves the startup enter prompt and removes the loading bar', () => {
   const html = render({ ready: true, isMobile: true });

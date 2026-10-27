@@ -1,20 +1,25 @@
 # Room transition stories
 
-Room transitions can show a quiet story: a photo NPC, a pixel setting, a tiny pixel movement and one short line. The first scene is Sun watching the BTS at the café. Sun's new pose is an interpretation generated from the existing server portrait; Teera should review the identity and scene on iPhone.
+## Creator contract
 
-## How it works
+Each map will have its own character and situation. Teera supplies the elements; compose them as layers: photographic NPC with the same identity, pixel background, a few quietly moving pixel elements, and minimal story text. Keep the real person still. Do not replace supplied artwork with a generated interpretation.
 
-- `GameEngine.changeRoom` emits the destination when a real transition starts and clears it when loading settles. Startup/boot is separate and unchanged. The room loader never awaits this UI or its art.
-- The café scene appears at the start of a transition, during the existing 300 ms fade. Other destinations retain the 420 ms threshold. No minimum wait is imposed, and the scene goes away when the loader settles.
-- `usePreparedStory` chooses one destination and one story at random after gameplay becomes idle, prepares a maximum of one scene, and retains its two decoded image elements. It aborts unfinished work when gameplay becomes busy. For café, if the scene is not prepared, the small local images are requested as the transition begins; the destination never waits for them. Other destinations without prepared scenes use a plain text fallback. The browser may still use network, CPU and memory; verify on device.
-- `pickStory` excludes that room's previous story when possible. With one scene it can repeat. Selection is local to the session and never changes room loading or game state.
-- The scene is mounted inside the handheld/desktop game window. One clipped train moves using a transform. Reduced-motion users see a still train.
+The approved first scene is **Sun reading Le Petit Prince in the café**. Only café gets this new scene now. Future maps receive their own reviewed artwork; do not reuse Sun or Bao indiscriminately. Café has one scene today. As more are supplied, choose one at entry and avoid the previous one when another option exists; do not rotate scenes during a single load.
 
-## Add a future scene
+## Shared lifecycle
 
-1. Start from the matching character's existing identity image and create a new action with Teera's review. Keep the character photographic and the setting pixel art. Reuse existing room art if it suits the story.
-2. Save a right-sized, compressed local image under `public/ui/stories/` using a new filename. Check actual bytes **and decoded dimensions**, and test the silhouette in the small game window. Avoid 4K, video, large sprite sheets, filters and unnecessary animated layers.
-3. Add a unique entry to `TRANSITION_STORIES` in `stories.ts`: destination `roomId`, background path, character path, short line and supported effect. Add an effect only when it is truly needed, with a reduced-motion fallback. Do not preload the whole catalogue.
-4. Run `npm test`, TypeScript and the production build. Test cached and cold travel, image failures, fast and slow room loads, background/foreground, reduced motion, touch/keyboard controls and consecutive trips. Verify frame smoothness, warmth, network and memory on the iPhone 13; do not assume a size target guarantees performance.
+`GameEngine.changeRoom` announces the destination and begins real loading. App mounts the selected story immediately and returns a presentation promise. Essential artwork paints (or a bounded fallback is shown), then the five-second viewing clock begins. Room loading and this clock run in parallel. The engine keeps controls locked until both finish, then reveals the destination. Failed room loading clears the overlay; cancellation/disposal releases pending waits.
 
-The current implementation prewarms **one scene total**, so as more destinations are added it can fall back often. Improve prediction or a strictly bounded cache only after measuring. Never delay travel merely so the art can appear.
+`LoadingScene` uses the same café renderer on startup. A quick return shows it immediately. A cold open preserves PRESS START and the boot intro, then shows the café scene before gameplay. Explicit developer `?autostart`/test harnesses skip startup presentation only; normal map travel still shows the destination story.
+
+Destinations without a supplied story retain the existing simple fallback and 420 ms threshold. They do not inherit the café's five-second hold. The scene is inside the Game Boy/desktop game window, with one responsive camera crop for the interior and window layers.
+
+## Add the next scene
+
+1. Get Teera's reviewed NPC, setting and optional sprite elements. Preserve original masters separately. Remove chroma once during preparation, export compressed alpha WebP, and measure file bytes and decoded dimensions. Do not ship full GIFs or videos or do chroma keying at runtime.
+2. Add a unique record to `TRANSITION_STORIES` (`stories.ts`) with destination `roomId`, layer paths, one short line, `effect` and `minimumMs: 5000`. Reuse an existing renderer when the composition matches. Different layouts can get their own small renderer, but must use the same presentation promise and report `onPresented` after essential artwork/fallback paints.
+3. `pickStory` handles per-destination selection and avoiding repeats; the record chosen for a visit must stay fixed until it ends. Keep prewarming bounded to one selected story; do not preload the catalogue.
+4. Prefer small CSS transforms/opacity and short sprite strips. Static NPC and background; reduced-motion still frame; pause motion while hidden; no sound without user action.
+5. Check narrow/wide layouts, five-second fast and cached entries, slower real loads, missing art, input blocking, cancellation, cold boot, and repeat trips. Run the project's tests and full build. Check real-phone memory/heat separately.
+
+Current café assets, source provenance and timings: `cafe-startup-loading.md`.

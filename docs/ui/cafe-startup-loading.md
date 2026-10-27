@@ -1,17 +1,41 @@
-# Café startup loading: Sun watches the BTS
+# Café loading: Sun reads Le Petit Prince
 
-This changes the full `LoadingScene` shown on quick reopening into the café, as in Teera's screenshot. It does not change the cold-open shut-down/boot sequence. The previous room-travel overlay was a different screen.
+Teera's approved direction (27 October 2026): combine the supplied photographic Sun with supplied pixel scenery and small pixel animations. Preserve his face, body, book, pose and clothing. This replaces the earlier standing Sun/BTS interpretation. Use the supplied desktop and phone compositions as the framing reference.
 
-Layers:
-- Static 480×720 pixel café window background, 45,942 bytes.
-- Existing `/sprites/world/train_day.webp`, clipped to the window and translated across the viaduct in a 14-second cycle.
-- Static photographic male Sun cutout, 360×540 with alpha, 23,532 bytes. Generated with Sun's existing `server/portrait/neutral.webp` as the identity reference, holding a cup and looking left toward the window.
-- Room title, one short line and the existing loading/ready state. Ready still enters through the existing callback; there is no new minimum wait.
+The same scene appears on every entry into the café, including quick reopening and after the cold-start boot intro. The scene remains for at least **5 seconds from its painted artwork**, while real room loading runs concurrently. Fast/cached loads still get the whole scene. Slow loads finish before entry; they do not add another five seconds. Then the scene enters automatically. The startup fade is 500 ms; travel uses the engine's existing fade-in. Controls are blocked during loading.
 
-The character and background were made separately with the built-in image generation tool and resized/compressed for production. The photographic character must never be turned into pixel art. Review identity preservation with Teera; generation is an interpretation, not a guarantee of identical facial geometry.
+## Supplied layers
 
-Character prompt: preserve Sun's face identity, eyes, nose, jaw, hair, cheek bandage, age and slim body. Standing quietly, three-quarter facing left, head looking left and slightly upward at a train. Both hands naturally holding a small cream ceramic coffee cup at waist level. Entire head through knees. Oatmeal knit sweater, fitted dark-brown café apron with green leaf, dark olive trousers. Real human photograph with soft daylight, genuine transparent background. No glasses or beret.
+| File under public/ui/loading/cafe-reading | Role | Bytes |
+| --- | --- | ---: |
+| cafe-v1.webp | Static pixel interior with transparent window | 87,464 |
+| garden-v1.webp | Static garden behind the window | 85,710 |
+| sun-v1.webp | Static photographic Sun, chair, table, mug and book | 64,596 |
+| leaves-v1.webp | Window foliage with a 1.2-degree sway | 54,916 |
+| steam-v1.webp | Four small steam frames above the mug | 736 |
+| bird-v1.webp | Four bird frames, crossing inside the window | 1,188 |
+| leaf-v1.webp | Two leaf frames, one slow drift | 478 |
+| spark-v1.webp | Two small glint frames | 362 |
 
-Background prompt: static portrait pixel-art café, eye-level camera, large window, elevated concrete BTS viaduct outside, blue sky, Bangkok rooftops. No people, no text and no train; train is a separate animated layer. Warm wood and sage, coffee cup at lower left, clear space at right for Sun. Crisp square pixels with restrained shading.
+Total: **295,450 bytes**, about 8 MB decoded RGBA before browser-specific overhead. Largest side is 1,168 px. No GIF/video, new runtime dependency, canvas animation loop, live chroma key, photo deformation or generated replacement character. Green/magenta mattes were removed once during asset preparation. The original source images remain the user's masters. `scripts/prepare-cafe-reading.mjs` reproduces these optimized derivatives using optional offline Sharp tooling; Sharp is not part of the app.
 
-Reduced-motion preference makes the train still. No particles, video, zoom, pan or photographic body deformation. The two new compressed images total 69,474 bytes. Memory and heat still require physical iPhone testing.
+Source files: `Man reading a vintage Little Prince book(1).png`; the supplied `teerat_thongbai_…cozy_Bangkok_caf…`, `…lush_g…` and `…tropical_lea…` PNGs; `Cozy pixel café ambient sprite sheet.png`. No new image-generation prompts were used in this revision.
+
+## Loading and failure behavior
+
+- `CafeLoadingScene` waits for the three essential images to load and decode, then signals after a painted frame. Optional ambient art never gates entry.
+- Failed/stalled essential art gets a calm text fallback after at most 3 seconds. It still releases the viewing gate, so a missing loading image cannot trap the player.
+- `createPresentation` owns the cancellable minimum. The engine awaits presentation and actual loading, and clears held input before revealing the destination. Destroying the engine or unmounting App releases pending waits.
+- The status says “Opening the café…” until actual assets finish, then “The café is ready.” No invented percentage.
+- Reduced motion removes all scene animation; hidden-page motion pauses. There is no added audio.
+- `/ui/` uses the existing service-worker art cache. The global meadow/barista preloads were removed. At most one story is prewarmed during idle time; the whole future catalogue is never downloaded at startup.
+
+See `room-transition-stories.md` for adding the next destination. Physical-phone heat, memory and smoothness still need device review; compressed bytes alone do not establish those results.
+
+## Verification
+
+- 171 unit/integration checks pass, including painted-time timing, overlap with slow room loading, repeat visits, cancellation and input locking.
+- Full TypeScript, Vercel API smoke and Vite production build pass.
+- Chromium: actual App renders checked at 1280×900 and 390×844. Café travel twice, early keys, reduced motion, essential-image failure and cold boot all passed. Travel/boot scene duration was about 5.3–5.4 seconds including reveal; slow startup waits for its real assets.
+- `scripts/test-cafe-loading-browser.mjs` reproduces the lifecycle check using an optional local Playwright installation. It starts its own Vite test server; no real identity is used.
+- Repository-wide lint still reports two existing rules-of-hooks errors in unchanged `src/components/shop/ShopCounter.tsx`, plus existing warnings. No new lint error in changed loading files.

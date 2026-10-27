@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './LoadingScene.css';
 import { CafeLoadingScene } from './CafeLoadingScene';
+import { TRANSITION_STORIES, type TransitionStory } from './roomTransition/stories';
 
 /**
  * Loading scene shown INSIDE the game screen (Game Boy window on mobile, arcade screen on desktop).
@@ -17,6 +18,9 @@ export interface LoadingSceneProps {
   onEnter: () => void;
   isMobile?: boolean;
   onEarlyTouch?: () => void;
+  onPresented?: () => void;
+  automatic?: boolean;
+  story?: TransitionStory;
 }
 
 const PHRASES: Record<string, string[]> = {
@@ -200,6 +204,9 @@ const MeadowLoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, pro
 };
 
 /** Select the actual startup loading artwork by destination, not the travel overlay. */
-export const LoadingScene: React.FC<LoadingSceneProps> = (props) => props.roomId === 'cafe'
-  ? <CafeLoadingScene {...props} />
-  : <MeadowLoadingScene {...props} />;
+export const LoadingScene: React.FC<LoadingSceneProps> = (props) => {
+  const story = props.story ?? TRANSITION_STORIES.find((scene) => scene.roomId === props.roomId);
+  return story?.effect === 'reading'
+    ? <CafeLoadingScene {...props} story={story} />
+    : <MeadowLoadingScene {...props} />;
+};

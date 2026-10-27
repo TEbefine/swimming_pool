@@ -292,6 +292,7 @@ export class GameEngine {
   private waterLoads = new Map<string, Promise<void>>();
   private destroyed = false;
   private roomLoading = false;
+  private cancelStoryWait?: () => void;
 
   // Outside world & movers
   private movers: MoversManager = new MoversManager();
@@ -431,7 +432,8 @@ export class GameEngine {
   // Room change callback
   public onRoomChanged?: (room: RoomDefinition) => void;
   /** Reports accepted travel and completion; artwork never gates loadAssets. */
-  public onRoomTransition?: (room: RoomDefinition | null) => void;
+  public onRoomTransition?: (room: RoomDefinition | null) => void | Promise<void>;
+  public onRoomAssetsReady?: () => void;
 
   public isRoomTransitioning(): boolean { return this.roomLoading; }
 
@@ -716,7 +718,8 @@ export class GameEngine {
       this.roomLoading = true;
       this.clearKeys();
       this.virtualDpad = { dx: 0, dy: 0 };
-      this.onRoomTransition?.(targetRoom);
+      // The UI may hold its story while assets load in parallel. Input remains locked.
+      const presentation = this.onRoomTransition?.(targetRoom);
       this.fadeDirection = 'out';
       this.fadeCallback = async () => {
         try {
@@ -760,6 +763,16 @@ export class GameEngine {
 
           // Reload assets for new room
           await this.loadAssets();
+          if (this.destroyed) { resolve(false); return; }
+          this.onRoomAssetsReady?.();
+          if (presentation) {
+            try {
+              await new Promise<void>((done, reject) => {
+                this.cancelStoryWait = done;
+                Promise.resolve(presentation).then(done, reject);
+              });
+            } finally { this.cancelStoryWait = undefined; }
+          }
           if (this.destroyed) { resolve(false); return; }
 
           // Notify UI
@@ -1002,6 +1015,8 @@ export class GameEngine {
   public destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.cancelStoryWait?.();
+    this.cancelStoryWait = undefined;
     this.running = false;
     this.assetAbort.abort();
     for (const map of [this.sprites, this.elementImages, this.npcSprites, this.moverSprites]) {
