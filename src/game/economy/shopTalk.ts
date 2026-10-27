@@ -6,7 +6,7 @@
 // Gen = 74, the founder: buys your fish, strict about freshness, few words, warm underneath.
 // Minato = 23, his grandson, a former idol: cool, a little playful, serious about knives and fish.
 
-import type { DialogChoice, DialogScript } from '../content/dialogues';
+import type { DialogChoice, DialogScript, PortraitFace } from '../content/dialogues';
 import { npcName } from '../content/npcNames';
 import { FREE_BY_ID } from '../fishing/freeFishCatalog';
 import { itemPrice, marketOf } from './market';
@@ -24,6 +24,29 @@ export const SHOP_NODE_OPENS: Record<string, Record<string, ShopTab>> = {
 export const SHOP_NPCS = new Set(['gen', 'minato']);
 
 const ACCENT = '#2D458B'; // aizome indigo, the shop's colour
+
+// Dialogue portraits (photo, like the other NPCs): docs/characters/<id>/references → scripts/process_portraits_manual.py.
+// Each line's face follows its sprite pose unless the line names one.
+const PORTRAITS: Record<'gen' | 'minato', { faces: PortraitFace[]; byPose: Record<string, PortraitFace> }> = {
+  gen: {
+    faces: ['neutral', 'laugh', 'pleased', 'stern', 'whistle'],
+    byPose: { wave: 'pleased', talk: 'neutral', thinking: 'stern', hold_fish: 'neutral', proud: 'pleased', bow: 'pleased', thumbsup: 'laugh', idle: 'whistle' },
+  },
+  minato: {
+    faces: ['neutral', 'smile', 'explain', 'thinking', 'wink'],
+    byPose: { wave: 'smile', talk: 'explain', serve: 'smile', peace: 'wink', thinking: 'thinking', arms_crossed: 'neutral', headband: 'neutral', bow: 'smile', happy: 'smile' },
+  },
+};
+
+/** Add the portrait folder and a face to every line. */
+function withPortraits(id: 'gen' | 'minato', script: DialogScript): DialogScript {
+  const p = PORTRAITS[id];
+  const nodes = Object.fromEntries(Object.entries(script.nodes).map(([k, node]) => [k, {
+    ...node,
+    lines: node.lines.map((l) => ({ ...l, face: l.face ?? p.byPose[l.pose ?? ''] ?? 'neutral' })),
+  }]));
+  return { ...script, portraitDir: `/sprites/npc/${id}/portrait`, faces: p.faces, nodes };
+}
 const fishName = (id: string) => FREE_BY_ID[id]?.name ?? id;
 const andList = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
@@ -44,6 +67,9 @@ const MINATO_MENU: DialogChoice[] = [
 ];
 
 export function genScript(): DialogScript {
+  return withPortraits('gen', genLines());
+}
+function genLines(): DialogScript {
   const now = Date.now();
   const w = refreshWallet();
   const market = marketOf(now);
@@ -91,6 +117,9 @@ export function genScript(): DialogScript {
 }
 
 export function minatoScript(): DialogScript {
+  return withPortraits('minato', minatoLines());
+}
+function minatoLines(): DialogScript {
   const now = Date.now();
   const w = refreshWallet();
   const market = marketOf(now);
@@ -166,5 +195,5 @@ export function shopAfter(v: ShopVisit): DialogScript {
   } else {
     lines = [{ text: 'Just looking? Fine. Come back hungry.', pose: 'peace' }];
   }
-  return { ...base, start: 'after', nodes: { after: { lines } } };
+  return withPortraits(v.vendor, { ...base, start: 'after', nodes: { after: { lines } } });
 }
