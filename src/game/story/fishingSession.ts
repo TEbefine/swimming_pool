@@ -427,7 +427,9 @@ export function drawFishing(ctx: CanvasRenderingContext2D, layer: 'world' | 'top
 }
 
 function update(now: number) {
-  const dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
+  // The world and HUD can both tick. Never rewind time or simulate the same instant twice.
+  if (now <= lastTime) return;
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
   lastTime = now;
 
   if (view.aiming && now - chargeAt > AUTO_RELEASE_MS) release(now);
@@ -897,6 +899,9 @@ function drawPowerGauge(ctx: CanvasRenderingContext2D, now: number, reducedMotio
 
 /** Returns false after clearing a finished bar, so the HUD can stop requesting frames. */
 export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedMotion = false): boolean {
+  // Advance the timing-critical minigame with the small HUD, without redrawing the whole world.
+  // performance.now() is also used by the world; RAF timestamps may be older than a world draw.
+  if (view.active && engine && (view.aiming || fs.phase === 'reel')) update(performance.now());
   const W = REEL_BAR_W;
   const H = REEL_BAR_H;
   ctx.imageSmoothingEnabled = false;

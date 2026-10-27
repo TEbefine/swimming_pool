@@ -20,7 +20,8 @@ const ReelBar: React.FC<{ compact: boolean; phase: FishingView['phase']; aiming:
       stop();
       stop = startVisibleAnimation(
         (now) => drawReelBar(ctx, now, motion.matches),
-        compact || motion.matches ? 30 : 60,
+        // The small timing-critical gauge stays responsive on phones; the world keeps its own budget.
+        motion.matches ? 30 : 60,
       );
     };
     start();
