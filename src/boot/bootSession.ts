@@ -5,7 +5,7 @@
  * - If absent for a long time (or first open ever):
  *     Game Boy is shown as shut down ("PRESS START TO OPEN").
  *     Pressing START triggers the boot animation sequence ("SWIMMING POOL / by SAP Co.")
- *     and goes directly into the game. No Barista loading screen is shown.
+ *     then authored destinations show their loading story before entering the game.
  * - If reopened within 5 to 10 minutes (quick reload / return):
  *     Shows the Barista loading screen (LoadingScene) instead of the shut-down/boot animation.
  */

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './LoadingScene.css';
+import { CafeLoadingScene } from './CafeLoadingScene';
+import { TRANSITION_STORIES, type TransitionStory } from './roomTransition/stories';
 
 /**
  * Loading scene shown INSIDE the game screen (Game Boy window on mobile, arcade screen on desktop).
@@ -7,7 +9,7 @@ import './LoadingScene.css';
  * who only breathes. Art lives in /public/ui/loading/ (the service worker caches /ui/).
  */
 
-interface LoadingSceneProps {
+export interface LoadingSceneProps {
   roomId: string;
   roomName: string;
   progress: number; // 0..100
@@ -16,6 +18,9 @@ interface LoadingSceneProps {
   onEnter: () => void;
   isMobile?: boolean;
   onEarlyTouch?: () => void;
+  onPresented?: () => void;
+  automatic?: boolean;
+  story?: TransitionStory;
 }
 
 const PHRASES: Record<string, string[]> = {
@@ -86,7 +91,7 @@ const Particle: React.FC<{ p: P }> = ({ p }) => {
   );
 };
 
-export const LoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, progress, ready, leaving, onEnter, isMobile, onEarlyTouch }) => {
+const MeadowLoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, progress, ready, leaving, onEnter, isMobile, onEarlyTouch }) => {
   const phrases = useMemo(() => phrasesFor(roomId), [roomId]);
   const [phraseIdx, setPhraseIdx] = useState(0);
 
@@ -196,4 +201,12 @@ export const LoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, pr
       </div>
     </div>
   );
+};
+
+/** Select the actual startup loading artwork by destination, not the travel overlay. */
+export const LoadingScene: React.FC<LoadingSceneProps> = (props) => {
+  const story = props.story ?? TRANSITION_STORIES.find((scene) => scene.roomId === props.roomId);
+  return story?.effect === 'reading'
+    ? <CafeLoadingScene {...props} story={story} />
+    : <MeadowLoadingScene {...props} />;
 };

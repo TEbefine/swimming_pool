@@ -1,0 +1,37 @@
+.cfl-root { position:absolute; inset:0; overflow:hidden; container-type:size; isolation:isolate; background:#354239; color:#fff1cb; font-family:var(--font-pixel,monospace); transition:opacity .4s ease; }
+.cfl-leaving { opacity:0; pointer-events:none; }
+.cfl-art { position:absolute; inset:0; visibility:hidden; }
+.cfl-painted:not(.cfl-fallback) .cfl-art { visibility:visible; }
+/* A single camera crop for all room layers: never stretch or independently crop the window. */
+.cfl-stage { position:absolute; width:max(100cqw,178.4314cqh); height:max(100cqh,56.044cqw); left:50%; top:50%; transform:translate(-50%,-50%); }
+.cfl-background { position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
+.cfl-window { position:absolute; left:40.8%; top:15.5%; width:19.4%; height:50%; overflow:hidden; background:#314f45; }
+.cfl-garden { position:absolute; inset:0; height:100%; width:100%; object-fit:cover; image-rendering:pixelated; }
+.cfl-leaves { position:absolute; inset:-2% auto auto -3%; height:104%; width:auto; image-rendering:pixelated; transform-origin:0 0; animation:cfl-sway 9s ease-in-out infinite alternate; }
+.cfl-reader { position:absolute; left:50%; bottom:0; height:58cqh; width:38.6667cqh; transform:translateX(-50%); }
+.cfl-sun { display:block; height:100%; width:100%; }
+.cfl-sprite { display:block; position:absolute; width:6cqh; height:6cqh; overflow:hidden; image-rendering:pixelated; }
+.cfl-sprite img { display:block; width:400%; max-width:none; height:100%; animation:cfl-four 2.8s steps(4,end) infinite; }
+.cfl-steam { left:69%; top:26.5%; width:22%; height:13%; opacity:.65; }
+.cfl-bird-path { position:absolute; left:0; top:26%; width:100%; height:20%; animation:cfl-bird-pass 16s linear -1s infinite; }
+.cfl-bird { width:4.8cqh; height:4.8cqh; }
+.cfl-bird img { animation-duration:.9s; }
+.cfl-leaf-path { position:absolute; top:22%; left:4%; animation:cfl-leaf-drift 18s ease-in-out -4s infinite; }
+.cfl-leaf { width:3.5cqh; height:3.5cqh; opacity:.65; }
+.cfl-leaf img,.cfl-spark img { width:200%; animation:cfl-four 4s steps(2,end) infinite; }
+.cfl-spark { top:76%; left:28%; width:3cqh; height:3cqh; opacity:.5; animation:cfl-glimmer 5s ease-in-out infinite; }
+.cfl-caption { position:absolute; top:3%; left:3%; max-width:min(85%,38ch); display:flex; flex-direction:column; gap:4px; padding:7px 10px; background:#25352be0; border:1px solid #eadab28c; }
+.cfl-heading { font-size:clamp(12px,2.8cqh,19px); line-height:1.3; }
+.cfl-line { font-size:clamp(10px,2.1cqh,14px); line-height:1.35; }
+.cfl-bottom { position:absolute; bottom:3%; left:3%; z-index:2; font-size:clamp(10px,2.2cqh,14px); }
+.cfl-status { padding:5px 8px; background:#25352bd9; }
+.cfl-enter { font:inherit; color:inherit; background:#25352bf0; border:1px solid #eadab2; padding:6px 10px; }
+.cfl-surface { position:absolute; z-index:1; inset:0; width:100%; height:100%; border:0; padding:0; background:transparent; }
+.cfl-surface:disabled { pointer-events:none; }
+.cfl-paused * { animation-play-state:paused !important; }
+@keyframes cfl-four { to { transform:translateX(-100%); } }
+@keyframes cfl-sway { to { transform:rotate(1.2deg); } }
+@keyframes cfl-bird-pass { 0% { transform:translateX(-20%); } 65%,100% { transform:translateX(120%); } }
+@keyframes cfl-leaf-drift { 0% { transform:translate(0,0) rotate(-12deg); opacity:0; } 10%,80% { opacity:.65; } 100% { transform:translate(30cqw,40cqh) rotate(50deg); opacity:0; } }
+@keyframes cfl-glimmer { 0%,100% { opacity:.15; } 50% { opacity:.65; } }
+@media (prefers-reduced-motion:reduce) { .cfl-root,.cfl-root * { animation:none !important; transition:none !important; } .cfl-bird-path { left:30%; } }

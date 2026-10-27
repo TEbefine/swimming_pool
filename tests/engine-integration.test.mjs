@@ -307,3 +307,41 @@ test('a failed room load ends the transition instead of trapping the overlay', a
     assert.deepEqual(events, ['home', null]);
   } finally { console.error = originalError; }
 });
+
+test('travel keeps input blocked until both assets and the story are ready', async (t) => {
+  const env = environment(t);
+  const engine = env.engine('home');
+  await engine.loadAssets();
+  engine.start();
+  let release;
+  let assetsReady = false;
+  let changed = false;
+  const presentation = new Promise(resolve => { release = resolve; });
+  engine.onRoomTransition = room => room ? presentation : undefined;
+  engine.onRoomAssetsReady = () => { assetsReady = true; };
+  engine.onRoomChanged = () => { changed = true; };
+  const travel = engine.changeRoom('cafe');
+  for (let i = 0; i < 45; i++) { env.frame(); await flush(); }
+  assert.equal(assetsReady, true);
+  assert.equal(changed, false);
+  assert.equal(engine.isRoomTransitioning(), true);
+  assert.equal(await engine.changeRoom('home'), false);
+  release();
+  assert.equal(await travel, true);
+  assert.equal(changed, true);
+  assert.equal(engine.isRoomTransitioning(), false);
+  engine.destroy();
+});
+
+test('destroying the engine releases a pending story presentation', async (t) => {
+  const env = environment(t);
+  const engine = env.engine('home');
+  await engine.loadAssets();
+  engine.start();
+  engine.onRoomTransition = room => room ? new Promise(() => {}) : undefined;
+  const travel = engine.changeRoom('cafe');
+  for (let i = 0; i < 45; i++) { env.frame(); await flush(); }
+  assert.equal(engine.isRoomTransitioning(), true);
+  engine.destroy();
+  assert.equal(await travel, false);
+});

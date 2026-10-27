@@ -5,16 +5,29 @@ export interface TransitionStory {
   background: string;
   character: string;
   line: string;
-  effect: 'train';
+  effect: 'train' | 'reading';
+  minimumMs?: number;
+  garden?: string;
+  foliage?: string;
+  steam?: string;
+  bird?: string;
+  leaf?: string;
+  spark?: string;
 }
 
 // Add a new, reviewed scene here. Keep images small, local and independent of room readiness.
 export const TRANSITION_STORIES: readonly TransitionStory[] = [
   {
-    id: 'cafe-sun-train', roomId: 'cafe',
-    background: '/maps/thumbs/cafe.webp',
-    character: '/ui/stories/sun-window.webp',
-    line: 'Sun watches the train pass.', effect: 'train',
+    id: 'cafe-sun-reading-v1', roomId: 'cafe',
+    background: '/ui/loading/cafe-reading/cafe-v1.webp',
+    character: '/ui/loading/cafe-reading/sun-v1.webp',
+    garden: '/ui/loading/cafe-reading/garden-v1.webp',
+    foliage: '/ui/loading/cafe-reading/leaves-v1.webp',
+    steam: '/ui/loading/cafe-reading/steam-v1.webp',
+    bird: '/ui/loading/cafe-reading/bird-v1.webp',
+    leaf: '/ui/loading/cafe-reading/leaf-v1.webp',
+    spark: '/ui/loading/cafe-reading/spark-v1.webp',
+    line: 'Just one chapter today. Small is enough.', effect: 'reading', minimumMs: 5000,
   },
 ];
 

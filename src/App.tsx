@@ -26,8 +26,9 @@ import { dialogues } from './game/content/dialogues';
 import type { DialogScript } from './game/content/dialogues';
 import { LoadingScene } from './components/LoadingScene';
 import { RoomTransition } from './components/roomTransition/RoomTransition';
-import { pickStory, TRANSITION_STORIES } from './components/roomTransition/stories';
+import { pickStory, TRANSITION_STORIES, type TransitionStory } from './components/roomTransition/stories';
 import { usePreparedStory } from './components/roomTransition/usePreparedStory';
+import { createPresentation } from './components/roomTransition/presentation';
 import { GameBoyShutDown } from './components/GameBoyShutDown';
 import { music } from './game/audio/music';
 import { sound } from './game/audio';
@@ -72,9 +73,15 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
   // Startup mode:
   // - Long absence (or first open ever): Game Boy is shut down ("PRESS START TO OPEN"),
-  //   then BOOM boot animation ("SWIMMING POOL / by SAP Co."), into game. No Barista loading screen.
-  // - Reopening within 5 to 10 minutes: Barista loading screen (LoadingScene) shows instead.
+  //   then BOOM boot animation; authored destinations then show their loading story.
+  // - Reopening within 5 to 10 minutes: the destination LoadingScene shows immediately.
   const [startupPlan] = useState<StartupPlan>(() => getStartupPlan());
+  const [startupStory] = useState(() => pickStory(TRANSITION_STORIES, currentRoom.roomId));
+  const [startupSceneShowing, setStartupSceneShowing] = useState(startupPlan.flow !== 'shutdown');
+  const startupPresentation = useRef<ReturnType<typeof createPresentation> | null>(null);
+  const travelPresentation = useRef<ReturnType<typeof createPresentation> | null>(null);
+  const startupPresented = useCallback(() => startupPresentation.current?.presented(), []);
+  const travelPresented = useCallback(() => travelPresentation.current?.presented(), []);
 
   // =========================================================================
   // BOOT INTRO (src/boot): "SWIMMING POOL / by SAP Co." after Press START.
@@ -101,24 +108,18 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const [loading, setLoading] = useState(true);
   const [transitionRoom, setTransitionRoom] = useState<RoomDefinition | null>(null);
   const [transitionVisible, setTransitionVisible] = useState(false);
-  const lastShownStory = useRef<Record<string, string>>({});
+  const [transitionReady, setTransitionReady] = useState(false);
+  const [transitionStory, setTransitionStory] = useState<TransitionStory | null>(null);
+  const lastShownStory = useRef<Record<string, string>>(startupStory ? { [startupStory.roomId]: startupStory.id } : {});
   const preparedStory = usePreparedStory(loading || !!transitionRoom, lastShownStory);
-  const cafeStory = useMemo(() => transitionRoom?.roomId === 'cafe'
-    ? pickStory(TRANSITION_STORIES, 'cafe', lastShownStory.current.cafe) : null, [transitionRoom]);
   useEffect(() => {
     if (!transitionRoom) { setTransitionVisible(false); return; }
     // Includes the existing 300ms fade; fast loads never flash a loading screen.
     const timer = window.setTimeout(() => setTransitionVisible(true), 420);
     return () => window.clearTimeout(timer);
   }, [transitionRoom]);
-  useEffect(() => {
-    const shown = preparedStory && transitionRoom && preparedStory.story.roomId === transitionRoom.roomId ? preparedStory.story : cafeStory;
-    if (transitionRoom && shown && (transitionVisible || transitionRoom.roomId === 'cafe')) {
-      lastShownStory.current[transitionRoom.roomId] = shown.id;
-    }
-  }, [transitionVisible, transitionRoom, preparedStory, cafeStory]);
   const [loadProgress, setLoadProgress] = useState(0);
-  // Loading scene: assets ready → wait for the player's tap, then fade out
+  // Authored stories enter automatically after assets + their viewing minimum; legacy screens wait for a tap.
   const [assetsReady, setAssetsReady] = useState(false);
   const [loadingLeaving, setLoadingLeaving] = useState(false);
   const enterGameRef = useRef<(() => void) | null>(null);
@@ -180,8 +181,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
   // Synchronize menuFrozen with engine: local player stops walking, but the world does NOT pause.
   useEffect(() => {
-    engineRef.current?.setPause(identityPaused ? 'identity' : menu.isOpen || sceneBoxOpen || bootPlaying ? 'input' : 'none');
-  }, [identityPaused, menu.isOpen, sceneBoxOpen, bootPlaying]);
+    engineRef.current?.setPause(identityPaused ? 'identity' : loading || menu.isOpen || sceneBoxOpen || bootPlaying ? 'input' : 'none');
+  }, [identityPaused, loading, menu.isOpen, sceneBoxOpen, bootPlaying]);
 
   // =========================================================================
   // DIALOG STATE
@@ -464,7 +465,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   // =========================================================================
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (identityPaused || engineRef.current?.isRoomTransitioning()) return;
+      if (loading || identityPaused || engineRef.current?.isRoomTransitioning()) return;
       if (bootPlayingRef.current) return; // the boot intro owns the keys (any key skips it)
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       // While the in-screen menu is open it owns the keyboard (the only menu key handler).
@@ -541,7 +542,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       window.removeEventListener('keydown', handler);
       window.removeEventListener('keyup', up);
     };
-  }, [identityPaused, handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, menu, closeDialog, fishingOpen]);
+  }, [loading, identityPaused, handleCircleAction, handleToggleSceneBox, handleToggleStartMenu, dialogOpen, sceneBoxOpen, menu, closeDialog, fishingOpen]);
 
   // =========================================================================
   // ENGINE SETUP
@@ -576,10 +577,12 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
     let cancelled = false;
     let startTimer: number | undefined;
+    const startupGate = createPresentation(startupStory?.minimumMs ?? 0);
+    startupPresentation.current = startupGate;
 
     const engine = new GameEngine(canvasRef.current, currentRoom, playerName, floatColor);
     engineRef.current = engine;
-    engine.setPause(identityPaused ? 'identity' : 'none');
+    engine.setPause(identityPaused ? 'identity' : 'input');
     setLocalPlayerId(engine.localPlayer.id);
     engine.setTouchMoveEnabled(!effectiveIsMobile);
     engine.setCameraFollow(effectiveIsMobile);
@@ -595,7 +598,22 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       setPlayerCountByRoom(engine.getPlayerCountByRoom());
     };
 
-    engine.onRoomTransition = (room) => { if (!cancelled) setTransitionRoom(room); };
+    engine.onRoomTransition = (room) => {
+      travelPresentation.current?.cancel();
+      travelPresentation.current = null;
+      if (cancelled) return;
+      setTransitionReady(false);
+      setTransitionRoom(room);
+      const scene = room ? pickStory(TRANSITION_STORIES, room.roomId, lastShownStory.current[room.roomId]) : null;
+      setTransitionStory(scene);
+      if (scene) {
+        lastShownStory.current[scene.roomId] = scene.id;
+        const gate = createPresentation(scene.minimumMs ?? 5000);
+        travelPresentation.current = gate;
+        return gate.finished;
+      }
+    };
+    engine.onRoomAssetsReady = () => { if (!cancelled) setTransitionReady(true); };
     engine.onRoomChanged = (newRoom) => {
       setCurrentRoom(newRoom);
       setPlayerCountByRoom(engine.getPlayerCountByRoom());
@@ -688,8 +706,10 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       const handOver = () => {
         if (handedOver || cancelled) return;
         handedOver = true;
-        setLoading(false);
-        setLoadingLeaving(false);
+        if (!startupStory) {
+          setLoading(false);
+          setLoadingLeaving(false);
+        }
       };
       const watch = new MutationObserver(() => { if (host.querySelector('.boot')) { watch.disconnect(); handOver(); } });
       if (willShow) watch.observe(host, { childList: true });
@@ -717,7 +737,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       music.startRoomMusic();                  // either way, then the room music fades in
       bootPlayingRef.current = false;
       setBootPlaying(false);
-      if (!handedOver) {
+      if (!handedOver || startupStory) {
         handedOver = true;
         leaveLoading();
       }
@@ -753,21 +773,39 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         if (cancelled || entered) return;
         entered = true;
         enterGameRef.current = null;
-        engine.start();
-        setPlayerCountByRoom(engine.getPlayerCountByRoom());
-        onEngineReady?.(engine);
+        const startEngine = () => {
+          engine.start();
+          setPlayerCountByRoom(engine.getPlayerCountByRoom());
+          onEngineReady?.(engine);
+        };
+        if (!startupStory) startEngine();
+        const enterStory = async () => {
+          if (startupStory) {
+            setStartupSceneShowing(true);
+            await startupGate.finished;
+            if (cancelled) return;
+            startEngine();
+          }
+          leaveLoading();
+        };
         const host = bootHostRef.current;
-        if (!bootPlan.allowed || !host) {
+        if (!bootPlan.allowed || !host || (startupStory && !bootPlan.willShow)) {
           music.holdForBoot(false);
           void music.playStartChime();
-          leaveLoading();
+          void enterStory();
           return;
         }
-        void runBoot(host, leaveLoading);
+        void runBoot(host, () => { void enterStory(); });
       };
       // Dev harnesses and ?autostart skip the wait.
       if (devOverlay || new URLSearchParams(window.location.search).has('autostart')) {
+        startupGate.cancel();
         enterGameRef.current();
+        return;
+      }
+      if (startupStory && startupPlan.flow !== 'shutdown') {
+        await startupGate.finished;
+        if (!cancelled) enterGameRef.current?.();
         return;
       }
       startTimer = window.setTimeout(() => {
@@ -804,6 +842,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
     return () => {
       cancelled = true;
+      startupGate.cancel();
+      travelPresentation.current?.cancel();
       window.clearTimeout(syncTimer);
       window.clearTimeout(startTimer);
       document.removeEventListener('visibilitychange', visibilityChanged);
@@ -1039,9 +1079,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const canvasBlurClass = dialogOpen || counterOpen ? 'dialog-world-blur' : 'dialog-world-unblur';
 
   // Loading scene / shut-down screen lives INSIDE the game screen (Game Boy window / arcade screen).
-  const isShutDownScreen = loading && startupPlan.flow === 'shutdown' && !bootPlaying;
+  const isShutDownScreen = loading && !startupSceneShowing && !bootPlaying;
   const loadingElement = loading ? (
-    startupPlan.flow === 'shutdown' ? (
+    !startupSceneShowing ? (
       <GameBoyShutDown
         onStart={() => enterGameRef.current?.()}
         isMobile={effectiveIsMobile}
@@ -1051,15 +1091,18 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         roomId={currentRoom.roomId}
         roomName={currentRoom.name}
         progress={loadProgress}
-        ready={assetsReady}
+        ready={startupStory ? loadProgress === 100 : assetsReady}
         leaving={loadingLeaving}
         onEnter={() => enterGameRef.current?.()}
         isMobile={effectiveIsMobile}
         onEarlyTouch={() => { void music.tryAutoPlay(); }}
+        onPresented={startupPresented}
+        automatic={Boolean(startupStory)}
+        story={startupStory ?? undefined}
       />
     )
-  ) : transitionRoom && (transitionVisible || transitionRoom.roomId === 'cafe') ? (
-    <RoomTransition roomName={transitionRoom.name} story={preparedStory?.story.roomId === transitionRoom.roomId ? preparedStory : null} fallbackStory={cafeStory} />
+  ) : transitionRoom && (transitionVisible || transitionStory) ? (
+    <RoomTransition roomName={transitionRoom.name} story={preparedStory?.story.id === transitionStory?.id ? preparedStory : null} fallbackStory={transitionStory} ready={transitionReady} onPresented={travelPresented} />
   ) : null;
 
   // Track active gameplay session time (quick reload within 5-10 min vs long absence)
@@ -1105,7 +1148,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           isPoweredOff={isShutDownScreen}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
-            if (engineRef.current?.isRoomTransitioning()) {
+            if (loading || engineRef.current?.isRoomTransitioning()) {
               // No controller input while travelling.
             } else if (bootPlayingRef.current) {
               // boot intro: no walking, no menus
@@ -1132,18 +1175,18 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
               engineRef.current?.setVirtualDpad(dx, dy);
             }
           }}
-          onToggleState={bootPlaying || !!transitionRoom ? ignore : handleCircleAction}
-          onCircleHold={bootPlaying || !!transitionRoom ? ignore : fishingHold}
-          onActionA={bootPlaying || !!transitionRoom ? ignore : handleCrossAction}
-          onTriggerEmote={bootPlaying || !!transitionRoom ? ignore : (action) => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen && !counterOpen) handleTriggerEmote(action); }}
+          onToggleState={loading || bootPlaying || !!transitionRoom ? ignore : handleCircleAction}
+          onCircleHold={loading || bootPlaying || !!transitionRoom ? ignore : fishingHold}
+          onActionA={loading || bootPlaying || !!transitionRoom ? ignore : handleCrossAction}
+          onTriggerEmote={loading || bootPlaying || !!transitionRoom ? ignore : (action) => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen && !counterOpen) handleTriggerEmote(action); }}
           onSendMessage={handleSendMessage}
           onOpenFloatPicker={bootPlaying ? ignore : () => setFloatModalOpen(true)}
           onOpenNameModal={bootPlaying ? ignore : () => setNameModalOpen(true)}
           onOpenHelpModal={bootPlaying ? ignore : () => setHelpModalOpen(true)}
-          onToggleSceneBox={bootPlaying || !!transitionRoom ? ignore : handleToggleSceneBox}
-          onToggleStartMenu={bootPlaying || !!transitionRoom ? ignore : handleToggleStartMenu}
+          onToggleSceneBox={loading || bootPlaying || !!transitionRoom ? ignore : handleToggleSceneBox}
+          onToggleStartMenu={(loading && startupSceneShowing) || bootPlaying || !!transitionRoom ? ignore : handleToggleStartMenu}
           startMenuOpen={menu.isOpen}
-          playerInputBlocked={sceneBoxOpen || dialogOpen || counterOpen || bootPlaying || !!transitionRoom}
+          playerInputBlocked={loading || sceneBoxOpen || dialogOpen || counterOpen || bootPlaying || !!transitionRoom}
           screenOverlay={
             <>
               {loadingElement ?? (
