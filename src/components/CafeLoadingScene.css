@@ -1,0 +1,21 @@
+.cfl-root { position:absolute; inset:0; overflow:hidden; container-type:size; isolation:isolate; background:#2f352e; color:#fff5df; font-family:var(--font-pixel); opacity:1; transition:opacity .5s ease; }
+.cfl-leaving { opacity:0; pointer-events:none; }
+.cfl-stage { position:absolute; height:100%; width:100%; inset:0; }
+.cfl-background { position:absolute; width:100%; height:100%; object-fit:fill; image-rendering:pixelated; }
+.cfl-window { position:absolute; left:6.5%; top:26%; width:85%; height:7%; overflow:hidden; }
+.cfl-train { position:absolute; left:-80%; bottom:3%; width:72%; height:auto; image-rendering:pixelated; animation:cfl-train-pass 14s linear -1s infinite; transform-origin:center; }
+@keyframes cfl-train-pass { 0% { transform:translateX(0) translateY(-5px); } 65%,100% { transform:translateX(270%) translateY(5px); } }
+.cfl-sun { position:absolute; right:-8%; bottom:0; height:72%; width:auto; max-width:90%; object-fit:contain; object-position:bottom; }
+.cfl-heading { position:absolute; top:5%; left:6%; right:6%; font-size:clamp(16px,5cqw,28px); line-height:1.2; text-shadow:0 2px 2px #1e2927; }
+.cfl-bottom { position:absolute; z-index:2; bottom:5%; left:6%; right:6%; display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
+.cfl-line,.cfl-enter { font-size:clamp(12px,4cqw,20px); color:#fff5df; text-shadow:0 2px 2px #172b24; }
+.cfl-progress { display:block; width:42%; height:5px; background:#ffffff4d; overflow:hidden; }
+.cfl-progress > span { display:block; height:100%; background:#fff5df; transition:width .2s; }
+.cfl-enter { font-family:inherit; background:#273a30e6; border:1px solid #f3e9dc; padding:6px 10px; }
+.cfl-surface { position:absolute; z-index:1; inset:0; width:100%; height:100%; border:0; padding:0; background:transparent; }
+.cfl-surface:disabled { pointer-events:none; }
+@container (min-aspect-ratio:1/1) {
+  .cfl-stage { width:auto; height:100%; aspect-ratio:2/3; left:50%; right:auto; transform:translateX(-50%); }
+  .cfl-sun { right:-8%; }
+}
+@media (prefers-reduced-motion:reduce) { .cfl-train { animation:none; transform:translateX(120%); } .cfl-progress > span,.cfl-root { transition:none; } }
