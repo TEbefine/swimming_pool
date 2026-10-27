@@ -70,6 +70,9 @@ test('Gen and Minato: every choice leads somewhere, every counter node exists, p
         assert.ok(l.text.length <= 64, `${id}.${nodeId} line fits two rows: "${l.text}"`);
       }
     }
+    assert.equal(script.portraitDir, `/sprites/npc/${id}/portrait`);
+    for (const f of script.faces) assert.ok(existsSync(`public${script.portraitDir}/${f}.webp`), `${id} portrait ${f}`);
+    for (const node of Object.values(script.nodes)) for (const l of node.lines) assert.ok(script.faces.includes(l.face), `${id} face ${l.face}`);
     for (const nodeId of Object.keys(SHOP_NODE_OPENS[id])) assert.ok(script.nodes[nodeId], `${id} opens from ${nodeId}`);
   }
   const after = shopAfter({ vendor: 'gen', soldFish: 3, earned: 42, boughtItems: 0, spent: 0 });
