@@ -13,6 +13,11 @@ const ART = `art-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const AUDIO = `audio-${VERSION}`;
 const ART_LIMIT = 1200;
+// Cache.keys() can be expensive with hundreds of sprites. Scan on the first
+// write in a worker lifetime, then once per batch instead of for every image.
+const ART_TRIM_BATCH = 32;
+let artWritesSinceTrim = ART_TRIM_BATCH - 1;
+let artTrim = Promise.resolve();
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -50,18 +55,21 @@ async function cacheFirstAudio(request) {
   return res;
 }
 
-async function staleWhileRevalidate(request, event) {
+async function staleWhileRevalidate(request) {
   const cache = await caches.open(ART);
   const hit = await cache.match(request);
-  const refresh = fetch(request).then((res) => {
-    if (res.ok) cache.put(request, res.clone()).then(() => trim(ART, ART_LIMIT));
-    return res;
-  }).catch(() => hit);
-  if (hit) {
-    event.waitUntil(refresh);
-    return hit;
-  }
-  return refresh;
+  const refresh = fetch(request);
+  const update = refresh.then(async (res) => {
+    if (!res.ok) return;
+    await cache.put(request, res.clone());
+    if (++artWritesSinceTrim >= ART_TRIM_BATCH) {
+      artWritesSinceTrim = 0;
+      // Serialize scans so simultaneous downloads do not duplicate cleanup.
+      artTrim = artTrim.catch(() => {}).then(() => trim(ART, ART_LIMIT));
+      await artTrim;
+    }
+  }).catch(() => {}); // Offline or storage failures must not break a cache hit.
+  return { response: hit || refresh.catch(() => Response.error()), update };
 }
 
 async function networkFirst(request) {
@@ -87,6 +95,8 @@ self.addEventListener('fetch', (event) => {
   } else if (/^\/audio\/.*\.(m4a|wav)$/.test(url.pathname)) {
     event.respondWith(cacheFirstAudio(request));
   } else if (isArt(url.pathname)) {
-    event.respondWith(staleWhileRevalidate(request, event));
+    const task = staleWhileRevalidate(request);
+    event.respondWith(task.then(({ response }) => response));
+    event.waitUntil(task.then(({ update }) => update));
   }
 });
