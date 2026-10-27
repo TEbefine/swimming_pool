@@ -1,0 +1,49 @@
+{
+  "id": "gen",
+  "displayName": "Gen",
+  "role": "Founder of the Harbour Fish Shop (74), Minato's grandfather. Buys your fish and judges freshness; sells pantry and supplies.",
+  "room": "fish_shop",
+  "status": "sprite-draft",
+  "look": {
+    "hair": "white, close-cropped",
+    "headband": "white hachimaki tied at the FRONT",
+    "face": "thick white eyebrows, short white moustache",
+    "jacket": "faded indigo chef jacket",
+    "apron": "indigo apron, same wave badge",
+    "shoes": "white rubber boots"
+  },
+  "sheetPoses": [
+    "idle",
+    "side_idle",
+    "back_idle",
+    "walk1",
+    "walk2",
+    "wave",
+    "talk",
+    "happy",
+    "thinking",
+    "serve",
+    "hold_fish",
+    "headband",
+    "bow",
+    "thumbsup",
+    "proud",
+    "blink"
+  ],
+  "standPoses": [
+    "idle",
+    "side_idle",
+    "back_idle",
+    "walk1",
+    "walk2",
+    "thinking",
+    "proud",
+    "blink"
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/gen/",
+    "spriteManifest": "/sprites/npc/gen/manifest.json",
+    "sheetSource": "src/assets/npc_gen_sheet.webp"
+  },
+  "docs": "claude.ai Project: characters/shop-chef-minato.md"
+}

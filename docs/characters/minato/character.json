@@ -1,0 +1,49 @@
+{
+  "id": "minato",
+  "displayName": "Minato",
+  "role": "Chef at the Harbour Fish Shop (23, former idol). Sells sashimi, sushi, meals and drinks.",
+  "room": "fish_shop",
+  "status": "sprite-draft",
+  "look": {
+    "hair": "ash-silver, charcoal roots",
+    "headband": "white twisted hachimaki tied at the SIDE",
+    "earrings": "two small silver hoops",
+    "jacket": "deep indigo (aizome) wrap-collar chef jacket, cream piping, sleeves rolled",
+    "apron": "long indigo waist apron, white wave badge",
+    "shoes": "black sneakers"
+  },
+  "sheetPoses": [
+    "idle",
+    "side_idle",
+    "back_idle",
+    "walk1",
+    "walk2",
+    "wave",
+    "talk",
+    "happy",
+    "thinking",
+    "serve",
+    "hold_fish",
+    "headband",
+    "bow",
+    "peace",
+    "arms_crossed",
+    "blink"
+  ],
+  "standPoses": [
+    "idle",
+    "side_idle",
+    "back_idle",
+    "walk1",
+    "walk2",
+    "thinking",
+    "arms_crossed",
+    "blink"
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/minato/",
+    "spriteManifest": "/sprites/npc/minato/manifest.json",
+    "sheetSource": "src/assets/npc_minato_sheet.webp"
+  },
+  "docs": "claude.ai Project: characters/shop-chef-minato.md"
+}

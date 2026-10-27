@@ -1,6 +1,7 @@
 import type { NpcWander, RoomDefinition } from '../types';
 import { npcName } from '../content/npcNames';
 import { QUIET_BAY_FISHING, quietBayObstacles, quietBayWalk } from './quietBayLayout';
+import { ECONOMY_ON } from '../economy/flags';
 
 // Quiet Bay — FREE FISHING with friends (not the story). A calm Japanese harbour breakwater with a red
 // lighthouse (inspired by Ine Bay, Kyoto). Stand anywhere on the FRONT edge of the breakwater and press ◯:
@@ -43,7 +44,9 @@ export const lakePierRoom: RoomDefinition = {
     // the whole front edge: ◯ anywhere here = fish right where you stand
     { id: 'pier_end', label: 'Fish', rect: { x: 90, y: 384, width: 850, height: 22 } },
   ],
-  exits: [],
+  // ECO-01: the left shore leads to the Harbour Fish Shop (only where the money system is on)
+  exits: ECONOMY_ON ? [{ triggerBox: [80, 372, 12, 33], targetRoom: 'fish_shop' }] : [],
+  arrivals: { fish_shop: { x: 112, y: 390, facing: 1 } },
   npcs: [
     { id: 'nami', name: npcName('nami'), x: 170, y: 362, sprite: '/sprites/npc/nami', facing: 1,
       standAt: { dx: 40, dy: 14, facing: -1 }, hours: [6, 18], wander: GUIDE_PATROL },

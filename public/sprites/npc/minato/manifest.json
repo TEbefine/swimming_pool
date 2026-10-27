@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/idle.webp"
+  },
+  "side_idle": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/back_idle.webp"
+  },
+  "walk1": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/walk1.webp"
+  },
+  "walk2": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/walk2.webp"
+  },
+  "wave": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/wave.webp"
+  },
+  "talk": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/talk.webp"
+  },
+  "happy": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/happy.webp"
+  },
+  "thinking": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/thinking.webp"
+  },
+  "serve": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/serve.webp"
+  },
+  "hold_fish": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/hold_fish.webp"
+  },
+  "headband": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/headband.webp"
+  },
+  "bow": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/bow.webp"
+  },
+  "peace": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/peace.webp"
+  },
+  "arms_crossed": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/arms_crossed.webp"
+  },
+  "blink": {
+    "width": 72,
+    "height": 82,
+    "path": "/sprites/npc/minato/blink.webp"
+  }
+}

@@ -10,6 +10,8 @@ import { dalbitRiverRoom } from './dalbitRiver';
 import { dalbitMarketRoom } from './dalbitMarket';
 import { lakePierRoom } from './lakePier';
 import { arrivalHallRoom } from './arrivalHall';
+import { fishShopRoom } from './fishShop';
+import { ECONOMY_ON } from '../economy/flags';
 
 export const rooms: Record<string, RoomDefinition> = {
   town: townRoom,
@@ -23,6 +25,8 @@ export const rooms: Record<string, RoomDefinition> = {
   dalbit_market: dalbitMarketRoom,
   lake_pier: lakePierRoom,
   arrival_hall: arrivalHallRoom,
+  // ECO-01: the fish shop exists only where the money system is on (npm run dev, ?test=shop|free)
+  ...(ECONOMY_ON ? { fish_shop: fishShopRoom } : {}),
 };
 
 /** All room IDs in display order for the scene selector. */
