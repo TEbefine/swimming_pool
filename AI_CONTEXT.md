@@ -151,6 +151,16 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - Budget: 1 load read; accepted mutation 2 reads + 2 writes (player + operation log). 200 players * 40 accepted operations = 16,000 writes/day plus other traffic. Not a global Spark quota guarantee.
 - Source: `dev-test-id` updated from main; `main` must wait for review/phone check. Scope/checklist and validation details: `docs/tech/fish-economy.md` section 10.
 
+## TOWN-01 · The town layer — planned, prompt ready (2026-10-28); runs after ECO-04 + a week of live play
+- One shared `town/lumen-bay` document: fish `stock` per species (lazy logistic regrowth per Bangkok day, a `reserve` the server never goes below, auto closed season with a gap between `closeBelow` and `reopenAt`), VAT `fund`, `built` projects, audit `totals`, and the same `epoch` as the players.
+- Decided: VAT is included in the price and taxes buying, not selling; no bank; stock drops when a fish is SOLD (not caught); stock never changes which fish bite (the ECO-03 deck stays stateless); closed species are refused by Gen and released by the phone as a courtesy; no voting and no client admin in v1. `TOWN.targetPlayers` (default 50) scales every capacity.
+- Facts shown to players: Thailand's standard VAT is 10%, the reduced 7% is extended to 30 Sep 2027 (Royal Decree No. 807); the central Gulf is closed to fishing 15 Feb to 15 May each year (Fisheries Department). Sources are linked at the bottom of the prompt; re-check the year's order before a real date is shown.
+- **Budget warning:** the town document makes every accepted sale/buy 3 writes (player + log + town), so `opsPerDay = 40` at 200 players is 24,000 > 20,000. The plan must show the numbers and propose a fix before code. The town document is also a hot document (about 1 write/s).
+- Prompt: `docs/ai/PROMPT_town.md`. Open for Teera: currency name, expected concurrent players.
+
+## ECO-04 addendum · fresh-start epoch (2026-10-28)
+- `ECONOMY_EPOCH` (starts at 1) + player `econEpoch` (missing = 0). An older epoch lazily resets coins, goods, cooler level, counters and sold-set; the ledger is never erased (one closing entry `epoch`); Fish Book, story, relationships and cards are NOT touched. Bump it once right before the gate comes off. Prompt updated in `docs/ai/PROMPT_economy_live.md`.
+
 ## P-02 · Cleanup (2026-10-11)
 - Removed verified unused starter files, retired greybox tooling, old transfer snapshots, unused public map exports, and superseded font assets. Original production-art sources and active development harnesses remain.
 - Tailwind scans application source and the HTML entry only; design documents no longer add unused utility styles.
@@ -205,3 +215,5 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - 2026-10-28 · Codex · ECO-02(a) review fixes: clamp daily counters on config reductions; repair goods perishability through SHOP_BY_ID while retaining legacy stacks; enforce configured 2,000,000-coin balance ceiling; trim file endings. 23 targeted API tests and API TypeScript check pass. Teera verified the prior stage with npm test (178), tsc -b, test:api and build; earlier EISDIR confirmed environmental. Stage (b) sold-set shape presented before implementation.
 
 - 2026-10-28 · Codex · ECO-02(a) final review: balance normalization clamps without throwing, including fractional/over-ceiling balances; write-path guard remains strict. Sold-set design now derives 800 entries from the operation budget and maximum cooler size; timestamp collision and food-purchase slot invariants documented. 23 API tests and API TypeScript check pass locally; Teera verified preceding fixes with 181 tests, tsc -b and build. Await Teera's stage (a) merge before stage (b).
+
+- 2026-10-28 · Claude · TOWN-01 prompt (fish stock, VAT fund, Mayor and board, money audit, simulation tests) in docs/ai/PROMPT_town.md; ECO-04 prompt gains the fresh-start epoch. Docs only; no code changed, ECO-02 files untouched. Write-budget warning recorded (3 writes per op once the town document exists).
