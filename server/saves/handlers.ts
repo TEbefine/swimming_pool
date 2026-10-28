@@ -88,7 +88,8 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
       if (op === 'load') {
         onlyFields(body, ['op']);
         const raw = await services.readPlayer(address);
-        reply(res, 200, playerView(raw ? normalizePlayer(raw, now()) : null));
+        const t = now();
+        reply(res, 200, playerView(raw ? normalizePlayer(raw, t) : emptyPlayer(t)));
         return;
       }
 
@@ -158,3 +159,4 @@ function failSave(res: Response, err: unknown) {
   if (err instanceof SaveError || err instanceof LoginError) reply(res, err.status, { error: err.message });
   else reply(res, 503, { error: 'Saving is temporarily unavailable. Your progress is kept on this device; please retry.' });
 }
+

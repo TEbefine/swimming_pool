@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 const { createItemsHandler, DailyLimiter } = await import('../server/saves/handlers.ts');
 const { IpLimiter } = await import('../server/identity/http.ts');
-const { LIMITS, STORY } = await import('../server/saves/rules.ts');
+const { LIMITS, STORY, emptyPlayer, normalizePlayer, playerView } = await import('../server/saves/rules.ts');
 
 // ID-01 (c): /api/items with an in-memory transaction store. No Firebase, no network, no credentials.
 const address = '0x' + 'ab'.repeat(20);
@@ -70,7 +70,9 @@ test('load returns an empty save for a new Player ID and rejects extra fields', 
   const h = harness();
   const res = await h.call({ op: 'load' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body, { revision: 0, fishBook: {}, fishTotal: 0, lastCatchAt: null, story: { dalbit: null } });
+  assert.deepEqual(res.body, { revision: 0, fishBook: {}, fishTotal: 0, lastCatchAt: null, story: { dalbit: null }, coins: 0, coolerLevel: 0, goods: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} } });
+  assert.equal(h.players.size, 0, 'load creates no document');
+  assert.equal(h.logs.size, 0);
   assert.equal((await h.call({ op: 'load', catches: [] })).statusCode, 400);
   assert.equal((await h.call({ op: 'load', extra: 1 })).statusCode, 400);
   assert.equal((await h.call({ op: 'delete' })).statusCode, 400);
@@ -268,4 +270,132 @@ test('bodies over the size limit are refused before any work', async () => {
   const h = harness();
   const res = await h.call({ op: 'story.saveDay', operationId: opId(), world: 'dalbit', baseRevision: null, state: { ...day1(), pad: 'x'.repeat(30_000) } });
   assert.equal(res.statusCode, 413);
+});
+
+
+// ECO-02(a): schema/load only. No money endpoint or client-cache migration yet.
+test('old player saves load economy defaults without a write or changing story/Fish Book', async () => {
+  const h = harness();
+  await record(h, [{ fish: 'sardine', sizeCm: 15, caughtAt: NOON - 10_000 }]);
+  await saveDay(h, day1(), null);
+  const old = h.players.get(address);
+  delete old.coins; delete old.goods; delete old.coolerLevel; delete old.econ;
+  const before = structuredClone(old);
+  const logsBefore = h.logs.size;
+  const res = await h.call({ op: 'load' });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.coins, 0);
+  assert.equal(res.body.coolerLevel, 0);
+  assert.deepEqual(res.body.goods, []);
+  assert.equal(res.body.fishTotal, 1);
+  assert.deepEqual(res.body.story.dalbit.state, day1());
+  assert.deepEqual(h.players.get(address), before);
+  assert.equal(h.logs.size, logsBefore);
+});
+
+test('goods expire exactly at expiresAt; keepers survive; load never writes cleanup', async () => {
+  const h = harness();
+  const keeper = { uid: 'nori-1', id: 'nori', qty: 2, at: NOON - 100, expiresAt: null };
+  const food = { uid: 'food-1', id: 'sashimi_akami', qty: 1, at: NOON - 100, expiresAt: NOON + 1 };
+  h.players.set(address, { ...emptyPlayer(NOON), coins: 123, coolerLevel: 2, goods: [keeper, food] });
+  assert.deepEqual((await h.call({ op: 'load' })).body.goods, [keeper, food]);
+  h.tick(1);
+  const res = await h.call({ op: 'load' });
+  assert.deepEqual(res.body.goods, [keeper]);
+  assert.equal(res.body.coins, 123);
+  assert.equal(res.body.coolerLevel, 2);
+  assert.equal(h.players.get(address).goods.length, 2, 'read-only expiry');
+  assert.equal(h.logs.size, 0);
+  await record(h, [{ fish: 'sardine', sizeCm: 15, caughtAt: NOON - 10_000 }]);
+  assert.deepEqual(h.players.get(address).goods, [keeper], 'next accepted write persists cleanup');
+  assert.equal(h.players.get(address).coins, 123, 'Fish Book writes preserve economy');
+});
+
+test('Bangkok midnight resets only economy daily counters', () => {
+  const midnight = Date.UTC(2026, 9, 10, 17);
+  const doc = emptyPlayer(midnight - 1);
+  doc.coins = 90; doc.coolerLevel = 1;
+  doc.econ.soldToday = { sardine: 3 }; doc.econ.boughtToday = { nori: 2 }; doc.econ.earnedToday = 50;
+  assert.equal(normalizePlayer(doc, midnight - 1).econ.earnedToday, 50);
+  const next = normalizePlayer(doc, midnight);
+  assert.deepEqual(next.econ, emptyPlayer(midnight).econ);
+  assert.equal(next.coins, 90);
+  assert.equal(next.coolerLevel, 1);
+  assert.equal(doc.econ.earnedToday, 50, 'normalization is pure');
+});
+
+test('malformed economy values, oversized bags and duplicate goods cannot inflate a save', () => {
+  const good = { uid: 'nori-1', id: 'nori', qty: 20, at: NOON, expiresAt: null };
+  const raw = { ...emptyPlayer(NOON), coins: -2, coolerLevel: 3,
+    goods: [good, good, { ...good, uid: 'x'.repeat(65) }, { ...good, uid: 'bad-stack', qty: 21 },
+      { ...good, uid: 'bad-id', id: 'invented' }, { ...good, uid: 'food', id: 'sashimi_akami', qty: 1 },
+      { ...good, uid: 'bad-date', at: NaN }, { ...good, uid: 'upgrade', id: 'cooler_box' }],
+  };
+  raw.econ.soldToday = { sardine: 3, invented: 999, tilapia: -1 };
+  raw.econ.boughtToday = { nori: 2, invented: 100, ice_block: 401 };
+  raw.econ.earnedToday = Infinity;
+  const view = playerView(normalizePlayer(raw, NOON));
+  assert.equal(view.coins, 0); assert.equal(view.coolerLevel, 0);
+  assert.deepEqual(view.goods, [good]);
+  assert.deepEqual(view.econ.soldToday, { sardine: 3 });
+  assert.deepEqual(view.econ.boughtToday, { nori: 2 });
+  assert.equal(view.econ.earnedToday, 0);
+  for (const value of [NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1, '999']) {
+    assert.equal(normalizePlayer({ ...raw, coins: value }, NOON).coins, 0);
+  }
+  const full = Array.from({ length: 21 }, (_, i) => ({ ...good, uid: `nori-${i}` }));
+  assert.equal(normalizePlayer({ ...raw, goods: full }, NOON).goods.length, 20);
+});
+
+test('40 accepted operations exhaust the shared daily budget; replay and load do not consume it', async () => {
+  const h = harness();
+  assert.equal(LIMITS.opsPerDay, 40);
+  let last, id;
+  for (let i = 0; i < 40; i++) {
+    h.tick(61_000);
+    last = [{ fish: 'sardine', sizeCm: 15, caughtAt: h.now() - 1_000 }];
+    id = opId();
+    assert.equal((await record(h, last, id)).statusCode, 200);
+  }
+  assert.equal(h.players.get(address).writeDay.count, 40);
+  assert.equal((await record(h, last, id)).body.replayed, true);
+  assert.equal((await h.call({ op: 'load' })).statusCode, 200);
+  h.tick(61_000);
+  assert.equal((await record(h, [{ fish: 'sardine', sizeCm: 15, caughtAt: h.now() - 1_000 }])).statusCode, 429);
+  assert.equal(h.logs.size, 40);
+  h.setClock(Date.UTC(2026, 9, 10, 17)); // next Bangkok day
+  assert.equal((await record(h, [{ fish: 'sardine', sizeCm: 15, caughtAt: h.now() - 1_000 }])).statusCode, 200);
+  assert.equal(h.players.get(address).writeDay.count, 1);
+});
+
+test('stage (a) adds no writable economy operation or client-authoritative fields', async () => {
+  const h = harness();
+  for (const op of ['shop.sell', 'shop.buy', 'bag.use']) {
+    assert.equal((await h.call({ op, operationId: opId() })).statusCode, 400);
+  }
+  assert.equal((await h.call({ op: 'load', coins: 999 })).statusCode, 400);
+  assert.equal(h.players.size, 0);
+});
+
+test('new economy fields have an explicit maximum serialized size with the current catalogues', async () => {
+  const { ALL_FREE_FISH } = await import('../src/game/fishing/freeFishCatalog.ts');
+  const { SHOP_ITEMS } = await import('../src/game/economy/shopCatalog.ts');
+  const { BAG, ECONOMY_SAVE, SELL, SHOP } = await import('../src/game/economy/economyConfig.ts');
+  assert.equal(ALL_FREE_FISH.length, 64, 'update documented storage budget when the catalogue grows');
+  assert.equal(SHOP_ITEMS.length, 48, 'update documented storage budget when the catalogue grows');
+  const now = Number.MAX_SAFE_INTEGER - 1;
+  const raw = emptyPlayer(now);
+  raw.coins = Number.MAX_SAFE_INTEGER; raw.coolerLevel = 2;
+  const longestFood = SHOP_ITEMS.filter(i => i.perishMin && !i.soon).sort((a, b) => b.id.length - a.id.length)[0];
+  raw.goods = Array.from({ length: BAG.slots }, (_, i) => ({
+    uid: String(i).padStart(ECONOMY_SAVE.goodsUidMaxLength, 'a'), id: longestFood.id,
+    qty: 1, at: now, expiresAt: Number.MAX_SAFE_INTEGER,
+  }));
+  raw.econ.soldToday = Object.fromEntries(ALL_FREE_FISH.map(f => [f.id, LIMITS.catchesPerDay]));
+  raw.econ.boughtToday = Object.fromEntries(SHOP_ITEMS.map(i => [i.id, LIMITS.opsPerDay * SHOP.maxCart]));
+  raw.econ.earnedToday = SELL.dailyCap;
+  const { coins, coolerLevel, goods, econ } = normalizePlayer(raw, now);
+  const size = Buffer.byteLength(JSON.stringify({ coins, coolerLevel, goods, econ }));
+  assert.equal(goods.length, BAG.slots);
+  assert.equal(size, 5257, 'maximum compact JSON bytes; not Firestore billing/storage bytes');
 });
