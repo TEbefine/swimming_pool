@@ -10,6 +10,7 @@ import {
   applyCatches, catchProblem, checkOperationId, countOperation, emptyPlayer, normalizePlayer, parseCatches, playerView,
   SaveError, validateStoryDay,
 } from './rules.js';
+import { applySale } from './sales.js';
 import type { LogEntry, PlayerDoc } from './rules.js';
 
 export interface TxResult<T> { write: { player: PlayerDoc; log: LogEntry } | null; response: T }
@@ -93,6 +94,25 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         return;
       }
 
+      if (op === 'shop.sell') {
+        onlyFields(body, ['op', 'operationId', 'catches']);
+        const operationId = checkOperationId(body.operationId);
+        const catches = parseCatches(body.catches);
+        const hash = createHash('sha256').update(stable([op, catches])).digest('hex');
+        const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
+          const t = now();
+          const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
+          // Time, catalogue and player-state checks follow replay lookup: the original receipt
+          // remains valid after spoilage, config changes, a later sale or Bangkok midnight.
+          if (rawLog) return replay(doc, rawLog, hash);
+          const budget = countOperation(doc, t);
+          const { fields, changes } = applySale(doc, catches, t);
+          return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
+        });
+        reply(res, 200, result);
+        return;
+      }
+
       if (op === 'fishbook.record') {
         onlyFields(body, ['op', 'operationId', 'catches']);
         const operationId = checkOperationId(body.operationId);
@@ -156,6 +176,7 @@ function commit(doc: PlayerDoc, fields: Partial<PlayerDoc>, op: string, hash: st
 
 function failSave(res: Response, err: unknown) {
   // Never log requests, tokens or stored data.
-  if (err instanceof SaveError || err instanceof LoginError) reply(res, err.status, { error: err.message });
+  if (err instanceof SaveError) reply(res, err.status, { error: err.message, ...err.details });
+  else if (err instanceof LoginError) reply(res, err.status, { error: err.message });
   else reply(res, 503, { error: 'Saving is temporarily unavailable. Your progress is kept on this device; please retry.' });
 }

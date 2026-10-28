@@ -153,3 +153,59 @@ Known sold-set limit: caughtAt alone identifies a catch. Two devices on one Play
 Stage (c) invariant: normalization preserves legacy perishable stacks, but shop.buy MUST create one slot per piece of food. Reuse the existing goodsAfter() behavior in wallet.ts; do not infer purchase stacking rules from normalization.
 
 Teera verified the preceding review-fix commit: 181 tests, tsc -b and npm run build passed. Final balance-read changes pass the 23 targeted API tests and API TypeScript check locally. Stage (b) starts after Teera merges stage (a).
+
+
+## 11. ECO-02 stage (b) — server shop.sell (2026-10-28)
+
+Implemented on `dev-test-id`, based on main `2cec730` (receipt slip included). Stage (a) is merged. The live gate stays off; `walletStore.ts` and UI are unchanged. This stage can be exercised through `/api/items` on the dev server with the TEST Player ID; the ordinary counter still uses the local wallet until stage (d).
+
+### Request, validation and kept fish
+
+```ts
+{ op: 'shop.sell', operationId, catches: [{ fish, sizeCm, caughtAt }] }
+```
+
+Only these fields are accepted. Prices, totals, balances, target addresses and claimed ice are rejected. The authenticated token determines the player. Catch timestamps must be chronological and unique, and the batch must fit the server-owned cooler level (10/15/20 slots).
+
+`validateSaleCatch` in `server/saves/sales.ts` is the one sale-authenticity entry point ECO-03 can extend with deckId/castIndex. It reuses `catchProblem` for catalogue readiness, size, season and day/night. The shared function accepts a policy override: sale future tolerance is exactly 10,000 ms; Fish Book's 60,000 ms tolerance and 7-day recording window remain unchanged. For sales, server freshness replaces that recording age limit, so otherwise valid old fish return as spoiled rather than invalid. The existing 3,000 ms catch gap is enforced within the batch and against retained sold timestamps in either direction. No Fish Book field is read as sale eligibility or changed by a sale.
+
+Impossible, unsellable, duplicate/already-sold, too-close, oversized-batch or invalid catches refuse the whole operation. Validate all catches before pricing. Valid-but-spoiled fish are returned as `{index,caughtAt,reason:'spoiled',message:'That one went bad on the way.'}`. Fish whose price would exceed the remaining daily earnings cap are kept with reason `daily_cap` and Gen's ice-box line. The catch-count ceiling also uses existing LIMITS.catchesPerDay against the sale counters, without touching Fish Book counters. Only actually paid fish advance daily glut and receive a sold marker. Other fish in the batch can still sell. If none sell, HTTP 422 returns `error` and `result` with earned=0, sold=[], kept/keptLines and pricing time; no player or log writes occur.
+
+### Response and immutable receipt
+
+A successful response is the existing player view (including current coins) plus:
+
+```ts
+result: {
+  sold: [{ fishId, base, size, fresh, wanted, glut, price,
+           uid, capped: false, index, sizeCm, caughtAt, isWanted }],
+  earned, kept, keptLines, balanceAfter, pricedAt, marketDay
+}
+```
+
+`fresh` is the full shared quote freshness object, including label and multiplier; `wanted` remains the numeric multiplier. `uid` is the timestamp string for SellLine compatibility, not a trusted client UID; index/caughtAt identify the original catch. The rows pass directly to `sellReceipt(result.sold, result.kept, result.balanceAfter, result.pricedAt)` without mapping. Selling has no VAT. The old receipt function's generic kept-note assumes the daily cap; stage (d) should use keptLines to explain spoiled catches accurately when wiring the new response.
+
+Use marketOf(now) and quoteFish with server now and sequential paid-fish counts. Stage (b) passes icedMin=0. Do not call sellFish with a fabricated server cooler. `checkedCoinBalance` refuses an invalid computed final balance before writing; normalizing a stored balance never throws.
+
+One Firestore transaction reads player and operation log. After strict request parsing/hash, check the log before freshness, catalogue and player-state validation: same ID + same body returns its saved receipt even after expiry, midnight or another sale; same ID + changed body is 409. The outer player view is current; result.balanceAfter is the historical receipt balance. A successful transaction updates player coins/econ/recentSoldAt/operation counters and creates one append-only log. `log.changes.earned` is coins in and `log.changes.balanceAfter` is balance after, with the complete receipt result. Failed operations and replays make no writes; transaction callbacks have no external side effects.
+
+### Sold-set bounds
+
+`recentSoldAt: number[]` is a root player field, independent of econ.day and Fish Book lastCatchAt. It is internal to playerView. Normalize to sorted unique nonnegative safe integers, removing only entries with `caughtAt + SALE.soldRetentionMs <= now`. Retention derives from 30 min lifetime + 30 min maximum ice extension = 60 min. A timestamp up to 10 seconds ahead can remain up to 60 min 10 s after sale. Midnight does not clear it.
+
+`SALE.maxRecentSold = ECONOMY_SAVE.opsPerDay * (COOLER.baseSlots + COOLER.upgradeSlots * COOLER.upgradePrices.length) = 40 * 20 = 800`. Check both full-set and proposed additions; refuse rather than evict live markers. Even malformed stored arrays above 800 are not silently truncated on load; sale writes refuse until enough entries expire. All valid successful sale writes keep the set at or below the cap. The 60-minute window can cross two daily budgets; do not assume a capacity refusal is mathematically impossible across midnight.
+
+800 integers: 6,400 bytes of integer payload; 11,201 bytes for the array as compact JSON with today's 13-digit timestamps (13,601 with 16-digit safe integers), excluding field names/Firestore overhead. Missing field defaults to []. No extra collection or per-catch document exists.
+
+### Known gaps and later work
+
+1. **Zero ice in (b):** server price can be lower than the phone's iced-cooler preview, or the server can keep it as spoiled. Stage (c) adds server-verifiable ice spending; do not accept icedMin from the phone.
+2. **Fish and size are client claims:** catalogue validation cannot prove which fish bit or its actual size. A cheater can claim maximum size. ECO-03's deck resolves this; rate, daily-money and sold-set limits only bound abuse now.
+3. **Timestamp collisions:** two devices on one Player ID may catch different fish in the same millisecond; one is refused as already sold. ECO-03's deckId/castIndex replaces timestamp-only identity.
+4. Stage (c) buy must create one slot per food piece (existing goodsAfter behavior), despite permissive legacy-stack normalization. TOWN-01 adds stock/fund to the same transaction later, not now. ECO-04 owns the epoch reset (including sold-set and stale receipt handling) and gate activation. No epoch or town writes in this stage.
+
+### Budget and verification
+
+**Accepted sale = 2 reads + 2 writes**, player + operation log, before Firestore contention retries. No per-catch writes. A replay/refusal after transaction lookup costs reads but writes nothing. Existing pre-read syntax/auth checks remain in place. The 40 accepted-op budget is shared with Fish Book/story; 200 players at the maximum is 16,000 writes plus other activity, not a global quota guarantee.
+
+Checks: `npm test` 199 pass; `npx tsc -b` passes; `npm run build` passes, including Vercel-built nonce/login/items API import/GET checks and Vite. `npm run test:rules` with Java 21 passes all 4 emulator tests, including actual concurrent duplicate sales (one payment), concurrent identical operation replay (one write), independent concurrent sales (no lost coins), and owner-only read/no-client-write for economy fields. API tests cover all requested cheats plus exact skew/freshness boundaries, mixed/all-kept batches, unchanged Fish Book, receipt compatibility, historical replay, midnight, full-set/overflow, maximum cooler capacity, balance ceiling and daily-op refusal. No physical iPhone validation claimed.

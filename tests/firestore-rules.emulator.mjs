@@ -86,4 +86,63 @@ try {
       assert.equal(saved.fishTotal, saved.revision, 'no accepted catch was lost to a race');
     } finally { await deleteApp(app); }
   });
+  await test('shop.sell: concurrent duplicate sales pay once, replays preserve receipts, independent sales accumulate', async () => {
+    await import('./register-api-ts.mjs');
+    const { makeSaveServices } = await import('../server/saves/admin.ts');
+    const { createItemsHandler, DailyLimiter } = await import('../server/saves/handlers.ts');
+    const { IpLimiter } = await import('../server/identity/http.ts');
+    const app = initializeApp({ projectId: 'demo-lumen-bay' }, 'sale-tx-test');
+    try {
+      const address = '0x' + 'ed'.repeat(20);
+      const other = '0x' + 'fe'.repeat(20);
+      const origin = 'https://test-lumen-bay.vercel.app';
+      const now = Date.UTC(2026, 9, 10, 5, 0);
+      const db = getFirestore(app);
+      await db.doc(`players/${other}`).set({ coins: 77 });
+      const services = makeSaveServices(() => db, () => ({
+        verifyIdToken: async () => ({ uid: address, walletSignedInAt: now - 1000, walletLoginOrigin: origin }),
+      }));
+      const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app' },
+        now: () => now, limiter: new IpLimiter(1000), playerLimiter: new IpLimiter(1000), playerDaily: new DailyLimiter(1000) }, services);
+      const call = async body => {
+        const req = { method: 'POST', body, socket: { remoteAddress: '127.0.0.1' },
+          headers: { origin, 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.9', authorization: 'Bearer emulator-test-token-0123456789' } };
+        const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v; }, end(v) { this.body = JSON.parse(v); } };
+        await handler(req, res); return res;
+      };
+      const catches = [{ fish: 'sardine', sizeCm: 15, caughtAt: now - 60_000 }];
+      const race = await Promise.all([1, 2].map(i => call({ op: 'shop.sell', operationId: `op-sale-race-00000${i}`, catches })));
+      assert.deepEqual(race.map(r => r.statusCode).sort(), [200, 409], JSON.stringify(race));
+      const winner = race.find(r => r.statusCode === 200).body.result;
+      let saved = (await db.doc(`players/${address}`).get()).data();
+      assert.equal(saved.coins, winner.earned);
+      assert.deepEqual(saved.recentSoldAt, [catches[0].caughtAt]);
+      assert.deepEqual(saved.fishBook, {}); assert.equal(saved.lastCatchAt, null);
+      let logs = await db.collection(`players/${address}/log`).get();
+      assert.equal(logs.size, 1); assert.deepEqual(logs.docs[0].data().changes, winner);
+      const sameBody = { op: 'shop.sell', operationId: 'op-sale-same-000001',
+        catches: [{ fish: 'sardine', sizeCm: 20, caughtAt: now - 30_000 }] };
+      const retries = await Promise.all([1, 2, 3].map(() => call(sameBody)));
+      assert.ok(retries.every(r => r.statusCode === 200), JSON.stringify(retries));
+      assert.equal(retries.filter(r => r.body.replayed).length, 2);
+      assert.deepEqual(retries[0].body.result, retries[1].body.result);
+      const independent = await Promise.all([1, 2].map(i => call({ op: 'shop.sell', operationId: `op-sale-independent-${i}`,
+        catches: [{ fish: 'sardine', sizeCm: 15, caughtAt: now - 20_000 + i * 5000 }] })));
+      assert.ok(independent.every(r => r.statusCode === 200), JSON.stringify(independent));
+      saved = (await db.doc(`players/${address}`).get()).data();
+      logs = await db.collection(`players/${address}/log`).get();
+      assert.equal(logs.size, 4);
+      assert.equal(saved.coins, logs.docs.reduce((sum, doc) => sum + doc.data().changes.earned, 0));
+      assert.equal(saved.revision, 4); assert.equal(saved.recentSoldAt.length, 4);
+      assert.equal((await call({ ...sameBody, address: other })).statusCode, 400);
+      assert.equal((await db.doc(`players/${other}`).get()).data().coins, 77);
+      // API authentication and browser rules both protect the new fields, not just Fish Book data.
+      const owner = env.authenticatedContext(address).firestore();
+      const stranger = env.authenticatedContext(other).firestore();
+      await assertSucceeds(getDoc(doc(owner, `players/${address}`)));
+      await assertFails(setDoc(doc(owner, `players/${address}`), { coins: 999, recentSoldAt: [] }));
+      await assertFails(setDoc(doc(stranger, `players/${address}`), { coins: 999 }));
+      await assertFails(getDoc(doc(stranger, `players/${address}`)));
+    } finally { await deleteApp(app); }
+  });
 } finally { await env.cleanup(); }
