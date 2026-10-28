@@ -8,6 +8,13 @@ import type { FreeTier } from '../fishing/freeFishCatalog.js';
 /** The town money. One word to change when Teera picks the final name (e.g. "Bia" / เบี้ย). */
 export const CURRENCY = { one: 'coin', many: 'coins' } as const;
 
+/**
+ * VAT printed on the receipt slip. It is INCLUDED in every shop price (never added on top), and selling fish
+ * is not taxed. Today it is shown only; TOWN-01 will move it into the town fund (docs/ai/PROMPT_town.md).
+ * Thailand: 7% reduced rate, extended to 30 Sep 2027 (statutory rate 10%).
+ */
+export const VAT = { rate: 0.07 } as const;
+
 /** What Gen pays for a catch: tierBase × size × freshness × market. */
 export const SELL = {
   /** Base price per tier. God-tier catches are trophies: nobody buys them (0 = not for sale). */

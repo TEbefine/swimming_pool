@@ -19,6 +19,7 @@ import { ITEMS, itemIcon, withArticle, type ItemId } from './items';
 import { addItem, addLedger, getStory, recordSize, setEnergy, setFlag } from './storyStore';
 import { BOTTLE_NOTES, FREE_BY_ID, FREE_TABLE, TIERS, addToFishBook, freeIcon, freeTableNow } from '../fishing/freeFish';
 import { catchToCooler } from '../economy/walletStore';
+import { coolerSlots } from '../economy/wallet';
 import { bangkokHour } from '../world/cityView';
 
 /** 'story' = The Heir of Dalbit (energy, bag, Ledger) · 'free' = Free Fishing with friends (Fish Book). */
@@ -35,6 +36,8 @@ export interface CatchInfo {
   tierColor: string;
   /** First time ever (Free Fishing). */
   isNew: boolean;
+  /** ECO-01 (dev/sandbox only): where the fish went. null = not a fish Gen buys, or the economy is off. */
+  cooler?: { text: string; full: boolean } | null;
 }
 
 function catchInfo(id: string): CatchInfo {
@@ -376,7 +379,10 @@ function finish(now: number) {
       const r = addToFishBook(fish, fs.sizeCm);
       record = r.record;
       info.isNew = r.isNew;
-      catchToCooler(fish, fs.sizeCm); // ECO-01: fish you can sell go in the cooler (off in the live game)
+      // ECO-01: fish you can sell go in the cooler (off in the live game → returns null)
+      const c = catchToCooler(fish, fs.sizeCm);
+      if (c?.ok) info.cooler = { text: `Cooler ${c.wallet.cooler.length}/${coolerSlots(c.wallet)}`, full: c.wallet.cooler.length >= coolerSlots(c.wallet) };
+      else if (c && c.reason === 'cooler_full') info.cooler = { text: 'Cooler full!', full: true };
       // tell everyone in the room about the big ones (chat bubble over your head)
       const f = FREE_BY_ID[fish];
       if (TIERS[f.tier].announce) {
