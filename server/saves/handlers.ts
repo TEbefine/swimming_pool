@@ -88,7 +88,8 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
       if (op === 'load') {
         onlyFields(body, ['op']);
         const raw = await services.readPlayer(address);
-        reply(res, 200, playerView(raw ? normalizePlayer(raw, now()) : null));
+        const t = now();
+        reply(res, 200, playerView(raw ? normalizePlayer(raw, t) : emptyPlayer(t)));
         return;
       }
 

@@ -8,6 +8,24 @@ import { ITEMS, ITEM_IDS } from '../../src/game/story/items.js';
 import type { ItemId } from '../../src/game/story/items.js';
 import { isStoryCounter, isStoryFlag } from '../../src/game/story/storyKeys.js';
 
+import { BAG, COOLER, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
+import { SHOP_BY_ID, SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
+import { bkkDay } from '../../src/game/economy/market.js';
+
+export interface PlayerGoods {
+  uid: string;
+  id: string;
+  qty: number;
+  at: number;
+  expiresAt: number | null;
+}
+export interface PlayerEconomy {
+  day: number;
+  soldToday: Record<string, number>;
+  earnedToday: number;
+  boughtToday: Record<string, number>;
+}
+
 export class SaveError extends Error {
   status: number;
   constructor(status: number, message: string) { super(message); this.status = status; }
@@ -31,7 +49,7 @@ export const LIMITS = {
   /** Save operations per player per minute (the IP limiter is per server instance only). */
   opsPerMinute: 30,
   /** Accepted (written) operations per player per Bangkok day: bounds Firestore writes per ID (2 per op). */
-  opsPerDay: 200,
+  opsPerDay: ECONOMY_SAVE.opsPerDay,
   /** Story bounds per saved day. */
   coinGainPerDay: 300,
   itemGainPerDay: 60,
@@ -71,6 +89,10 @@ export interface StoryState {
 }
 export interface StorySave { day: number; step: string; revision: number; savedAt: number; state: StoryState }
 export interface PlayerDoc {
+  coins: number;
+  coolerLevel: number;
+  goods: PlayerGoods[];
+  econ: PlayerEconomy;
   schemaVersion: 1;
   createdAt: number;
   updatedAt: number;
@@ -100,6 +122,7 @@ export interface LogEntry {
 
 export function emptyPlayer(now: number): PlayerDoc {
   return {
+    coins: 0, coolerLevel: 0, goods: [], econ: emptyEconomy(now),
     schemaVersion: 1, createdAt: now, updatedAt: now, revision: 0,
     fishBook: {}, fishTotal: 0, lastCatchAt: null, catchDay: { day: '', count: 0 },
     storyWorlds: {}, ownedCards: {}, communityMemory: {}, opWindow: { start: 0, count: 0 }, writeDay: { day: '', count: 0 },
@@ -113,6 +136,10 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
   const d = raw as Partial<PlayerDoc>;
   return {
     ...base,
+    coins: clampedCount(d.coins, SELL.dailyCap * ECONOMY_SAVE.balanceCapDays),
+    coolerLevel: safeCount(d.coolerLevel, COOLER.upgradePrices.length),
+    goods: normalizeGoods(d.goods, now),
+    econ: normalizeEconomy(d.econ, now),
     createdAt: num(d.createdAt, now),
     updatedAt: num(d.updatedAt, now),
     revision: num(d.revision, 0),
@@ -127,10 +154,80 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
 }
 function num(v: unknown, fallback: number) { return typeof v === 'number' && Number.isFinite(v) ? v : fallback; }
 
-/** What the player's own device may see (everything but internal counters). */
-export function playerView(doc: PlayerDoc | null) {
-  if (!doc) return { revision: 0, fishBook: {}, fishTotal: 0, lastCatchAt: null, story: { dalbit: null } };
-  return { revision: doc.revision, fishBook: doc.fishBook, fishTotal: doc.fishTotal, lastCatchAt: doc.lastCatchAt, story: { dalbit: doc.storyWorlds.dalbit ?? null } };
+/** What the player's own device may see (everything but internal operation counters).
+ * Call with an already-normalized document so expired goods never enter an API response. */
+export function playerView(doc: PlayerDoc) {
+  return {
+    revision: doc.revision, fishBook: doc.fishBook, fishTotal: doc.fishTotal,
+    lastCatchAt: doc.lastCatchAt, story: { dalbit: doc.storyWorlds.dalbit ?? null },
+    coins: doc.coins, coolerLevel: doc.coolerLevel, goods: doc.goods, econ: doc.econ,
+  };
+}
+
+function safeCount(value: unknown, max: number): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= max ? value : 0;
+}
+/** Write-path guard only: every coin mutation must check its computed balance before commit.
+ * Reads clamp independently so a bad stored balance can never lock a player out. */
+export function checkedCoinBalance(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 0 || value > SELL.dailyCap * ECONOMY_SAVE.balanceCapDays) {
+    throw new SaveError(409, "That would put too many coins in your purse. Let's stop here.");
+  }
+  return value;
+}
+function clampedCount(value: unknown, max: number): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+  return Math.min(max, Math.max(0, Math.floor(value)));
+}
+function object(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+function emptyEconomy(now: number): PlayerEconomy {
+  return { day: bkkDay(now), soldToday: {}, earnedToday: 0, boughtToday: {} };
+}
+function normalizeEconomy(raw: unknown, now: number): PlayerEconomy {
+  const base = emptyEconomy(now);
+  const econ = object(raw);
+  if (econ.day !== base.day) return base;
+  const sold = object(econ.soldToday);
+  const bought = object(econ.boughtToday);
+  // Iterate catalogues, never arbitrary stored keys: at most 64 fish / 48 shop keys today.
+  for (const fish of ALL_FREE_FISH) {
+    const count = clampedCount(Object.hasOwn(sold, fish.id) ? sold[fish.id] : undefined, LIMITS.catchesPerDay);
+    if (count) base.soldToday[fish.id] = count;
+  }
+  for (const item of SHOP_ITEMS) {
+    const count = clampedCount(Object.hasOwn(bought, item.id) ? bought[item.id] : undefined, LIMITS.opsPerDay * SHOP.maxCart);
+    if (count) base.boughtToday[item.id] = count;
+  }
+  base.earnedToday = clampedCount(econ.earnedToday, SELL.dailyCap);
+  return base;
+}
+function normalizeGoods(raw: unknown, now: number): PlayerGoods[] {
+  if (!Array.isArray(raw)) return [];
+  const goods: PlayerGoods[] = [];
+  const seen = new Set<string>();
+  // An overfull/corrupt document never turns into an unbounded bag or an unbounded scan.
+  for (const entry of raw.slice(0, BAG.slots)) {
+    const g = object(entry);
+    if (typeof g.uid !== 'string' || g.uid.length > ECONOMY_SAVE.goodsUidMaxLength || !/^[A-Za-z0-9_-]+$/.test(g.uid) || seen.has(g.uid)) continue;
+    const item = typeof g.id === 'string' && Object.hasOwn(SHOP_BY_ID, g.id) ? SHOP_BY_ID[g.id] : undefined;
+    if (!item || item.soon || item.use === 'cooler_upgrade') continue;
+    // Preserve legacy keeper stacks if a catalogue edit makes them perishable.
+    // New purchases will still create individual food slots; normalization must not lose units.
+    const qty = safeCount(g.qty, BAG.maxStack);
+    if (!qty || typeof g.at !== 'number' || !Number.isSafeInteger(g.at) || g.at < 0 || g.at > now) continue;
+    let expiry: number | null = null;
+    if (item.perishMin !== undefined) {
+      // Keep an existing valid food clock; repair keeper -> food using its purchase time.
+      expiry = typeof g.expiresAt === 'number' && Number.isSafeInteger(g.expiresAt) && g.expiresAt > g.at
+        ? g.expiresAt : g.at + item.perishMin * 60_000;
+      if (!Number.isSafeInteger(expiry) || expiry <= now) continue;
+    }
+    seen.add(g.uid);
+    goods.push({ uid: g.uid, id: item.id, qty, at: g.at, expiresAt: expiry });
+  }
+  return goods;
 }
 
 export function bangkokDay(ms: number): string {
