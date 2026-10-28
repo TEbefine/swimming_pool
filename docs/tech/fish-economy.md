@@ -104,7 +104,7 @@ Owner's corrections supersede conflicting text in `docs/ai/PROMPT_item_system.md
 
 | Field | Default / limits |
 |---|---|
-| coins | 0; ceiling SELL.dailyCap x ECONOMY_SAVE.balanceCapDays = 2,000,000; positive invalid/over-ceiling balances are refused |
+| coins | 0; ceiling SELL.dailyCap x ECONOMY_SAVE.balanceCapDays = 2,000,000; reads clamp to 0..ceiling and floor fractions without throwing; commit paths refuse invalid computed balances |
 | coolerLevel | 0; integer 0..2 from existing upgrade config |
 | goods | [] ; at most 20 slots; uid 1..64 ASCII letters/digits/underscore/hyphen; ID from the shop catalogue |
 | goods[].qty | 1..20; legacy stacks survive perishability changes; new food purchases will use qty=1 |
@@ -125,10 +125,10 @@ Expired goods are excluded by `normalizePlayer()` at read time. A load performs 
 
 | Data | Hard entry maximum | Integer payload maximum | Retention |
 |---|---:|---:|---|
-| Already-sold caughtAt values | 256 | 2,048 bytes (256 x 8) | Until caughtAt + 60 minutes; includes maximum ice extension |
+| Already-sold caughtAt values | 800 (derived below) | 6,400 bytes (800 x 8) | Until caughtAt + 60 minutes; includes maximum ice extension |
 | Server ice-use timestamps | 16 | 128 bytes (16 x 8) | 60 minutes + 10 seconds from use |
 
-These are sorted timestamp arrays, not copies of fish or a server cooler. Timestamp identity refuses repeat claims with the same caughtAt even if fish/size is changed; forged new timestamps remain an ECO-03 limitation. With 13-digit epoch milliseconds the two arrays use at most 3,585 and 225 compact JSON bytes respectively, before property names; Firestore field/document overhead is additional. Wider safe-integer timestamps would use at most 4,353 and 273 bytes respectively. At capacity, refuse the new operation in character until an entry expires; never evict a live sold marker. This intentionally caps sales at 256 fish within the retention window and ice use at 16 events within its window, even across midnight. Add these numbers to economyConfig when those stages are implemented. Keep replay lookup ahead of time-sensitive validation.
+These are sorted timestamp arrays, not copies of fish or a server cooler. Timestamp identity refuses repeat claims with the same caughtAt even if fish/size is changed; forged new timestamps remain an ECO-03 limitation. With 13-digit epoch milliseconds the two arrays use at most 11,201 and 225 compact JSON bytes respectively, before property names; Firestore field/document overhead is additional. Wider safe-integer timestamps would use at most 13,601 and 273 bytes respectively. At capacity, refuse the new operation in character until an entry expires; never evict a live sold marker. Derive the sold-set cap from LIMITS.opsPerDay * (COOLER.baseSlots + COOLER.upgradeSlots * COOLER.upgradePrices.length): 40 * 20 = 800, rather than a guessed constant. Stage (b) must bound each sell batch to the owned cooler capacity. Ice use remains capped at 16 retained events. Implement the derived cap with the sell stage; stage (a) stores neither array. The sold set survives midnight. A retention window can straddle two daily operation budgets, so 800 is the single-day quota bound, not a mathematical guarantee across midnight; never evict a live marker. Keep replay lookup ahead of time-sensitive validation.
 
 ### Quota and checks
 
@@ -141,4 +141,15 @@ Phone check after pulling `dev-test-id`: `npm run dev`, open the TEST Player ID,
 
 ### Stage (a) review fixes (2026-10-28)
 
-Daily counters clamp to their configured maximum instead of resetting to zero when an owner lowers a limit. Goods use SHOP_BY_ID; catalogue perishability changes repair clocks rather than deleting otherwise valid rows. Existing keeper stacks remain intact when changed to food. The balance guard `checkedCoinBalance` refuses totals above SELL.dailyCap x 400, currently 2,000,000; stage (b) must call it on the computed post-sale balance before commit. End-of-file blank lines were removed. Tests cover lowered config, keeper/food conversion with 20 units, repaired expiry, and balance overflow without writes. No shop.sell implementation is included in these fixes.
+Daily counters clamp to their configured maximum instead of resetting to zero when an owner lowers a limit. Goods use SHOP_BY_ID; catalogue perishability changes repair clocks rather than deleting otherwise valid rows. Existing keeper stacks remain intact when changed to food. The write-only balance guard `checkedCoinBalance` refuses computed totals above SELL.dailyCap x 400, currently 2,000,000; stage (b) must call it on the computed post-sale balance before commit. End-of-file blank lines were removed. Tests cover lowered config, keeper/food conversion with 20 units, repaired expiry, and balance overflow without writes. No shop.sell implementation is included in these fixes.
+
+
+### Final stage (a) review (2026-10-28)
+
+`normalizePlayer` never throws for a bad balance: clamp into 0..SELL.dailyCap*400, floor fractions, default absent/non-numeric/NaN values to zero. Infinity clamps to the ceiling; negative values clamp to zero. Load remains read-only; a later accepted operation persists normalization. `checkedCoinBalance` remains a write-path guard for the computed post-sell/post-buy balance, before commit.
+
+Known sold-set limit: caughtAt alone identifies a catch. Two devices on one Player ID can collide on the same millisecond, causing one distinct fish to be refused as already sold. ECO-03's deck identity will fix this. Fabricated timestamps remain unverified until ECO-03.
+
+Stage (c) invariant: normalization preserves legacy perishable stacks, but shop.buy MUST create one slot per piece of food. Reuse the existing goodsAfter() behavior in wallet.ts; do not infer purchase stacking rules from normalization.
+
+Teera verified the preceding review-fix commit: 181 tests, tsc -b and npm run build passed. Final balance-read changes pass the 23 targeted API tests and API TypeScript check locally. Stage (b) starts after Teera merges stage (a).

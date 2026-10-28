@@ -136,7 +136,7 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
   const d = raw as Partial<PlayerDoc>;
   return {
     ...base,
-    coins: checkedCoinBalance(typeof d.coins === 'number' && d.coins > 0 ? d.coins : 0),
+    coins: clampedCount(d.coins, SELL.dailyCap * ECONOMY_SAVE.balanceCapDays),
     coolerLevel: safeCount(d.coolerLevel, COOLER.upgradePrices.length),
     goods: normalizeGoods(d.goods, now),
     econ: normalizeEconomy(d.econ, now),
@@ -167,8 +167,8 @@ export function playerView(doc: PlayerDoc) {
 function safeCount(value: unknown, max: number): number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= max ? value : 0;
 }
-/** Reject oversized balances rather than silently minting, resetting or destroying coins.
- * Every future coin mutation must check its computed balance before commit. */
+/** Write-path guard only: every coin mutation must check its computed balance before commit.
+ * Reads clamp independently so a bad stored balance can never lock a player out. */
 export function checkedCoinBalance(value: number): number {
   if (!Number.isSafeInteger(value) || value < 0 || value > SELL.dailyCap * ECONOMY_SAVE.balanceCapDays) {
     throw new SaveError(409, "That would put too many coins in your purse. Let's stop here.");

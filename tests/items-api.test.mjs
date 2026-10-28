@@ -435,19 +435,28 @@ test('catalogue perishability changes repair clocks and preserve all units in ol
   }
 });
 
-test('balance ceiling accepts the boundary and refuses overflow without changing stored coins', async () => {
+test('balance reads clamp without throwing; commit guard still refuses invalid balances', async () => {
   const { SELL, ECONOMY_SAVE } = await import('../src/game/economy/economyConfig.ts');
   const cap = SELL.dailyCap * ECONOMY_SAVE.balanceCapDays;
   assert.equal(cap, 2_000_000);
   assert.equal(checkedCoinBalance(cap), cap);
-  for (const n of [cap + 1, Number.MAX_SAFE_INTEGER, Infinity, 1.5]) {
-    assert.throws(() => checkedCoinBalance(n), /too many coins/);
-    assert.throws(() => normalizePlayer({ ...emptyPlayer(NOON), coins: n }, NOON), /too many coins/);
+  const cases = [[cap + 1, cap], [Number.MAX_SAFE_INTEGER, cap], [Infinity, cap],
+    [1.5, 1], [-1, 0], [-Infinity, 0], [NaN, 0], [undefined, 0], ['999', 0]];
+  for (const [value, expected] of cases) {
+    assert.equal(normalizePlayer({ ...emptyPlayer(NOON), coins: value }, NOON).coins, expected);
+  }
+  for (const value of [cap + 1, Number.MAX_SAFE_INTEGER, Infinity, 1.5, -1, NaN]) {
+    assert.throws(() => checkedCoinBalance(value), /too many coins/);
   }
   const h = harness();
   h.players.set(address, { ...emptyPlayer(NOON), coins: cap + 1 });
   const before = structuredClone(h.players.get(address));
-  assert.equal((await h.call({ op: 'load' })).statusCode, 409);
-  assert.deepEqual(h.players.get(address), before);
+  const loaded = await h.call({ op: 'load' });
+  assert.equal(loaded.statusCode, 200);
+  assert.equal(loaded.body.coins, cap);
+  assert.deepEqual(h.players.get(address), before, 'load clamps its view without writing');
   assert.equal(h.logs.size, 0);
+  const saved = await record(h, [{ fish: 'sardine', sizeCm: 15, caughtAt: NOON - 10_000 }]);
+  assert.equal(saved.statusCode, 200, 'bad stored coins do not block unrelated saves');
+  assert.equal(h.players.get(address).coins, cap);
 });
