@@ -4,13 +4,13 @@
 
 Each map will have its own character and situation. Teera supplies the elements; compose them as layers: photographic NPC with the same identity, pixel background, a few quietly moving pixel elements, and minimal story text. Keep the real person still. Do not replace supplied artwork with a generated interpretation.
 
-The approved first scene is **Sun reading Le Petit Prince in the café**. Only café gets this new scene now. Future maps receive their own reviewed artwork; do not reuse Sun or Bao indiscriminately. Café has one scene today. As more are supplied, choose one at entry and avoid the previous one when another option exists; do not rotate scenes during a single load.
+The approved scenes are **Sun reading Le Petit Prince in the café** and **Kai with his pixel yellowtail at Quiet Bay**. Café and Quiet Bay (lake_pier) each have a reviewed destination scene. Future maps receive their own reviewed artwork; do not reuse Sun or Bao indiscriminately. Café has one scene today. As more are supplied, choose one at entry and avoid the previous one when another option exists; do not rotate scenes during a single load.
 
 ## Shared lifecycle
 
 `GameEngine.changeRoom` announces the destination and begins real loading. App mounts the selected story immediately and returns a presentation promise. Essential artwork paints (or a bounded fallback is shown), then the five-second viewing clock begins. Room loading and this clock run in parallel. The engine keeps controls locked until both finish, then reveals the destination. Failed room loading clears the overlay; cancellation/disposal releases pending waits.
 
-`LoadingScene` uses the same café renderer on startup. A quick return shows it immediately. A cold open preserves PRESS START and the boot intro, then shows the café scene before gameplay. Explicit developer `?autostart`/test harnesses skip startup presentation only; normal map travel still shows the destination story.
+`LoadingScene` uses the same scene shell on startup. A quick return shows it immediately. A cold open preserves PRESS START and the boot intro, then shows the selected destination scene before gameplay. Explicit developer `?autostart`/test harnesses skip startup presentation only; normal map travel still shows the destination story.
 
 Destinations without a supplied story retain the existing simple fallback and 420 ms threshold. They do not inherit the café's five-second hold. The scene is inside the Game Boy/desktop game window, with one responsive camera crop for the interior and window layers.
 
@@ -23,3 +23,5 @@ Destinations without a supplied story retain the existing simple fallback and 42
 5. Check narrow/wide layouts, five-second fast and cached entries, slower real loads, missing art, input blocking, cancellation, cold boot, and repeat trips. Run the project's tests and full build. Check real-phone memory/heat separately.
 
 Current café assets, source provenance and timings: `cafe-startup-loading.md`.
+
+Bay trophy composition and the reusable style contract: [bay-fishing-loading.md](bay-fishing-loading.md).

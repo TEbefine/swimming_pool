@@ -5,7 +5,7 @@ import './CafeLoadingScene.css';
 
 type Props = LoadingSceneProps & { story?: TransitionStory };
 
-/** Supplied photo + pixel layers. Animation never redraws the photo or the café. */
+/** Shared photographic NPC + pixel scene shell for café and bay. */
 export function CafeLoadingScene({ roomName, ready, leaving, onEnter, isMobile, onEarlyTouch, onPresented, automatic = false, story = TRANSITION_STORIES[0] }: Props) {
   const [hidden, setHidden] = useState(() => typeof document !== 'undefined' && document.hidden);
   const [settled, setSettled] = useState(false);
@@ -50,11 +50,20 @@ export function CafeLoadingScene({ roomName, ready, leaving, onEnter, isMobile, 
       listeners.forEach((remove) => remove());
     };
   }, [story.id, onPresented]);
+  const isBay = story.effect === 'bay';
   const enterLabel = isMobile ? 'Press ◯' : 'Press SPACE';
   const sprite = (src: string | undefined, className: string) => src && <span className={`cfl-sprite ${className}`}><img src={src} alt="" draggable={false} /></span>;
   return (
-    <div className={`cfl-root ${settled ? 'cfl-painted' : ''} ${failed ? 'cfl-fallback' : ''} ${hidden ? 'cfl-paused' : ''} ${leaving ? 'cfl-leaving' : ''}`} ref={scene} aria-busy={!ready}>
+    <div className={`cfl-root ${isBay ? 'cfl-bay' : ''} ${settled ? 'cfl-painted' : ''} ${failed ? 'cfl-fallback' : ''} ${hidden ? 'cfl-paused' : ''} ${leaving ? 'cfl-leaving' : ''}`} ref={scene} aria-busy={!ready}>
       <div className="cfl-art" aria-hidden="true">
+        {isBay ? <>
+          <img data-essential className="cfl-bay-background" src={story.background} alt="" draggable={false} />
+          <div className="cfl-bay-kai">
+            <img data-essential className="cfl-bay-photo" src={story.character} alt="" draggable={false} />
+            <span className="cfl-bay-fish">{sprite(story.fish, 'cfl-bay-yellowtail')}</span>
+          </div>
+          <div className="cfl-bay-glints">{[0,1,2].map(i => <span className={`cfl-bay-glint cfl-bay-glint-${i}`} key={i}>{sprite(story.spark, 'cfl-bay-spark')}</span>)}</div>
+        </> : <>
         <div className="cfl-stage">
           <div className="cfl-window">
             <img data-essential className="cfl-garden" src={story.garden} alt="" draggable={false} />
@@ -69,6 +78,7 @@ export function CafeLoadingScene({ roomName, ready, leaving, onEnter, isMobile, 
         </div>
         <div className="cfl-leaf-path">{sprite(story.leaf, 'cfl-leaf')}</div>
         {sprite(story.spark, 'cfl-spark')}
+        </>}
       </div>
       <div className="cfl-caption">
         <span className="cfl-heading">{roomName}</span>
@@ -76,7 +86,7 @@ export function CafeLoadingScene({ roomName, ready, leaving, onEnter, isMobile, 
       </div>
       <div className="cfl-bottom" role="status" aria-live="polite">
         {ready && !automatic ? <button type="button" className="cfl-enter" onClick={onEnter}>{enterLabel}</button>
-          : <span className="cfl-status">{ready ? 'The café is ready.' : 'Opening the café…'}</span>}
+          : <span className="cfl-status">{ready ? (isBay ? 'The bay is ready.' : 'The café is ready.') : (isBay ? 'Opening the bay…' : 'Opening the café…')}</span>}
       </div>
       {!automatic && <button type="button" className="cfl-surface" aria-label={ready ? `Enter ${roomName}` : `Loading ${roomName}`} disabled={!ready && !onEarlyTouch} onClick={ready ? onEnter : onEarlyTouch} />}
     </div>

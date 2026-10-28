@@ -206,7 +206,7 @@ const MeadowLoadingScene: React.FC<LoadingSceneProps> = ({ roomId, roomName, pro
 /** Select the actual startup loading artwork by destination, not the travel overlay. */
 export const LoadingScene: React.FC<LoadingSceneProps> = (props) => {
   const story = props.story ?? TRANSITION_STORIES.find((scene) => scene.roomId === props.roomId);
-  return story?.effect === 'reading'
+  return story && (story.effect === 'reading' || story.effect === 'bay')
     ? <CafeLoadingScene {...props} story={story} />
     : <MeadowLoadingScene {...props} />;
 };

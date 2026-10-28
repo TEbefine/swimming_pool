@@ -57,3 +57,16 @@ test('ready café preserves the startup enter prompt and removes the loading bar
 test('other destinations retain their current loading artwork', () => {
   assert.match(render({ roomId: 'poolside' }), /meadow.webp/);
 });
+
+test('Quiet Bay uses Kai and the supplied pixel trophy layers with a five-second minimum', () => {
+ const html=render({roomId:'lake_pier',roomName:'Quiet Bay',automatic:true});
+ for(const asset of ['kai-v1.webp','bay-v1.webp','yellowtail-v1.webp']) assert.ok(html.includes(asset));
+ assert.doesNotMatch(html,/barista_stand|sun-v1|meadow.webp|cfl-window/);
+ assert.match(html,/Opening the bay/);
+ assert.equal(TRANSITION_STORIES.find(s=>s.roomId==='lake_pier').minimumMs,5000);
+});
+test('ready bay automatic entry has an honest status and no extra tap', () => {
+ const html=render({roomId:'lake_pier',roomName:'Quiet Bay',automatic:true,ready:true});
+ assert.match(html,/The bay is ready/);
+ assert.doesNotMatch(html,/<button|The café|Press SPACE/);
+});
