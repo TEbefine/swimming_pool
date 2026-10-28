@@ -73,10 +73,14 @@ Follow these exactly. Explain each one to me as you build it, like a teacher.
 
 ## Money can only be made online
 
-Fishing works offline: catches sit in the phone's cooler. **The shop needs a connection**, because
-coins can only be created by the server. If the player is offline at the counter, Gen says the line is
-down and to come back — an in-world line, not an error. Don't try to make an offline money queue: a
-sale priced minutes later would be wrong, and it is a door for cheating.
+Fishing works offline: catches sit in the phone's cooler and keep rotting on their own clock. **The
+shop needs a connection**, because coins can only be created by the server. If the player is offline at
+the counter, Gen says the line is down and to come back — an in-world line, not an error.
+
+Catches made offline are still sellable later, as long as they are still fresh when the player reaches
+the counter (ice buys a little more time). Don't build an offline money queue: a sale priced minutes or
+hours later would be wrong, and it is a door for cheating. The sale happens when the player is at the
+counter, online, and the server prices it then.
 
 ## Data model (extend what exists, don't start a new collection)
 
@@ -102,6 +106,10 @@ Follow the shape of the existing ops exactly (`onlyFields`, `checkOperationId`, 
 |---|---|---|
 | `shop.sell` | `operationId`, `catches: [{fish, sizeCm, caughtAt}]` | Validate every catch with the Fish Book rules → price them with `market.ts` (tier × size × freshness × today's wanted × glut) → add coins → record them in the Fish Book in the same transaction (selling is also showing) → log |
 | `shop.buy` | `operationId`, `vendor`, `cart: [{id, qty}]` | Price from the catalogue + today's special → check coins, daily limits, bag space → take coins, put goods in the bag with their `expiresAt` → log |
+
+Later, selling will also lower a **shared fish stock** for that species, and buying will add VAT to a
+**town fund** (TOWN-01). Both are one shared document the sell/buy transaction already has open, so
+leave room for a second document in the transaction — but don't build either one now.
 | `bag.use` | `operationId`, `uid` | Ice: every fish in the cooler stays fresh longer. (The cooler is on the phone, so the server only spends the ice and answers how many minutes it bought.) |
 
 Freshness at sale time is computed from the **recorded `caughtAt` and the server clock**, never from
@@ -121,9 +129,18 @@ The phone still decides **which fish bites**. So a modified client can claim a r
 will believe it, because the claim passes every rule. The validation above makes it slow and bounded
 (daily catch cap, daily coin cap, realistic gaps), but it does not stop it.
 
-The real fix is **server-rolled casts**: the server decides the fish when the line goes out and gives
-back a signed ticket the client redeems. Don't build it now, but **design the operations so it can be
-added later without changing the data model.** Say clearly in your plan what is safe and what is not.
+The fix comes in the **next** piece of work (ECO-03), and it is already decided, so build with room for
+it. The server will hand the phone a **signed fishing seed** when the game loads online — one seed
+covering many casts. Cast number `i` produces its fish from `f(seed, i)` with the same rarity table the
+game uses today, so the luck is real and the phone can roll it instantly, online or offline, with no
+waiting. When the player sells, the phone sends `seedId` and `castIndex` with each catch, and the
+server recomputes `f(seed, i)` and refuses anything that does not match. A seed is signed with the same
+stateless HMAC pattern as `server/identity/challenge.ts`, so it costs no Firestore reads or writes.
+
+What this means for you now: **the catch object must be able to carry `seedId` and `castIndex` later
+without reshaping anything.** Write `parseCatches` and the sell op so adding two fields is a small
+change, and keep "is this catch real?" in one function that ECO-03 can extend. Do not build the seed
+system in this work. Say clearly in your plan what is safe and what is not.
 
 ## How to work with me
 
@@ -146,8 +163,10 @@ added later without changing the data model.** Say clearly in your plan what is 
 
 ## Not in this work (don't build, don't block)
 
-Coffee that costs coins · giving things to NPCs · relationship points · trading between players ·
-server-rolled casts. I will do those next, in that order. Leave the door open for all of them.
+Signed fishing seeds (ECO-03) · the town: fish stocks that regrow, the VAT fund, the Mayor's board
+(TOWN-01) · the receipt and the money notebook in the Bag · coffee that costs coins · giving things to
+NPCs and relationship points · trading between players. I will do those next, in that order. Leave the
+door open for all of them. **No bank** — Teera decided against it, so don't design for one.
 
 ## My house rules
 
