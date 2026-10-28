@@ -68,9 +68,10 @@ export const SHOP = {
 /** Trade history kept on the device (newest last). */
 export const LOG_KEEP = 30;
 
-
 /** ECO-02 persisted economy bounds. No client wallet is imported into the server save. */
 export const ECONOMY_SAVE = {
   opsPerDay: 40,
   goodsUidMaxLength: 64,
+  /** Balance ceiling = SELL.dailyCap times this many days. */
+  balanceCapDays: 400,
 } as const;

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 const { createItemsHandler, DailyLimiter } = await import('../server/saves/handlers.ts');
 const { IpLimiter } = await import('../server/identity/http.ts');
-const { LIMITS, STORY, emptyPlayer, normalizePlayer, playerView } = await import('../server/saves/rules.ts');
+const { LIMITS, STORY, emptyPlayer, normalizePlayer, playerView, checkedCoinBalance } = await import('../server/saves/rules.ts');
 
 // ID-01 (c): /api/items with an in-memory transaction store. No Firebase, no network, no credentials.
 const address = '0x' + 'ab'.repeat(20);
@@ -336,11 +336,11 @@ test('malformed economy values, oversized bags and duplicate goods cannot inflat
   raw.econ.earnedToday = Infinity;
   const view = playerView(normalizePlayer(raw, NOON));
   assert.equal(view.coins, 0); assert.equal(view.coolerLevel, 0);
-  assert.deepEqual(view.goods, [good]);
+  assert.deepEqual(view.goods.map(g => g.uid), ['nori-1', 'food']);
   assert.deepEqual(view.econ.soldToday, { sardine: 3 });
-  assert.deepEqual(view.econ.boughtToday, { nori: 2 });
-  assert.equal(view.econ.earnedToday, 0);
-  for (const value of [NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1, '999']) {
+  assert.deepEqual(view.econ.boughtToday, { nori: 2, ice_block: 400 });
+  assert.equal(view.econ.earnedToday, 5000);
+  for (const value of [NaN, '999']) {
     assert.equal(normalizePlayer({ ...raw, coins: value }, NOON).coins, 0);
   }
   const full = Array.from({ length: 21 }, (_, i) => ({ ...good, uid: `nori-${i}` }));
@@ -385,11 +385,11 @@ test('new economy fields have an explicit maximum serialized size with the curre
   assert.equal(SHOP_ITEMS.length, 48, 'update documented storage budget when the catalogue grows');
   const now = Number.MAX_SAFE_INTEGER - 1;
   const raw = emptyPlayer(now);
-  raw.coins = Number.MAX_SAFE_INTEGER; raw.coolerLevel = 2;
+  raw.coins = SELL.dailyCap * ECONOMY_SAVE.balanceCapDays; raw.coolerLevel = 2;
   const longestFood = SHOP_ITEMS.filter(i => i.perishMin && !i.soon).sort((a, b) => b.id.length - a.id.length)[0];
   raw.goods = Array.from({ length: BAG.slots }, (_, i) => ({
     uid: String(i).padStart(ECONOMY_SAVE.goodsUidMaxLength, 'a'), id: longestFood.id,
-    qty: 1, at: now, expiresAt: Number.MAX_SAFE_INTEGER,
+    qty: BAG.maxStack, at: now, expiresAt: Number.MAX_SAFE_INTEGER,
   }));
   raw.econ.soldToday = Object.fromEntries(ALL_FREE_FISH.map(f => [f.id, LIMITS.catchesPerDay]));
   raw.econ.boughtToday = Object.fromEntries(SHOP_ITEMS.map(i => [i.id, LIMITS.opsPerDay * SHOP.maxCart]));
@@ -397,5 +397,57 @@ test('new economy fields have an explicit maximum serialized size with the curre
   const { coins, coolerLevel, goods, econ } = normalizePlayer(raw, now);
   const size = Buffer.byteLength(JSON.stringify({ coins, coolerLevel, goods, econ }));
   assert.equal(goods.length, BAG.slots);
-  assert.equal(size, 5257, 'maximum compact JSON bytes; not Firestore billing/storage bytes');
+  assert.equal(size, 5268, 'maximum compact JSON bytes; not Firestore billing/storage bytes');
+});
+
+test('lowering economy configuration clamps counters rather than granting a fresh allowance', async () => {
+  const { SELL } = await import('../src/game/economy/economyConfig.ts');
+  const raw = emptyPlayer(NOON);
+  raw.econ.earnedToday = SELL.dailyCap;
+  raw.econ.soldToday = { sardine: LIMITS.catchesPerDay + 1 };
+  raw.econ.boughtToday = { nori: LIMITS.opsPerDay * 10 };
+  const oldCap = SELL.dailyCap, oldOps = LIMITS.opsPerDay;
+  try {
+    SELL.dailyCap = 100;
+    LIMITS.opsPerDay = 2;
+    const next = normalizePlayer(raw, NOON);
+    assert.equal(next.econ.earnedToday, 100);
+    assert.equal(next.econ.boughtToday.nori, 20);
+    assert.equal(next.econ.soldToday.sardine, LIMITS.catchesPerDay);
+    assert.equal(raw.econ.earnedToday, oldCap, 'no mutation of stored input');
+  } finally { SELL.dailyCap = oldCap; LIMITS.opsPerDay = oldOps; }
+});
+
+test('catalogue perishability changes repair clocks and preserve all units in old stacks', async () => {
+  const { SHOP_BY_ID } = await import('../src/game/economy/shopCatalog.ts');
+  const item = SHOP_BY_ID.nori;
+  const old = item.perishMin;
+  const goods = [{ uid: 'nori-stack', id: 'nori', qty: 20, at: NOON, expiresAt: null }];
+  try {
+    item.perishMin = 60;
+    const repaired = normalizePlayer({ ...emptyPlayer(NOON), goods }, NOON).goods;
+    assert.deepEqual(repaired, [{ ...goods[0], expiresAt: NOON + 3600_000 }]);
+    assert.equal(normalizePlayer({ ...emptyPlayer(NOON), goods }, NOON + 3600_000).goods.length, 0, 'genuinely expired food is removed');
+    delete item.perishMin;
+    assert.deepEqual(normalizePlayer({ ...emptyPlayer(NOON), goods: repaired }, NOON + 3600_000).goods, goods, 'food -> keeper survives its old deadline');
+  } finally {
+    if (old === undefined) delete item.perishMin; else item.perishMin = old;
+  }
+});
+
+test('balance ceiling accepts the boundary and refuses overflow without changing stored coins', async () => {
+  const { SELL, ECONOMY_SAVE } = await import('../src/game/economy/economyConfig.ts');
+  const cap = SELL.dailyCap * ECONOMY_SAVE.balanceCapDays;
+  assert.equal(cap, 2_000_000);
+  assert.equal(checkedCoinBalance(cap), cap);
+  for (const n of [cap + 1, Number.MAX_SAFE_INTEGER, Infinity, 1.5]) {
+    assert.throws(() => checkedCoinBalance(n), /too many coins/);
+    assert.throws(() => normalizePlayer({ ...emptyPlayer(NOON), coins: n }, NOON), /too many coins/);
+  }
+  const h = harness();
+  h.players.set(address, { ...emptyPlayer(NOON), coins: cap + 1 });
+  const before = structuredClone(h.players.get(address));
+  assert.equal((await h.call({ op: 'load' })).statusCode, 409);
+  assert.deepEqual(h.players.get(address), before);
+  assert.equal(h.logs.size, 0);
 });

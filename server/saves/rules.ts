@@ -9,7 +9,7 @@ import type { ItemId } from '../../src/game/story/items.js';
 import { isStoryCounter, isStoryFlag } from '../../src/game/story/storyKeys.js';
 
 import { BAG, COOLER, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
-import { SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
+import { SHOP_BY_ID, SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
 import { bkkDay } from '../../src/game/economy/market.js';
 
 export interface PlayerGoods {
@@ -136,7 +136,7 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
   const d = raw as Partial<PlayerDoc>;
   return {
     ...base,
-    coins: safeCount(d.coins, Number.MAX_SAFE_INTEGER),
+    coins: checkedCoinBalance(typeof d.coins === 'number' && d.coins > 0 ? d.coins : 0),
     coolerLevel: safeCount(d.coolerLevel, COOLER.upgradePrices.length),
     goods: normalizeGoods(d.goods, now),
     econ: normalizeEconomy(d.econ, now),
@@ -167,6 +167,18 @@ export function playerView(doc: PlayerDoc) {
 function safeCount(value: unknown, max: number): number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= max ? value : 0;
 }
+/** Reject oversized balances rather than silently minting, resetting or destroying coins.
+ * Every future coin mutation must check its computed balance before commit. */
+export function checkedCoinBalance(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 0 || value > SELL.dailyCap * ECONOMY_SAVE.balanceCapDays) {
+    throw new SaveError(409, "That would put too many coins in your purse. Let's stop here.");
+  }
+  return value;
+}
+function clampedCount(value: unknown, max: number): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+  return Math.min(max, Math.max(0, Math.floor(value)));
+}
 function object(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -181,14 +193,14 @@ function normalizeEconomy(raw: unknown, now: number): PlayerEconomy {
   const bought = object(econ.boughtToday);
   // Iterate catalogues, never arbitrary stored keys: at most 64 fish / 48 shop keys today.
   for (const fish of ALL_FREE_FISH) {
-    const count = safeCount(Object.hasOwn(sold, fish.id) ? sold[fish.id] : undefined, LIMITS.catchesPerDay);
+    const count = clampedCount(Object.hasOwn(sold, fish.id) ? sold[fish.id] : undefined, LIMITS.catchesPerDay);
     if (count) base.soldToday[fish.id] = count;
   }
   for (const item of SHOP_ITEMS) {
-    const count = safeCount(Object.hasOwn(bought, item.id) ? bought[item.id] : undefined, LIMITS.opsPerDay * SHOP.maxCart);
+    const count = clampedCount(Object.hasOwn(bought, item.id) ? bought[item.id] : undefined, LIMITS.opsPerDay * SHOP.maxCart);
     if (count) base.boughtToday[item.id] = count;
   }
-  base.earnedToday = safeCount(econ.earnedToday, SELL.dailyCap);
+  base.earnedToday = clampedCount(econ.earnedToday, SELL.dailyCap);
   return base;
 }
 function normalizeGoods(raw: unknown, now: number): PlayerGoods[] {
@@ -199,16 +211,21 @@ function normalizeGoods(raw: unknown, now: number): PlayerGoods[] {
   for (const entry of raw.slice(0, BAG.slots)) {
     const g = object(entry);
     if (typeof g.uid !== 'string' || g.uid.length > ECONOMY_SAVE.goodsUidMaxLength || !/^[A-Za-z0-9_-]+$/.test(g.uid) || seen.has(g.uid)) continue;
-    const item = SHOP_ITEMS.find(i => i.id === g.id);
+    const item = typeof g.id === 'string' && Object.hasOwn(SHOP_BY_ID, g.id) ? SHOP_BY_ID[g.id] : undefined;
     if (!item || item.soon || item.use === 'cooler_upgrade') continue;
-    const qty = safeCount(g.qty, item.perishMin === undefined ? BAG.maxStack : 1);
+    // Preserve legacy keeper stacks if a catalogue edit makes them perishable.
+    // New purchases will still create individual food slots; normalization must not lose units.
+    const qty = safeCount(g.qty, BAG.maxStack);
     if (!qty || typeof g.at !== 'number' || !Number.isSafeInteger(g.at) || g.at < 0 || g.at > now) continue;
-    const expiry = g.expiresAt;
-    if (item.perishMin === undefined) {
-      if (expiry !== null) continue;
-    } else if (typeof expiry !== 'number' || !Number.isSafeInteger(expiry) || expiry <= g.at || expiry <= now) continue;
+    let expiry: number | null = null;
+    if (item.perishMin !== undefined) {
+      // Keep an existing valid food clock; repair keeper -> food using its purchase time.
+      expiry = typeof g.expiresAt === 'number' && Number.isSafeInteger(g.expiresAt) && g.expiresAt > g.at
+        ? g.expiresAt : g.at + item.perishMin * 60_000;
+      if (!Number.isSafeInteger(expiry) || expiry <= now) continue;
+    }
     seen.add(g.uid);
-    goods.push({ uid: g.uid, id: item.id, qty, at: g.at, expiresAt: expiry as number | null });
+    goods.push({ uid: g.uid, id: item.id, qty, at: g.at, expiresAt: expiry });
   }
   return goods;
 }
@@ -395,4 +412,3 @@ export function validateStoryDay(raw: unknown, prev: StorySave | undefined, rela
 
   return { version: 1, step: s.step as string, day, coins, energy, bag, flags, ledger, records, counters };
 }
-

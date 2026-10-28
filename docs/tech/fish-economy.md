@@ -104,10 +104,10 @@ Owner's corrections supersede conflicting text in `docs/ai/PROMPT_item_system.md
 
 | Field | Default / limits |
 |---|---|
-| coins | 0; nonnegative safe integer (maximum 9,007,199,254,740,991) |
+| coins | 0; ceiling SELL.dailyCap x ECONOMY_SAVE.balanceCapDays = 2,000,000; positive invalid/over-ceiling balances are refused |
 | coolerLevel | 0; integer 0..2 from existing upgrade config |
 | goods | [] ; at most 20 slots; uid 1..64 ASCII letters/digits/underscore/hyphen; ID from the shop catalogue |
-| goods[].qty | 1..20 for keepers, exactly 1 for food |
+| goods[].qty | 1..20; legacy stacks survive perishability changes; new food purchases will use qty=1 |
 | goods[].at | Nonnegative safe-integer milliseconds, no later than server now |
 | goods[].expiresAt | null for keepers; safe-integer milliseconds greater than at for food; expired at <= now |
 | econ.day | Current Bangkok day number from `bkkDay(now)` |
@@ -117,9 +117,9 @@ Owner's corrections supersede conflicting text in `docs/ai/PROMPT_item_system.md
 
 No cooler, catch claims, sold set, or ice timestamps are stored by this stage. Missing fields in old server documents receive defaults; localStorage is never imported. The existing Dalbit story balance stays separate. All API player views carry these fields, including Fish Book/story replies and replay responses, so existing writes preserve the economy.
 
-Expired goods are excluded by `normalizePlayer()` at read time. A load performs no cleanup write and creates no document for a new player. The next accepted mutation persists the normalized fields. Food uses its stored expiry; changing catalogue durations later does not retroactively change a purchased item's expiry. Unknown or malformed entries are discarded. Only the first 20 stored bag entries are inspected, so malformed overfull data cannot cause an unbounded scan.
+Expired goods are excluded by `normalizePlayer()` at read time. A load performs no cleanup write and creates no document for a new player. The next accepted mutation persists the normalized fields. Food keeps a valid stored expiry. A keeper is repaired to expiresAt=null; a perishable without a valid food expiry is repaired to at + perishMin. Catalogue duration changes do not rewrite an already valid food expiry. Legacy stacks retain all units when made perishable; genuinely expired repaired food is removed. Unknown or malformed entries are discarded. Only the first 20 stored bag entries are inspected, so malformed overfull data cannot cause an unbounded scan.
 
-**Exact compact JSON maximum for these new fields: 5,257 bytes**, with the current catalogues and all numeric/string fields at their allowed maximum lengths. The test constructs that maximum. This is a serialization bound, not Firestore's encoded size or the entire player document: existing Fish Book/story fields are not included. Catalogue growth requires updating the bound and its test. `coins` and timestamps use JavaScript safe-integer bounds; ordinary live values use fewer digits.
+**Exact compact JSON maximum for these new fields: 5,268 bytes**, with the current catalogues and all numeric/string fields at their allowed maximum lengths. The test constructs that maximum. This is a serialization bound, not Firestore's encoded size or the entire player document: existing Fish Book/story fields are not included. Catalogue growth requires updating the bound and its test. `coins` uses the configured balance ceiling and timestamps use JavaScript safe-integer bounds; ordinary live values use fewer digits.
 
 ### Planned metadata for (b)/(c), not implemented in (a)
 
@@ -134,6 +134,11 @@ These are sorted timestamp arrays, not copies of fish or a server cooler. Timest
 
 The shared accepted-operation budget is now **40 per Player ID per Bangkok day**. A load costs 1 read and no writes. An accepted transaction costs 2 reads and 2 writes (player plus operation log), before Firestore contention retries. A replay has reads but no writes and does not consume the accepted-operation budget. At 200 players, 40 accepted operations each allow 16,000 writes/day; retries, rejected requests, session/login traffic and extra IDs still need headroom and monitoring. Per-instance request throttles are not a global quota guarantee.
 
-Validation for (a): API regression tests cover new/old saves, read-only expiry at its exact boundary, persistence on the next existing operation, preserved story/Fish Book, invalid/duplicate/oversized goods, Bangkok rollover, 40-op exhaustion/replay/reset, and storage bounds. All 20 API tests pass. API TypeScript compilation passes; the compiled items handler imports and returns the expected 405 for GET. Checks used the isolated current source and preinstalled dependencies. The official Vercel builder was attempted but fails here with `EISDIR` while reading traced files with reused local dependencies; a successful deployment/build is not claimed. Emulator rules remain stage (e); no rules were changed.
+Validation for (a): API regression tests cover new/old saves, read-only expiry at its exact boundary, persistence on the next existing operation, preserved story/Fish Book, invalid/duplicate/oversized goods, Bangkok rollover, 40-op exhaustion/replay/reset, and storage bounds. All 23 API tests pass after review fixes. API TypeScript compilation passes; the compiled items handler imports and returns the expected 405 for GET. Checks used the isolated current source and preinstalled dependencies. Teera independently verified the prior stage (a) branch: npm test (178), tsc -b, npm run test:api (including api/items.js), and npm run build all pass. The earlier local EISDIR was an environment problem. After these review fixes, 23 targeted API tests and the API TypeScript check pass locally; the full suite has not been rerun here. Emulator rules remain stage (e); no rules were changed.
 
 Phone check after pulling `dev-test-id`: `npm run dev`, open the TEST Player ID, visit Quiet Bay, record a catch with Nami/Kai, reload and verify the Fish Book persists; verify the existing story still loads. There is no new visible wallet behavior in (a). The developer can inspect `/api/items` load for coins=0, coolerLevel=0, goods=[] and today's econ counters, with no new .dev player entry until the first accepted save. No shop operation is newly exposed. Physical iPhone confirmation is pending before merge to main.
+
+
+### Stage (a) review fixes (2026-10-28)
+
+Daily counters clamp to their configured maximum instead of resetting to zero when an owner lowers a limit. Goods use SHOP_BY_ID; catalogue perishability changes repair clocks rather than deleting otherwise valid rows. Existing keeper stacks remain intact when changed to food. The balance guard `checkedCoinBalance` refuses totals above SELL.dailyCap x 400, currently 2,000,000; stage (b) must call it on the computed post-sale balance before commit. End-of-file blank lines were removed. Tests cover lowered config, keeper/food conversion with 20 units, repaired expiry, and balance overflow without writes. No shop.sell implementation is included in these fixes.
