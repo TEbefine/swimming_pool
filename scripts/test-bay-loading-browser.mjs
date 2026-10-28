@@ -65,8 +65,14 @@ try {
  await page.goto(base+'?room=lake_pier&loading', { waitUntil: 'domcontentloaded' });await page.locator('.cfl-fallback').waitFor();await finishScene('failed artwork');
  await page.unroute('**/ui/loading/bay-fishing/kai-v1.webp');
  await page.goto(base+'?room=lake_pier&boot', { waitUntil: 'domcontentloaded' });
- await page.waitForTimeout(1500);await page.keyboard.press('Enter');
- await page.waitForTimeout(500);await page.keyboard.press('Space');
+ // The first START press can arrive before room assets are ready. Retry it
+ // until the boot/story appears instead of assuming a fixed network delay.
+ for (let attempt=0; attempt<80; attempt++) {
+  if (await page.locator('.cfl-root').count()) break;
+  await page.keyboard.press('Enter');
+  if (await page.locator('.boot').count()) await page.keyboard.press('Space');
+  await page.waitForTimeout(250);
+ }
  await finishScene('bay after cold boot');
  await page.setViewportSize({width:390,height:844});
  await page.goto(base+'?room=lake_pier&loading',{waitUntil:'domcontentloaded'});
