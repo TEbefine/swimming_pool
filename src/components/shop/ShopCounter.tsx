@@ -13,6 +13,8 @@ import {
   buyFrom, formatMoney, quoteBuyNow, quoteSellNow, reasonLine, refreshWallet, sellToGen, useBagItem, useWallet,
 } from '../../game/economy/walletStore';
 import type { ShopTab, ShopVisit } from '../../game/economy/shopTalk';
+import { buyReceipt, receiptTime, sellReceipt, vatLabel } from '../../game/economy/receipt';
+import type { Receipt } from '../../game/economy/receipt';
 import './shop.css';
 
 // The Harbour Fish Shop counter (ECO-01 steps 3–4). Drawn INSIDE the game screen, in the START-menu /
@@ -64,6 +66,37 @@ function itemFacts(it: ShopItem): string {
 
 const CoinIcon = () => <span className="sp-coin" aria-hidden="true" />;
 
+/** The paper slip after Pay / Sell: lines, total, the VAT inside it (or why there is none), balance. */
+const ReceiptSlip: React.FC<{ r: Receipt; onDone: () => void }> = ({ r, onDone }) => (
+  <button type="button" tabIndex={-1} className="sp-receipt-veil" onClick={onDone} aria-label="Close the receipt">
+    <div className="sp-receipt" role="document">
+      <div className="sp-rc-head">HARBOUR FISH SHOP</div>
+      <div className="sp-rc-sub">{r.kind === 'sell' ? 'Gen bought from you' : r.vendor === 'gen' ? "Gen's counter" : "Minato's kitchen"} · {receiptTime(r.at)}</div>
+      <div className="sp-rc-rule" />
+      {r.lines.map((l, i) => (
+        <div className="sp-rc-row" key={i}>
+          <span className="sp-rc-name">{l.name} <small>{l.detail}</small></span>
+          <span>{l.amount.toLocaleString('en-US')}</span>
+        </div>
+      ))}
+      <div className="sp-rc-rule" />
+      <div className="sp-rc-row sp-rc-total"><span>{r.kind === 'sell' ? 'You got' : 'Total'}</span><span><CoinIcon />{r.total.toLocaleString('en-US')}</span></div>
+      {r.vat !== null ? (
+        <>
+          <div className="sp-rc-row sp-rc-small"><span>{vatLabel()} (included)</span><span>{r.vat.toLocaleString('en-US')}</span></div>
+          <div className="sp-rc-row sp-rc-small"><span>Price before VAT</span><span>{(r.total - r.vat).toLocaleString('en-US')}</span></div>
+        </>
+      ) : (
+        <div className="sp-rc-small">No VAT: selling your catch is not taxed.</div>
+      )}
+      {r.note && <div className="sp-rc-small">{r.note}</div>}
+      <div className="sp-rc-rule" />
+      <div className="sp-rc-row"><span>Balance</span><span><CoinIcon />{r.balance.toLocaleString('en-US')}</span></div>
+      <div className="sp-rc-foot">Thank you! · tap or ◯ to close</div>
+    </div>
+  </button>
+);
+
 export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, inputRef, onClose }) => {
   const wallet = useWallet();
   const [now, setNow] = useState(() => Date.now());
@@ -73,6 +106,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [cart, setCart] = useState<CartLine[]>([]);
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'no' } | null>(null);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const visit = useRef<ShopVisit>({ vendor, soldFish: 0, earned: 0, boughtItems: 0, spent: 0 });
   const rootRef = useRef<HTMLDivElement>(null);
   const msgTimer = useRef<number | undefined>(undefined);
@@ -168,6 +202,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     setPicked(new Set());
     setFocus(1);
     sfx.select();
+    setReceipt(sellReceipt(r.sold, r.kept, r.wallet.coins, Date.now()));
     say(r.kept ? `+${formatMoney(r.earned)}. ${r.kept} fish wait: my ice boxes are full for today.` : `+${formatMoney(r.earned)}. Sold ${r.sold.length} fish to Gen.`);
   };
   const iceCooler = () => {
@@ -226,6 +261,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     setCart([]);
     setFocus(1);
     sfx.select();
+    setReceipt(buyReceipt(vendor, r.lines, r.wallet.coins, Date.now()));
     const upgrade = r.lines.some((l) => SHOP_BY_ID[l.id]?.use === 'cooler_upgrade');
     say(upgrade ? `Bigger cooler! It now holds ${coolerSlots(r.wallet)} fish.` : `−${formatMoney(r.spent)}. ${n} ${n === 1 ? 'thing' : 'things'} in your bag.`);
   };
@@ -234,6 +270,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   // ---- controller / keyboard ----
   const handle = (input: ShopInput) => {
     setKeys(true);
+    if (receipt) { setReceipt(null); sfx.move(); return; } // any button tears the slip off
     if (input === 'back') { close(); return; }
     const n = targets.length;
     if (input === 'up' || input === 'down') {
@@ -453,6 +490,8 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
         )}
 
         <div className="sp-desc">{describe()}</div>
+
+        {receipt && <ReceiptSlip r={receipt} onDone={() => { setReceipt(null); sfx.move(); }} />}
       </div>
     </div>
   );

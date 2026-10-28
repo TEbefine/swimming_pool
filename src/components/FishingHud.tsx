@@ -96,6 +96,7 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
               {v.sizeCm !== null && <span className="opacity-80">{v.sizeCm} cm</span>}
               {v.mode === 'story' && <span className="text-[#6E9E5A]">+1 Bag</span>}
               {info.isNew && <span className="text-[#6E9E5A]">NEW!</span>}
+              {info.cooler && <span className={info.cooler.full ? 'text-[#9C4A3E]' : 'text-[#2D458B]'}>→ {info.cooler.text}</span>}
               {v.perfect && <span className="text-[#B8860B]">Perfect!</span>}
               {v.record && <span className="text-[#9C4A3E]">New record!</span>}
             </span>
