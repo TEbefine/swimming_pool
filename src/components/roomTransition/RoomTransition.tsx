@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { PreparedStory } from './usePreparedStory';
 import type { TransitionStory } from './stories';
 import './roomTransition.css';
-import { CafeLoadingScene } from '../CafeLoadingScene';
+import { LoadingScene } from '../LoadingScene';
 
 interface Props { roomName: string; story: PreparedStory | null; fallbackStory?: TransitionStory | null; ready?: boolean; onPresented?: () => void }
 
@@ -11,7 +11,7 @@ export function RoomTransition({ roomName, story, fallbackStory = null, ready = 
   const backgroundHost = useRef<HTMLDivElement>(null);
   const characterHost = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (!story || story.story.effect === 'reading') return;
+    if (!story || story.story.effect !== 'train') return;
     story.background.className = 'rt-background';
     story.character.className = 'rt-character';
     backgroundHost.current?.appendChild(story.background);
@@ -20,9 +20,9 @@ export function RoomTransition({ roomName, story, fallbackStory = null, ready = 
   }, [story]);
   const scene = story?.story ?? fallbackStory;
   useEffect(() => {
-    if (scene && scene.effect !== 'reading') onPresented?.();
+    if (scene?.effect === 'train') onPresented?.();
   }, [scene, onPresented]);
-  if (scene?.effect === 'reading') return <CafeLoadingScene roomId={scene.roomId} roomName={roomName} story={scene}
+  if (scene && (scene.effect === 'reading' || scene.effect === 'bay')) return <LoadingScene roomId={scene.roomId} roomName={roomName} story={scene}
     ready={ready} progress={ready ? 100 : 0} leaving={false} onEnter={() => {}} automatic onPresented={onPresented} />;
   return (
     <div className="rt-root" role="status" aria-label={`Going to ${roomName}`}>

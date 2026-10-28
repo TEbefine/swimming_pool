@@ -5,7 +5,8 @@ export interface TransitionStory {
   background: string;
   character: string;
   line: string;
-  effect: 'train' | 'reading';
+  effect: 'train' | 'reading' | 'bay';
+  fish?: string;
   minimumMs?: number;
   garden?: string;
   foliage?: string;
@@ -28,6 +29,14 @@ export const TRANSITION_STORIES: readonly TransitionStory[] = [
     leaf: '/ui/loading/cafe-reading/leaf-v1.webp',
     spark: '/ui/loading/cafe-reading/spark-v1.webp',
     line: 'Just one chapter today. Small is enough.', effect: 'reading', minimumMs: 5000,
+  },
+  {
+    id: 'bay-kai-trophy-v1', roomId: 'lake_pier',
+    background: '/ui/loading/bay-fishing/bay-v1.webp',
+    character: '/ui/loading/bay-fishing/kai-v1.webp',
+    fish: '/ui/loading/bay-fishing/yellowtail-v1.webp',
+    spark: '/ui/loading/cafe-reading/spark-v1.webp',
+    line: 'A catch worth waiting for.', effect: 'bay', minimumMs: 5000,
   },
 ];
 

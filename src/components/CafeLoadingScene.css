@@ -35,3 +35,19 @@
 @keyframes cfl-leaf-drift { 0% { transform:translate(0,0) rotate(-12deg); opacity:0; } 10%,80% { opacity:.65; } 100% { transform:translate(30cqw,40cqh) rotate(50deg); opacity:0; } }
 @keyframes cfl-glimmer { 0%,100% { opacity:.15; } 50% { opacity:.65; } }
 @media (prefers-reduced-motion:reduce) { .cfl-root,.cfl-root * { animation:none !important; transition:none !important; } .cfl-bird-path { left:30%; } }
+
+/* Bay trophy: one fixed photo, a four-frame pixel fish and three water glints. */
+.cfl-bay { background:#37799f; }
+.cfl-bay-background { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; image-rendering:pixelated; }
+.cfl-bay-kai { position:absolute; bottom:1cqh; left:50%; transform:translateX(-50%); height:94cqh; width:62.6667cqh; }
+.cfl-bay-photo { display:block; width:100%; height:100%; }
+.cfl-bay-fish { position:absolute; left:25.2%; top:22%; width:26%; height:42%; transform-origin:50% 1%; }
+.cfl-bay-yellowtail { width:100%; height:100%; }
+.cfl-bay-yellowtail img { animation-duration:2.8s; }
+.cfl-bay-glints { position:absolute; left:0; right:0; top:57%; height:12%; }
+.cfl-bay-glint { position:absolute; animation:cfl-glimmer 5s ease-in-out infinite; }
+.cfl-bay-glint-0 { left:12%; top:30%; }
+.cfl-bay-glint-1 { left:78%; top:60%; animation-delay:-2s; }
+.cfl-bay-glint-2 { left:45%; top:0; animation-delay:-4s; }
+.cfl-bay-spark { width:2cqh; height:2cqh; }
+.cfl-bay-spark img { width:200%; animation:cfl-four 4s steps(2,end) infinite; }
