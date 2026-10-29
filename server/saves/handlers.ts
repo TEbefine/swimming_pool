@@ -100,7 +100,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         onlyFields(body, ['op']);
         const raw = await services.readPlayer(address);
         const t = now();
-        reply(res, 200, playerView(raw ? normalizePlayer(raw, t) : emptyPlayer(t)));
+        reply(res, 200, { ...playerView(raw ? normalizePlayer(raw, t) : emptyPlayer(t)), serverNow: t });
         return;
       }
 
@@ -121,7 +121,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
             : applyIce(doc, uid!, t);
           return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
         });
-        reply(res, 200, result);
+        reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours
         return;
       }
 
@@ -140,7 +140,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
           const { fields, changes } = applySale(doc, catches, t);
           return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
         });
-        reply(res, 200, result);
+        reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours
         return;
       }
 
@@ -160,7 +160,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
           const { fields, changes } = applyCatches(doc, catches, t);
           return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
         });
-        reply(res, 200, result);
+        reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours
         return;
       }
 
@@ -184,7 +184,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
           const changes = { world: 'dalbit', day: state.day, storyRevision: save.revision, coins: state.coins };
           return commit(doc, { storyWorlds: { ...doc.storyWorlds, dalbit: save }, ...budget }, op, hash, changes, t);
         });
-        reply(res, 200, result);
+        reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours
         return;
       }
 

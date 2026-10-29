@@ -243,3 +243,46 @@ Buy hashes vendor, cart and optional expectedTotal; use hashes uid. Same ID/body
 205 unit/API tests cover price-guard midnight protection, lower/unguarded prices, changed-cart/guard replay, funds, limits, vendor, soon items, quantity bounds, stacks, full bags, food slots and stored expiry, upgrade sequence, ice ownership/capacity/retention/exact spoil boundaries, shared iced sale pricing and reversed indices. Five emulator tests include real simultaneous buys competing for the same coins, last-ice use races, identical buy retries and ownership. Run npm test, npx tsc -b, npm run build (includes test:api), npm run test:rules.
 
 Server zero-ice pricing is resolved. Client wallet integration remains stage (d), so local unconfirmed ice does not count on the server. Claimed fish/size and timestamp collisions remain ECO-03 gaps. ECO-04 epoch reset must clear iceUsedAt as well as other economy state without erasing ledger history. TOWN-01 owns eventual VAT/fund/stock changes. No physical phone validation claimed for this API-only stage.
+
+## 13. ECO-02 stage (d) — the phone uses the server (2026-10-29, Claude)
+
+### Who owns what now
+| Thing | Where | Notes |
+|---|---|---|
+| Cooler (unsold catches) | device, per Player ID | rots in 30 min; the phone's own business |
+| Coins, goods, cooler level, daily counters, ice events | server | the device keeps a cache of the last answer |
+| Pending trade (answer lost) | device, per Player ID | the exact request, resent by Retry |
+| Sandbox (`?test=shop|free`) | device only | the pure wallet, no account, no server |
+
+Code: `src/game/economy/economyStore.ts` (logic, injected storage/clock/transport), `walletStore.ts` (the instance + React hooks), `game/saves/cloud.ts` (transport + every answer refreshes the cache), `components/shop/ShopCounter.tsx` (busy lock, Retry row, WAITING fish).
+
+### A trade, step by step
+1. The player taps Sell / Pay / Use. The phone checks what it can (something picked, enough coins in the cache, ice that helps) and whether it is online. Offline → the vendor's line, nothing sent.
+2. It makes ONE `operationId`, saves the exact request as *pending*, locks the counter and sends it.
+3. Answer OK → cache updated, pending cleared, the slip prints from the server's result.
+4. Answer "no" (4xx) → nothing happened on the server; pending cleared; the vendor says why.
+5. No answer / 5xx → it may have gone through. Pending stays; **Retry** resends the same bytes. The server's log replays the first result, so it can never pay or charge twice.
+
+### Server switch and preview
+- `ECONOMY_API=on` must be set for the server to accept money ops. Production: OFF until ECO-04.
+- The game shows the shop only in `npm run dev`, sandbox pages, and Vercel **Preview** builds with `VITE_ECONOMY_PREVIEW=1`.
+
+### Vercel setup (Teera, once)
+In Vercel → project **swimming_pool** → Settings → Environment Variables:
+1. Add `VITE_ECONOMY_PREVIEW` = `1` → Environment: **Preview** only → "Select a custom Preview branch" → `dev-test-id`.
+2. Add `ECONOMY_API` = `on` → **Preview** only → branch `dev-test-id`.
+3. Check that the Firebase server credentials the API uses (the same variables Production has) also exist for **Preview, branch `dev-test-id` only**, not for all previews: previews write the real database.
+4. Never add `ECONOMY_API` to **Production** before ECO-04.
+5. Redeploy the latest `dev-test-id` preview (env changes apply to new deployments only).
+
+### iPhone checklist (on the dev-test-id preview URL)
+1. Unlock your Player ID → walk to Gen: coins show the server's number (0 at first).
+2. Catch 2–3 fish at Quiet Bay → sell to Gen → the slip shows the server's prices; reload: the coins stay.
+3. Buy a Block of ice → the slip shows "VAT 7% (included)"; the coins drop by exactly the Pay bar total.
+4. Catch a fish, use the ice → its countdown grows by 15 min; reload: still iced.
+5. Airplane mode → Sell → "No signal, no sale…", nothing changes → airplane off → sell works.
+
+### Known limits
+- Fish and size are still claimed by the phone (ECO-03 fixes). Two devices catching on the same millisecond collide (ECO-03).
+- `bag.use`, `shop.buy`, `shop.sell` share the 40 operations a day budget.
+- The Firestore emulator tests were not run in this session (no emulator download in the sandbox).

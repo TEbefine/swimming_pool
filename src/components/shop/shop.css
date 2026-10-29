@@ -375,3 +375,9 @@
 .sp-rc-total { font-weight: 700; color: var(--sp-navy); }
 .sp-rc-small { color: var(--sp-ink-soft); font-size: calc(var(--sp-fs) - 3px); }
 .sp-rc-foot { margin: 4px 0 6px; text-align: center; color: var(--sp-ink-soft); font-size: calc(var(--sp-fs) - 4px); }
+
+/* ECO-02(d): a trade is on its way → the counter waits (no double taps); a lost answer → Retry row */
+.sp-frame[data-busy='true'] .sp-list,
+.sp-frame[data-busy='true'] .sp-paybar { opacity: 0.6; pointer-events: none; }
+.sp-retry { margin: 2px 0 4px; background: #9c3a2f; color: var(--sp-cream); }
+.sp-retry .sp-meta { color: var(--sp-cream); }

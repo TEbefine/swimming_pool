@@ -3,11 +3,11 @@
 // All-or-nothing: a failed action never half-changes anything. Expiry is checked on read (no timers).
 // The same functions will run on the save server later (ECO-01 step 8), so the phone can't cheat.
 
-import { BAG, COOLER, FRESH, LOG_KEEP, SELL, SHOP } from './economyConfig.js';
+import { BAG, COOLER, ICE, LOG_KEEP, SELL, SHOP } from './economyConfig.js';
 import { SHOP_BY_ID } from './shopCatalog.js';
 import type { Vendor } from './shopCatalog.js';
 import { FREE_BY_ID } from '../fishing/freeFishCatalog.js';
-import { bkkDay, freshnessOf, isSellableFish, itemPrice, marketOf, quoteFish } from './market.js';
+import { bkkDay, freshnessOf, iceMinutesFor, isSellableFish, itemPrice, marketOf, quoteFish } from './market.js';
 import type { FishQuote, MarketDay } from './market.js';
 
 /** One fish in the cooler. */
@@ -16,8 +16,6 @@ export interface CoolerFish {
   fishId: string;
   sizeCm: number | null;
   caughtAt: number;
-  /** Minutes of ice it got (keeps it fresh longer). */
-  icedMin: number;
 }
 
 /** One bag slot of shop goods. Perishable goods are always qty 1 (each has its own clock). */
@@ -51,7 +49,14 @@ export interface Wallet {
   earnedToday: number;
   /** Items bought today (daily limits). */
   boughtToday: Record<string, number>;
+  /** When a Block of ice was used (same rule as the server: iceMinutesFor). Old events are dropped. */
+  iceUsedAt: number[];
   log: TradeLog[];
+}
+
+/** Minutes of ice this fish got, from the wallet's ice events (one rule for phone and server). */
+export function fishIceMin(w: Pick<Wallet, 'iceUsedAt'>, c: Pick<CoolerFish, 'caughtAt'>): number {
+  return iceMinutesFor(c.caughtAt, w.iceUsedAt);
 }
 
 export type Reason =
@@ -104,7 +109,7 @@ function withLog(w: Wallet, entry: TradeLog): Wallet {
 // ---- create, load, settle --------------------------------------------------------------------
 
 export function freshWallet(now: number): Wallet {
-  return { version: 1, coins: 0, coolerLevel: 0, cooler: [], goods: [], day: bkkDay(now), soldToday: {}, earnedToday: 0, boughtToday: {}, log: [] };
+  return { version: 1, coins: 0, coolerLevel: 0, cooler: [], goods: [], day: bkkDay(now), soldToday: {}, earnedToday: 0, boughtToday: {}, iceUsedAt: [], log: [] };
 }
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -121,7 +126,8 @@ export function parseWallet(raw: unknown, now: number): Wallet {
   if (!raw || typeof raw !== 'object' || (raw as Wallet).version !== 1) return base;
   const r = raw as Partial<Wallet>;
   const cooler = Array.isArray(r.cooler)
-    ? r.cooler.filter((c): c is CoolerFish => !!c && isStr(c.uid) && isStr(c.fishId) && isNum(c.caughtAt) && isNum(c.icedMin) && (c.sizeCm === null || isNum(c.sizeCm)))
+    ? r.cooler.filter((c): c is CoolerFish => !!c && isStr(c.uid) && isStr(c.fishId) && isNum(c.caughtAt) && (c.sizeCm === null || isNum(c.sizeCm)))
+      .map(({ uid, fishId, sizeCm, caughtAt }) => ({ uid, fishId, sizeCm, caughtAt })) // old per-fish ice is dropped
     : [];
   const goods = Array.isArray(r.goods)
     ? r.goods.filter((g): g is Goods => !!g && isStr(g.uid) && isStr(g.id) && isNum(g.qty) && g.qty > 0 && isNum(g.at) && !!SHOP_BY_ID[g.id])
@@ -137,6 +143,7 @@ export function parseWallet(raw: unknown, now: number): Wallet {
     soldToday: counts(r.soldToday),
     earnedToday: isNum(r.earnedToday) && r.earnedToday > 0 ? Math.floor(r.earnedToday) : 0,
     boughtToday: counts(r.boughtToday),
+    iceUsedAt: Array.isArray(r.iceUsedAt) ? r.iceUsedAt.filter(isNum).slice(-ICE.maxEvents) : [],
     log,
   };
 }
@@ -147,7 +154,10 @@ export function settle(w: Wallet, now: number): { wallet: Wallet; spoiled: Coole
   let next = w;
   const day = bkkDay(now);
   if (next.day !== day) next = { ...next, day, soldToday: {}, earnedToday: 0, boughtToday: {} };
-  const spoiled = next.cooler.filter((c) => !freshnessOf(c.caughtAt, c.icedMin, now));
+  const iceUsedAt = next.iceUsedAt.filter((at) => at > now - ICE.retentionMs);
+  if (iceUsedAt.length !== next.iceUsedAt.length) next = { ...next, iceUsedAt };
+  const w1 = next;
+  const spoiled = next.cooler.filter((c) => !freshnessOf(c.caughtAt, fishIceMin(w1, c), now));
   const expired = next.goods.filter((g) => {
     const it = SHOP_BY_ID[g.id];
     return !it || (it.perishMin !== undefined && now - g.at >= it.perishMin * 60_000);
@@ -185,7 +195,7 @@ export function addCatch(w0: Wallet, fishId: string, sizeCm: number | null, ctx:
   const { wallet: w } = settle(w0, ctx.now);
   if (!isSellableFish(FREE_BY_ID[fishId])) return { ok: false, wallet: w, reason: 'not_sellable', item: fishId };
   if (w.cooler.length >= coolerSlots(w)) return { ok: false, wallet: w, reason: 'cooler_full', item: fishId };
-  const fish: CoolerFish = { uid: (ctx.uid ?? defaultUid)(), fishId, sizeCm, caughtAt: ctx.now, icedMin: 0 };
+  const fish: CoolerFish = { uid: (ctx.uid ?? defaultUid)(), fishId, sizeCm, caughtAt: ctx.now };
   return { ok: true, wallet: { ...w, cooler: [...w.cooler, fish] }, fish };
 }
 
@@ -214,7 +224,7 @@ export function quoteSell(w0: Wallet, uids: string[], now: number): { wallet: Wa
   const lines: SellLine[] = [];
   for (const c of w.cooler) {
     if (!want.has(c.uid)) continue;
-    const q = quoteFish(c, now, market, seen[c.fishId] ?? 0);
+    const q = quoteFish({ ...c, icedMin: fishIceMin(w, c) }, now, market, seen[c.fishId] ?? 0);
     if (!q) continue;
     seen[c.fishId] = (seen[c.fishId] ?? 0) + 1;
     const capped = q.price > room;
@@ -353,11 +363,16 @@ export function useGoods(w0: Wallet, uid: string, ctx: Ctx): Ok<{ used: string }
   if (!g) return { ok: false, wallet: w, reason: 'not_owned' };
   const it = SHOP_BY_ID[g.id];
   if (it.use !== 'ice') return { ok: false, wallet: w, reason: 'cant_use', item: g.id };
-  const helps = w.cooler.some((c) => c.icedMin < FRESH.iceMaxPerFishMin);
-  if (!helps) return { ok: false, wallet: w, reason: 'nothing_to_cool', item: g.id };
-  const cooler = w.cooler.map((c) => ({ ...c, icedMin: Math.min(FRESH.iceMaxPerFishMin, c.icedMin + FRESH.iceExtendMin) }));
-  const next = withLog(takeOne(w, uid, cooler), { at: ctx.now, kind: 'use', text: `Iced ${cooler.length} fish`, coins: 0 });
+  if (!iceHelps(w, ctx.now)) return { ok: false, wallet: w, reason: 'nothing_to_cool', item: g.id };
+  if (w.iceUsedAt.length >= ICE.maxEvents) return { ok: false, wallet: w, reason: 'cant_use', item: g.id };
+  const next = withLog({ ...takeOne(w, uid), iceUsedAt: [...w.iceUsedAt, ctx.now] }, { at: ctx.now, kind: 'use', text: `Iced ${w.cooler.length} fish`, coins: 0 });
   return { ok: true, wallet: next, used: g.id };
+}
+
+/** Would a Block of ice used now give at least one fish in the cooler more time? (Don't waste the player's ice.) */
+export function iceHelps(w: Wallet, now: number): boolean {
+  const after = [...w.iceUsedAt, now];
+  return w.cooler.some((c) => iceMinutesFor(c.caughtAt, after) > iceMinutesFor(c.caughtAt, w.iceUsedAt));
 }
 
 function takeOne(w: Wallet, uid: string, cooler = w.cooler): Wallet {

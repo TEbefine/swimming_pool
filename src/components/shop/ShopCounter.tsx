@@ -10,10 +10,12 @@ import type { ShopItem, Vendor } from '../../game/economy/shopCatalog';
 import type { CartLine, SellLine } from '../../game/economy/wallet';
 import { coolerSlots, goodsFreshRatio } from '../../game/economy/wallet';
 import {
-  buyFrom, formatMoney, quoteBuyNow, quoteSellNow, reasonLine, refreshWallet, sellToGen, useBagItem, useWallet,
+  buyFrom, gameNow, quoteBuyNow, quoteSellNow, reasonLine, refreshWallet, retryTrade, sellToGen, syncEconomy, useBagItem, useEconomyStatus, useWallet,
 } from '../../game/economy/walletStore';
+import type { TradeOutcome } from '../../game/economy/walletStore';
+import { iceMinutesFor } from '../../game/economy/market';
 import type { ShopTab, ShopVisit } from '../../game/economy/shopTalk';
-import { buyReceipt, receiptTime, sellReceipt, vatLabel } from '../../game/economy/receipt';
+import { receiptTime, vatLabel } from '../../game/economy/receipt';
 import type { Receipt } from '../../game/economy/receipt';
 import './shop.css';
 
@@ -99,7 +101,8 @@ const ReceiptSlip: React.FC<{ r: Receipt; onDone: () => void }> = ({ r, onDone }
 
 export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, inputRef, onClose }) => {
   const wallet = useWallet();
-  const [now, setNow] = useState(() => Date.now());
+  const econ = useEconomyStatus();
+  const [now, setNow] = useState(() => gameNow());
   const [tab, setTab] = useState<ShopTab>(firstTab);
   const [focus, setFocus] = useState(1);
   const [keys, setKeys] = useState(false);
@@ -114,7 +117,8 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   // Fish age while you look at them: tick once a second, and drop what spoiled.
   useEffect(() => {
     refreshWallet();
-    const t = window.setInterval(() => { setNow(Date.now()); refreshWallet(); }, 1000);
+    void syncEconomy(); // the latest coins and goods from the server (1 read); the cache draws meanwhile
+    const t = window.setInterval(() => { setNow(gameNow()); refreshWallet(); }, 1000);
     return () => { window.clearInterval(t); window.clearTimeout(msgTimer.current); };
   }, []);
 
@@ -138,7 +142,9 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   const isStock = stock.length > 0;
   const sellQuote = useMemo(() => (tab === 'sell' ? quoteSellNow(wallet.cooler.map((c) => c.uid)) : null), [tab, wallet, now]); // eslint-disable-line react-hooks/exhaustive-deps
   const linesByUid = useMemo(() => new Map<string, SellLine>((sellQuote?.lines ?? []).map((l) => [l.uid, l])), [sellQuote]);
-  const pickedNow = wallet.cooler.filter((c) => picked.has(c.uid)).map((c) => c.uid);
+  /** Fish waiting in a trade whose answer never came: shown, but not pickable until Retry settles them. */
+  const waiting = useMemo(() => new Set(econ.pending?.op === 'shop.sell' ? econ.pending.uids ?? [] : []), [econ.pending]);
+  const pickedNow = wallet.cooler.filter((c) => picked.has(c.uid) && !waiting.has(c.uid)).map((c) => c.uid);
   const pickedQuote = useMemo(() => (tab === 'sell' && pickedNow.length ? quoteSellNow(pickedNow) : null), [tab, wallet, now, picked]); // eslint-disable-line react-hooks/exhaustive-deps
   const iceStacks = wallet.goods.filter((g) => SHOP_BY_ID[g.id]?.use === 'ice');
   const iceCount = iceStacks.reduce((s, g) => s + g.qty, 0);
@@ -150,6 +156,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   /** Everything the D-pad can land on, top → bottom. */
   const targets = useMemo<string[]>(() => {
     const t = ['tabs'];
+    if (econ.pending) t.push('retry');
     if (tab === 'sell') {
       if (wallet.cooler.length) t.push('all', ...wallet.cooler.map((c) => `fish:${c.uid}`), 'sell');
       if (iceCount) t.push('ice');
@@ -160,7 +167,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
       if (cart.length) t.push('pay');
     }
     return t;
-  }, [tab, wallet, stock, cart.length, iceCount]);
+  }, [tab, wallet, stock, cart.length, iceCount, econ.pending]);
   const focusIdx = Math.min(focus, targets.length - 1);
   const focusKey = targets[focusIdx] ?? 'tabs';
   const isFocus = (key: string) => (keys && focusKey === key ? ' is-focus' : '');
@@ -188,40 +195,43 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     sfx.move();
   };
   const pickAll = () => {
-    const all = wallet.cooler.map((c) => c.uid);
-    setPicked((p) => (all.every((u) => p.has(u)) ? new Set() : new Set(all)));
+    const all = wallet.cooler.map((c) => c.uid).filter((u) => !waiting.has(u));
+    setPicked((p) => (all.length && all.every((u) => p.has(u)) ? new Set() : new Set(all)));
     sfx.move();
   };
-  const sell = () => {
-    const uids = pickedNow.length ? pickedNow : [];
-    if (!uids.length) { sfx.no(); say('Pick the fish first. Tap them, or "Select all".', 'no'); return; }
-    const r = sellToGen(uids);
-    if (!r.ok) { sfx.no(); say(reasonLine(r), 'no'); return; }
-    visit.current.soldFish += r.sold.length;
-    visit.current.earned += r.earned;
-    setPicked(new Set());
-    setFocus(1);
-    sfx.select();
-    setReceipt(sellReceipt(r.sold, r.kept, r.wallet.coins, Date.now()));
-    say(r.kept ? `+${formatMoney(r.earned)}. ${r.kept} fish wait: my ice boxes are full for today.` : `+${formatMoney(r.earned)}. Sold ${r.sold.length} fish to Gen.`);
-  };
-  const iceCooler = () => {
-    const g = iceStacks[0];
-    if (!g) return;
-    const r = useBagItem(g.uid);
-    if (!r.ok) { sfx.no(); say(reasonLine(r), 'no'); return; }
-    sfx.select();
-    say('Fresh ice on every fish: +15 minutes.');
-  };
-  const tapGoods = (uid: string) => {
-    const g = wallet.goods.find((x) => x.uid === uid);
-    if (!g) return;
-    if (SHOP_BY_ID[g.id]?.use === 'ice') {
-      const r = useBagItem(uid);
-      if (!r.ok) { sfx.no(); say(reasonLine(r), 'no'); return; }
-      sfx.select(); say('Fresh ice on every fish: +15 minutes.');
+
+  /** One place that turns a trade's answer into sound, slip and words (sandbox and server alike). */
+  const settleTrade = (r: TradeOutcome, after?: () => void) => {
+    if (!r.ok) {
+      if (r.kind === 'busy') return;
+      sfx.no();
+      if (r.message) say(r.message, 'no');
       return;
     }
+    visit.current.soldFish += r.sold;
+    visit.current.earned += r.earned;
+    visit.current.boughtItems += r.bought;
+    visit.current.spent += r.spent;
+    after?.();
+    setFocus(1);
+    sfx.select();
+    if (r.receipt) setReceipt(r.receipt);
+    say(r.message);
+  };
+  const sell = async () => {
+    const uids = pickedNow.filter((u) => !waiting.has(u));
+    if (!uids.length) { sfx.no(); say('Pick the fish first. Tap them, or "Select all".', 'no'); return; }
+    settleTrade(await sellToGen(uids), () => setPicked(new Set()));
+  };
+  const iceCooler = async () => {
+    const g = iceStacks[0];
+    if (!g) return;
+    settleTrade(await useBagItem(g.uid));
+  };
+  const tapGoods = async (uid: string) => {
+    const g = wallet.goods.find((x) => x.uid === uid);
+    if (!g) return;
+    if (SHOP_BY_ID[g.id]?.use === 'ice') { settleTrade(await useBagItem(uid)); return; }
     sfx.no();
     say('Eating and giving gifts come next. Keep it for now!', 'no');
   };
@@ -246,24 +256,14 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     setCart((c) => (next ? (q ? c.map((l) => (l.id === id ? { ...l, qty: next } : l)) : [...c, { id, qty: next }]) : c.filter((l) => l.id !== id)));
     sfx.move();
   };
-  const pay = () => {
+  const pay = async () => {
     if (!cart.length) return;
-    const r = buyFrom(cart, vendor);
-    if (!r.ok) {
-      sfx.no();
-      const who = r.item && SHOP_BY_ID[r.item] ? `${SHOP_BY_ID[r.item].name}: ` : '';
-      say(who + reasonLine(r), 'no');
-      return;
-    }
-    const n = r.lines.reduce((s, l) => s + l.qty, 0);
-    visit.current.boughtItems += n;
-    visit.current.spent += r.spent;
-    setCart([]);
-    setFocus(1);
-    sfx.select();
-    setReceipt(buyReceipt(vendor, r.lines, r.wallet.coins, Date.now()));
-    const upgrade = r.lines.some((l) => SHOP_BY_ID[l.id]?.use === 'cooler_upgrade');
-    say(upgrade ? `Bigger cooler! It now holds ${coolerSlots(r.wallet)} fish.` : `−${formatMoney(r.spent)}. ${n} ${n === 1 ? 'thing' : 'things'} in your bag.`);
+    // expectedTotal = exactly what the Pay bar shows: the server may charge less, never more.
+    settleTrade(await buyFrom(cart, vendor, cartTotal), () => setCart([]));
+  };
+  const retry = async () => {
+    const r = await retryTrade();
+    settleTrade(r, () => { setPicked(new Set()); setCart([]); });
   };
   const close = () => { sfx.back(); onClose({ ...visit.current }); };
 
@@ -272,6 +272,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     setKeys(true);
     if (receipt) { setReceipt(null); sfx.move(); return; } // any button tears the slip off
     if (input === 'back') { close(); return; }
+    if (econ.busy) return; // a trade is on its way: nothing else until the server answers
     const n = targets.length;
     if (input === 'up' || input === 'down') {
       const next = Math.max(0, Math.min(n - 1, focusIdx + (input === 'up' ? -1 : 1)));
@@ -287,11 +288,12 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     if (dir) { switchTab(dir); return; }
     if (key === 'tabs') { switchTab(1); return; }
     if (key === 'all') pickAll();
-    else if (key.startsWith('fish:')) togglePick(key.slice(5));
-    else if (key === 'sell') sell();
-    else if (key === 'ice') iceCooler();
-    else if (key.startsWith('goods:')) tapGoods(key.slice(6));
-    else if (key === 'pay') pay();
+    else if (key.startsWith('fish:')) { if (!waiting.has(key.slice(5))) togglePick(key.slice(5)); }
+    else if (key === 'sell') void sell();
+    else if (key === 'ice') void iceCooler();
+    else if (key.startsWith('goods:')) void tapGoods(key.slice(6));
+    else if (key === 'pay') void pay();
+    else if (key === 'retry') void retry();
   };
   const handleRef = useRef(handle);
   handleRef.current = handle;
@@ -322,8 +324,10 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
 
   // ---- the description box: what the focused row means ----
   const describe = (): React.ReactNode => {
+    if (econ.busy) return <span className="sp-hint">{vendor === 'gen' ? 'Gen is checking his ledger…' : 'Minato rings it up…'}</span>;
     if (msg) return <span className={`sp-msg is-${msg.tone}`}>{msg.text}</span>;
     const key = focusKey;
+    if (key === 'retry') return 'The last trade got no answer. Retry sends the very same trade again: it can never pay or charge twice.';
     if (key.startsWith('fish:')) {
       const l = linesByUid.get(key.slice(5));
       if (!l) return 'This one is gone.';
@@ -362,23 +366,24 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     <>
       {wallet.cooler.length > 0 && (
         <button type="button" tabIndex={-1} data-sp="all" className={`sp-row sp-row-sub${isFocus('all')}`} onClick={() => { setFocus(targets.indexOf('all')); pickAll(); }}>
-          <span className={`sp-check${wallet.cooler.every((c) => picked.has(c.uid)) ? ' is-on' : ''}`} />
+          <span className={`sp-check${pickedNow.length > 0 && wallet.cooler.every((c) => waiting.has(c.uid) || picked.has(c.uid)) ? ' is-on' : ''}`} />
           <span className="sp-name">Select all</span>
           <span className="sp-meta">Cooler {wallet.cooler.length}/{coolerCap}</span>
         </button>
       )}
       {wallet.cooler.map((c) => {
         const l = linesByUid.get(c.uid);
-        const fr = freshnessOf(c.caughtAt, c.icedMin, now);
+        const fr = freshnessOf(c.caughtAt, iceMinutesFor(c.caughtAt, wallet.iceUsedAt), now);
         const key = `fish:${c.uid}`;
         return (
-          <button type="button" tabIndex={-1} key={c.uid} data-sp={key} className={`sp-row${isFocus(key)}`}
-            onClick={() => { setFocus(targets.indexOf(key)); togglePick(c.uid); }}>
-            <span className={`sp-check${picked.has(c.uid) ? ' is-on' : ''}`} />
+          <button type="button" tabIndex={-1} key={c.uid} data-sp={key} className={`sp-row${isFocus(key)}${waiting.has(c.uid) ? ' is-off' : ''}`}
+            onClick={() => { setFocus(targets.indexOf(key)); if (!waiting.has(c.uid)) togglePick(c.uid); }}>
+            <span className={`sp-check${picked.has(c.uid) && !waiting.has(c.uid) ? ' is-on' : ''}`} />
             <img className="sp-icon" src={freeIcon(c.fishId)} alt="" />
             <span className="sp-name">
               {fishName(c.fishId)}{c.sizeCm !== null && <small> {c.sizeCm} cm</small>}
               {l && l.wanted > 1 && <em className="sp-tag sp-tag-gold">WANTED</em>}
+              {waiting.has(c.uid) && <em className="sp-tag">WAITING</em>}
             </span>
             {fr && <span className={`sp-fresh is-${fr.id}`}>{fr.label} {mmss(fr.leftMin)}</span>}
             <span className="sp-price">{l ? l.price : '–'}</span>
@@ -459,7 +464,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   );
 
   return (
-    <div ref={rootRef} className="sp-frame" data-compact={compact ? 'true' : 'false'} data-keys={keys ? 'true' : 'false'}
+    <div ref={rootRef} className="sp-frame" data-compact={compact ? 'true' : 'false'} data-keys={keys ? 'true' : 'false'} data-busy={econ.busy ? 'true' : 'false'}
       onPointerDown={() => setKeys(false)}>
       <div className="sp-box" role="dialog" aria-label={TITLE[vendor]}>
         <div className="sp-title">
@@ -479,6 +484,13 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
         </div>
 
         <div className="sp-list">
+          {econ.pending && (
+            <button type="button" tabIndex={-1} data-sp="retry" className={`sp-row sp-cta sp-retry${isFocus('retry')}`}
+              onClick={() => { setFocus(targets.indexOf('retry')); void retry(); }}>
+              <span className="sp-name">{econ.busy ? 'Asking again…' : 'No answer last time · Retry'}</span>
+              <span className="sp-meta">{econ.pending.op === 'shop.sell' ? 'sale' : econ.pending.op === 'shop.buy' ? 'order' : 'ice'}</span>
+            </button>
+          )}
           {tab === 'sell' ? renderSell() : tab === 'bag' ? renderBag() : renderStock()}
         </div>
 

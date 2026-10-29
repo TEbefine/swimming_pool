@@ -51,14 +51,27 @@ export function buyReceipt(vendor: Vendor, lines: BuyLine[], balance: number, at
   return { kind: 'buy', vendor, at, lines: rows, total, vat: vatIncluded(total), balance };
 }
 
-export function sellReceipt(sold: SellLine[], kept: number, balance: number, at: number): Receipt {
+/** Why fish were not sold: a count (all kept by the daily cap) or the server's keptLines. */
+export type KeptInfo = number | readonly { reason: 'spoiled' | 'daily_cap' | string }[];
+
+export function keptNote(kept: KeptInfo): string | undefined {
+  const lines = typeof kept === 'number' ? Array.from({ length: kept }, () => ({ reason: 'daily_cap' })) : kept;
+  const bad = lines.filter((l) => l.reason === 'spoiled').length;
+  const capped = lines.length - bad;
+  const parts: string[] = [];
+  if (bad) parts.push(`${bad} fish went bad on the way.`);
+  if (capped) parts.push(`${capped} fish stay in your cooler: Gen's ice boxes are full for today.`);
+  return parts.length ? parts.join(' ') : undefined;
+}
+
+export function sellReceipt(sold: SellLine[], kept: KeptInfo, balance: number, at: number): Receipt {
   const rows = sold.map((l) => ({
     name: FREE_BY_ID[l.fishId]?.name ?? l.fishId,
     detail: `${l.fresh.label.toLowerCase()}${l.wanted > 1 ? ', wanted' : ''}`,
     amount: l.price,
   }));
   const total = sold.reduce((s, l) => s + l.price, 0);
-  const note = kept > 0 ? `${kept} fish stay in your cooler: Gen's ice boxes are full for today.` : undefined;
+  const note = keptNote(kept);
   return { kind: 'sell', vendor: 'gen', at, lines: rows, total, vat: null, balance, note };
 }
 
