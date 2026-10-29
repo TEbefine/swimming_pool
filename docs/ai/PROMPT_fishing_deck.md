@@ -95,3 +95,33 @@ online and get the next deck. Fish rot in 30 minutes anyway, so this will be rar
 - Must stay fast on an iPhone 13. Fishing must never wait for the network.
 
 Speak English, explain like a teacher, and give me 1–2 good vocabulary words with a short definition.
+
+## Updates from Teera's iPhone test (2026-10-29) — read these too
+
+**What changed in the code since this prompt was written** (ECO-02 b/c/d are built):
+- The sale's single authenticity check is `validateSaleCatch` in `server/saves/sales.ts`: add the deck check there.
+- The phone's cooler lives in `src/game/economy/economyStore.ts`; catches are stamped with the **server clock**
+  (`gameNow()`), and every `/api/items` answer carries `serverNow`. Use the same clock for the deck window.
+- The cast already takes its random source: `cast(rng, { table, info, hour, … })` in `src/game/story/fishing.ts`.
+  So the deck = give `cast` a seeded `mulberry32(seed, castIndex)` instead of `Math.random`. The roll depends on
+  `info` (cast distance, "Nice!") and the Bangkok hour/season, so those travel with the catch and the server
+  recomputes with them. A cheater can claim a perfect cast: allowed, it cannot invent a fish.
+
+**Legends are too easy (Teera caught a Baby Kraken on his first cast).** Today `TIERS` in
+`src/game/fishing/freeFishCatalog.ts` gives legend weight 3.5 of ~100, and a "Nice!" cast multiplies it by 1.8:
+about **1 legend every 16–28 catches**. Tune it in the same step as the deck (they share the roll), with every
+number in config:
+- Proposed targets (Teera decides; show me the table first): common ~70%, rare ~22%, epic ~6.5%,
+  legend ~1.2%, god ~0.05% before the cast bonus; "Nice!" may still raise rare+ but legend should stay ≤ ~2%.
+- Write a deterministic test that rolls 100,000 casts with the real table and prints the share per tier,
+  for a normal and a "Nice!" cast, by day and night. Assert the bands.
+- Prices follow rarity (legend base 250 coins): show me how coins per hour change with the new odds.
+
+**Minigame: "faster, but always possible."** The knobs are `TUNING` in `src/game/story/fishing.ts`
+(`biteWindow`, `fishSpeed`, `fishTurnEvery`, `fillRate`, net size). Propose a small, config-only change so
+legends feel like a fight but stay catchable on an iPhone with one thumb. Add a test that a "perfect player"
+simulation can always land every difficulty (no impossible fish), and say how long an average catch takes.
+
+**Fish Book (please propose, don't build without my OK):** Nami/Kai record catches without checking the deck,
+so a faked legend could still enter the collection (and later cards). Tell me what it would cost to check the
+deck in `fishbook.record` too, for catches that have a `deckId` (old catches stay as they are).
