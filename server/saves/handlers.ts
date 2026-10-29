@@ -49,6 +49,13 @@ export class DailyLimiter {
     if (++e.count > this.limit) throw new SaveError(429, 'That is a lot of saving for one day. Please come back tomorrow.');
   }
 }
+/** The shop's server switch (ECO-02 d). Money ops exist only where ECONOMY_API=on: local dev saves and the
+ * dev-test-id Preview. Production stays OFF until ECO-04 flips it; the client gate alone is not protection. */
+export const ECONOMY_OPS = ['shop.sell', 'shop.buy', 'bag.use'] as const;
+export const SHOP_CLOSED_LINE = "The shop isn't open yet.";
+export function economyApiOn(env: NodeJS.ProcessEnv): boolean {
+  return env.ECONOMY_API === 'on';
+}
 const FIELDS = ['op', 'operationId', 'catches', 'world', 'baseRevision', 'state', 'vendor', 'cart', 'uid', 'expectedTotal'];
 
 /** Same JSON for the same request, whatever the key order (for the idempotency hash). */
@@ -86,6 +93,8 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
 
       const body = readBody(req, FIELDS, BODY_LIMIT, 'Save request');
       const op = body.op;
+      // Before any Firestore read: a closed shop costs nothing and changes nothing.
+      if ((ECONOMY_OPS as readonly unknown[]).includes(op) && !economyApiOn(env)) throw new SaveError(403, SHOP_CLOSED_LINE, { shopClosed: true });
 
       if (op === 'load') {
         onlyFields(body, ['op']);
