@@ -3,6 +3,7 @@
 // the cooler keeps exactly the fish the server did not take, old device coins are never imported,
 // older answers never overwrite newer ones, and answers for another Player ID are ignored.
 import './register-api-ts.mjs';
+import { fixtureCatch, saleEnv } from './fishing-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const { createItemsHandler, DailyLimiter } = await import('../server/saves/handlers.ts');
@@ -32,7 +33,7 @@ function world({ economyApi = 'on' } = {}) {
     },
   };
   const handler = createItemsHandler({
-    env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ...(economyApi ? { ECONOMY_API: economyApi } : {}) },
+    env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ...saleEnv, ...(economyApi ? { ECONOMY_API: economyApi } : {}) },
     now: () => w.clock + w.serverAhead, limiter: new IpLimiter(1e6), playerLimiter: new IpLimiter(1e6), playerDaily: new DailyLimiter(1e7),
   }, services);
   w.who = ADDRESS;
@@ -66,7 +67,9 @@ function phone(w, storage = memoryStorage(), address = ADDRESS) {
 function catchAt(w, s, ago, size = 15) {
   const keep = w.clock;
   w.clock = keep - ago;
-  const r = s.addCatch('sardine', size);
+  const c = fixtureCatch(w.who, s.now(), { size, startIndex: w.nextIndex ?? 0 });
+  w.nextIndex = c.ticket.castIndex + 1;
+  const r = s.addCatch(c.fish, c.sizeCm, { caughtAt: c.caughtAt, ticket: c.ticket });
   w.clock = keep;
   assert.ok(r.ok, 'catch goes in the cooler');
   return r.fish.uid;
@@ -81,6 +84,7 @@ test('a sale is one request with one operationId; coins and the slip come from t
   assert.equal(r.ok, true);
   assert.equal(w.sent.length, 1);
   assert.equal(w.sent[0].op, 'shop.sell');
+  assert.ok(w.sent[0].catches.every(c => c.ticket && Object.keys(c.ticket).length === 5), 'fresh sale carries the persisted ticket');
   assert.ok(r.earned > 0);
   assert.equal(s.getWallet().coins, coinsOnServer(w), 'the cached coins are the server coins');
   assert.equal(r.receipt.total, r.earned);
@@ -122,6 +126,7 @@ test('a lost answer keeps the exact request; Retry (even after a reload) pays on
   assert.equal(w.sent[1].operationId, w.sent[0].operationId, 'Retry resends the same operationId');
   assert.deepEqual(w.sent[1], w.sent[0], 'byte for byte');
   assert.equal(coinsOnServer(w), paid, 'paid ONCE');
+  assert.equal(w.players.get(ADDRESS).fishBook.sardine.sold, 2, 'Retry records each verified sale only once');
   assert.equal(again.receipt.total, again.earned);
   assert.equal(s.getWallet().cooler.length, 0, 'the sold fish leave the cooler after the replayed answer');
   assert.equal(s.getStatus().pending, null);

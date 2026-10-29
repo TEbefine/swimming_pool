@@ -2,18 +2,9 @@
 import { ECONOMY_SAVE } from '../../src/game/economy/economyConfig.js';
 
 export const LIMITS = {
-  /** Catches per fishbook.record request (the client sends its pending list in chunks). */
-  catchesPerRequest: 40,
-  /** A real cast → wait → bite → reel takes ≥ ~3.8 s (fishing.ts TUNING); 3 s leaves room for clocks. */
+  /** Obsolete client pending-list spacing; removed with the guide flow in step 3. Not a sale rule. */
   minCatchGapMs: 3_000,
-  /** Pending catches older than this are refused (show them to a Fishing Guide within a week). */
-  maxCatchAgeMs: 7 * 24 * 3600_000,
-  /** How far a device clock may run ahead of the server. */
-  clockSkewMs: 60_000,
-  /** Day/night and season boundaries: a catch this close to the line counts for either side. */
-  timeSlackMs: 10 * 60_000,
-  seasonSlackMs: 24 * 3600_000,
-  /** Catches accepted per Bangkok day (the gap rule alone would allow 28,800). */
+  /** Maximum verified fish sold per Bangkok day. */
   catchesPerDay: 2_000,
   /** Save operations per player per minute (the IP limiter is per server instance only). */
   opsPerMinute: 30,

@@ -7,11 +7,12 @@ import { canonicalAddress, LoginError, validSessionClaims } from '../identity/ch
 import { allowedOrigin, clientIp, header, IpLimiter, readBody, reply } from '../identity/http.js';
 import type { Request, Response } from '../identity/http.js';
 import {
-  applyCatches, catchProblem, checkOperationId, countOperation, emptyPlayer, normalizePlayer, parseCatches, playerView,
+  checkOperationId, countOperation, emptyPlayer, normalizePlayer, playerView,
   SaveError, validateStoryDay,
 } from './rules.js';
 import { applyBuy, applyIce, parseBuy, parseGoodsUid } from './purchases.js';
-import { applySale } from './sales.js';
+import { fishingDeckSecret, fishingRedemptionCutoff } from '../fishing/deck.js';
+import { applySale, parseSaleCatches } from './sales.js';
 import type { LogEntry, PlayerDoc } from './rules.js';
 
 export interface TxResult<T> { write: { player: PlayerDoc; log: LogEntry } | null; response: T }
@@ -128,7 +129,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
       if (op === 'shop.sell') {
         onlyFields(body, ['op', 'operationId', 'catches']);
         const operationId = checkOperationId(body.operationId);
-        const catches = parseCatches(body.catches, false);
+        const catches = parseSaleCatches(body.catches);
         const hash = createHash('sha256').update(stable([op, catches])).digest('hex');
         const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
           const t = now();
@@ -137,27 +138,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
           // remains valid after spoilage, config changes, a later sale or Bangkok midnight.
           if (rawLog) return replay(doc, rawLog, hash);
           const budget = countOperation(doc, t);
-          const { fields, changes } = applySale(doc, catches, t);
-          return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
-        });
-        reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours
-        return;
-      }
-
-      if (op === 'fishbook.record') {
-        onlyFields(body, ['op', 'operationId', 'catches']);
-        const operationId = checkOperationId(body.operationId);
-        const catches = parseCatches(body.catches);
-        // Checks that need no stored data run first, so junk never costs Firestore reads.
-        const problems = catches.map(c => catchProblem(c, now()));
-        if (problems.every(Boolean)) throw new SaveError(422, `These catches can't be recorded: ${problems[0]}.`);
-        const hash = createHash('sha256').update(stable([op, catches])).digest('hex');
-        const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
-          const t = now();
-          const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
-          if (rawLog) return replay(doc, rawLog, hash);
-          const budget = countOperation(doc, t);
-          const { fields, changes } = applyCatches(doc, catches, t);
+          const { fields, changes } = applySale(doc, catches, { now: t, address, secret: fishingDeckSecret(env), redeemFromDeckId: fishingRedemptionCutoff(env) });
           return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
         });
         reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours

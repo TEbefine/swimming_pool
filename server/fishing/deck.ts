@@ -18,10 +18,24 @@ export function fishingDeckSecret(env: NodeJS.ProcessEnv): string {
   return secret;
 }
 
+export function fishingDeckSeed(address: string, version: number, deckId: number, secret: string): string {
+  const owner = canonicalAddress(address);
+  if (version !== FISHING_DECK.version || !Number.isSafeInteger(deckId) || deckId < 0) throw new RangeError('Invalid fishing deck.');
+  return createHmac('sha256', secret).update(JSON.stringify(['lumen-bay/fishing-deck', version, owner, deckId])).digest('hex');
+}
+
+/** Fixed activation, never derived from request time. Missing/invalid configuration fails closed. */
+export function fishingRedemptionCutoff(env: NodeJS.ProcessEnv): number {
+  const raw = env.FISHING_DECK_REDEEM_FROM_DECK_ID;
+  const value = Number(raw);
+  if (!raw || !/^(0|[1-9][0-9]*)$/.test(raw) || !Number.isSafeInteger(value)) throw new LoginError(503, 'Fishing sales are unavailable right now. Try again later.');
+  return value;
+}
+
 export function issueFishingDeck(address: string, now: number, secret: string) {
   const owner = canonicalAddress(address);
   const deckId = Math.floor(now / FISHING_DECK.windowMs);
-  const seed = createHmac('sha256', secret).update(JSON.stringify(['lumen-bay/fishing-deck', FISHING_DECK.version, owner, deckId])).digest('hex');
+  const seed = fishingDeckSeed(owner, FISHING_DECK.version, deckId, secret);
   return {
     address: owner, version: FISHING_DECK.version, deckId, seed,
     window: { startAt: deckId * FISHING_DECK.windowMs, endAt: (deckId + 1) * FISHING_DECK.windowMs },

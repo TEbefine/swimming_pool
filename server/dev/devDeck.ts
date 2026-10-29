@@ -1,7 +1,7 @@
 // Vite dev-server middleware only. Neither the production API nor the browser imports this module.
 import type { Plugin } from 'vite';
 import { FISHING_DECK } from '../../src/game/fishing/deckConfig.js';
-const DEV_DECK_SECRET = 'dev-only-fishing-deck-no-production-use-2026';
+import { DEV_DECK_SECRET } from './devFishingPolicy.js';
 
 export function devDeck(): Plugin {
   return {

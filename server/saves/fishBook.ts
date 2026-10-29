@@ -1,4 +1,4 @@
-// Step 1: pure data helpers only. A later step calls recordVerifiedPaidFish ONLY after sale verification.
+// Pure data helpers; sales.ts calls recordVerifiedPaidFish ONLY for verified, paid lines.
 // Fresh Book only: per kind { best, sold }. Presence means found. No data migration/versioning.
 import { FISH_BOOK, FISH_BOOK_BY_ID, FISH_BOOK_KINDS } from '../../src/game/fishing/fishBookConfig.js';
 import { COOLER } from '../../src/game/economy/economyConfig.js';

@@ -1,4 +1,4 @@
-// Pure, bounded paid-index helpers. Step 2 will wire these to the existing sale transaction.
+// Pure, bounded paid-index helpers used inside the existing sale transaction.
 import { FISHING_DECK } from '../../src/game/fishing/deckConfig.js';
 import { COOLER } from '../../src/game/economy/economyConfig.js';
 

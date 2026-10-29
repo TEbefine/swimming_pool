@@ -2,16 +2,16 @@
 // Pure functions (no Firebase): server/saves/handlers.ts runs them inside one Firestore transaction.
 // The client is never trusted with totals: it sends small facts (a catch, an end-of-day story state)
 // and the server checks them against the shared catalogue, sensible bounds, time and rate.
-import { ALL_FREE_FISH, READY_SHEETS, bangkokHourAt, isDayHourAt, thaiSeasonAt } from '../../src/game/fishing/freeFishCatalog.js';
-import type { FreeFish } from '../../src/game/fishing/freeFishCatalog.js';
+import { ALL_FREE_FISH } from '../../src/game/fishing/freeFishCatalog.js';
 import { ITEMS, ITEM_IDS } from '../../src/game/story/items.js';
 import type { ItemId } from '../../src/game/story/items.js';
 import { isStoryCounter, isStoryFlag } from '../../src/game/story/storyKeys.js';
 
-import { ICE, BAG, COOLER, ECONOMY_SAVE, SALE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
+import { ICE, BAG, COOLER, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
 import { SHOP_BY_ID, SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
 import { bkkDay } from '../../src/game/economy/market.js';
 import { LIMITS } from './limits.js';
+import { verifiedFishBookView } from './fishBook.js';
 
 export interface PlayerGoods {
   uid: string;
@@ -36,7 +36,6 @@ export class SaveError extends Error {
 // Re-export the shared configuration for existing server callers.
 export { LIMITS } from './limits.js';
 
-const FISH: ReadonlyMap<string, FreeFish> = new Map(ALL_FREE_FISH.map(f => [f.id, f]));
 // Firestore reserves names that start and end with "__"; never accept a leading "__".
 const KEY_PATTERN = /^(?!__)[a-z0-9_]{1,48}$/;
 const OPERATION_PATTERN = /^(?!__)[A-Za-z0-9_-]{16,64}$/;
@@ -44,7 +43,6 @@ const OPERATION_PATTERN = /^(?!__)[A-Za-z0-9_-]{16,64}$/;
 export const STORY = { lastDay: 1 };
 
 // ---- the saved document --------------------------------------------------------------------------
-export interface FishBookEntry { count: number; best: number | null; first: number; last: number }
 export interface LedgerEntry { day: number; text: string }
 /** Mirrors src/game/story/storyStore.ts StoryState v1 (validated field by field below). */
 export interface StoryState {
@@ -67,17 +65,14 @@ export interface PlayerDoc {
   goods: PlayerGoods[];
   econ: PlayerEconomy;
   /** Internal redemption markers; independent of the Fish Book and Bangkok-day reset. */
-  recentSoldAt: number[];
+  paidDecks?: unknown;
   schemaVersion: 1;
   createdAt: number;
   updatedAt: number;
   /** Bumped on every accepted change. */
   revision: number;
-  fishBook: Record<string, FishBookEntry>;
-  fishTotal: number;
-  /** caughtAt of the newest recorded catch: new catches must come after it (no replays). */
-  lastCatchAt: number | null;
-  catchDay: { day: string; count: number };
+  /** Kept raw so malformed state cannot silently reset payment/Book protection. */
+  fishBook: unknown;
   storyWorlds: { dalbit?: StorySave };
   /** Reserved for cards and Lumen Bay memory (ID-01 plan); nothing writes them yet. */
   ownedCards: Record<string, never>;
@@ -97,9 +92,9 @@ export interface LogEntry {
 
 export function emptyPlayer(now: number): PlayerDoc {
   return {
-    coins: 0, coolerLevel: 0, goods: [], econ: emptyEconomy(now), recentSoldAt: [], iceUsedAt: [],
+    coins: 0, coolerLevel: 0, goods: [], econ: emptyEconomy(now), iceUsedAt: [],
     schemaVersion: 1, createdAt: now, updatedAt: now, revision: 0,
-    fishBook: {}, fishTotal: 0, lastCatchAt: null, catchDay: { day: '', count: 0 },
+    fishBook: {},
     storyWorlds: {}, ownedCards: {}, communityMemory: {}, opWindow: { start: 0, count: 0 }, writeDay: { day: '', count: 0 },
   };
 }
@@ -115,15 +110,12 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
     coolerLevel: safeCount(d.coolerLevel, COOLER.upgradePrices.length),
     goods: normalizeGoods(d.goods, now),
     econ: normalizeEconomy(d.econ, now),
-    recentSoldAt: normalizeRecentSold(d.recentSoldAt, now),
+    ...(Object.hasOwn(d, 'paidDecks') ? { paidDecks: d.paidDecks } : {}),
     iceUsedAt: Array.isArray(d.iceUsedAt) ? d.iceUsedAt.filter(at => Number.isSafeInteger(at) && at >= 0 && at <= now && at > now - ICE.retentionMs).sort((a, b) => a - b) : [],
     createdAt: num(d.createdAt, now),
     updatedAt: num(d.updatedAt, now),
     revision: num(d.revision, 0),
-    fishBook: d.fishBook && typeof d.fishBook === 'object' ? d.fishBook : {},
-    fishTotal: num(d.fishTotal, 0),
-    lastCatchAt: typeof d.lastCatchAt === 'number' ? d.lastCatchAt : null,
-    catchDay: d.catchDay && typeof d.catchDay.day === 'string' ? { day: d.catchDay.day, count: num(d.catchDay.count, 0) } : base.catchDay,
+    fishBook: Object.hasOwn(d, 'fishBook') ? d.fishBook : {},
     storyWorlds: d.storyWorlds && typeof d.storyWorlds === 'object' ? d.storyWorlds : {},
     opWindow: d.opWindow ? { start: num(d.opWindow.start, 0), count: num(d.opWindow.count, 0) } : base.opWindow,
     writeDay: d.writeDay && typeof d.writeDay.day === 'string' ? { day: d.writeDay.day, count: num(d.writeDay.count, 0) } : base.writeDay,
@@ -135,8 +127,8 @@ function num(v: unknown, fallback: number) { return typeof v === 'number' && Num
  * Call with an already-normalized document so expired goods never enter an API response. */
 export function playerView(doc: PlayerDoc) {
   return {
-    revision: doc.revision, fishBook: doc.fishBook, fishTotal: doc.fishTotal,
-    lastCatchAt: doc.lastCatchAt, story: { dalbit: doc.storyWorlds.dalbit ?? null },
+    revision: doc.revision, ...verifiedFishBookView(doc.fishBook),
+    story: { dalbit: doc.storyWorlds.dalbit ?? null },
     coins: doc.coins, coolerLevel: doc.coolerLevel, goods: doc.goods, econ: doc.econ, iceUsedAt: doc.iceUsedAt,
   };
 }
@@ -179,13 +171,6 @@ function normalizeEconomy(raw: unknown, now: number): PlayerEconomy {
   }
   base.earnedToday = clampedCount(econ.earnedToday, SELL.dailyCap);
   return base;
-}
-/** No size truncation: a malformed/old oversized set must never lose live protection.
- * The sale write path refuses overflow; ordinary loads still succeed. */
-function normalizeRecentSold(raw: unknown, now: number): number[] {
-  if (!Array.isArray(raw)) return [];
-  return [...new Set(raw.filter((at): at is number => typeof at === 'number'
-    && Number.isSafeInteger(at) && at >= 0 && at > now - SALE.soldRetentionMs))].sort((a, b) => a - b);
 }
 function normalizeGoods(raw: unknown, now: number): PlayerGoods[] {
   if (!Array.isArray(raw)) return [];
@@ -232,84 +217,6 @@ export function countOperation(doc: PlayerDoc, now: number): Pick<PlayerDoc, 'op
   const d = doc.writeDay.day === today ? { ...doc.writeDay } : { day: today, count: 0 };
   if (++d.count > LIMITS.opsPerDay) throw new SaveError(429, 'That is a lot of saving for one day. Please come back tomorrow.');
   return { opWindow: w, writeDay: d };
-}
-
-// ---- Fish Book: catches shown to a Fishing Guide -------------------------------------------------
-export interface Catch { fish: string; sizeCm: number | null; caughtAt: number }
-
-export function parseCatches(raw: unknown, requireOrder = true): Catch[] {
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > LIMITS.catchesPerRequest) throw new SaveError(400, 'Invalid catch list.');
-  return raw.map(item => {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) throw new SaveError(400, 'Invalid catch.');
-    const keys = Object.keys(item);
-    if (keys.length !== 3 || !['fish', 'sizeCm', 'caughtAt'].every(k => keys.includes(k))) throw new SaveError(400, 'Invalid catch.');
-    const { fish, sizeCm, caughtAt } = item as Record<string, unknown>;
-    if (typeof fish !== 'string' || fish.length > 40) throw new SaveError(400, 'Invalid catch.');
-    if (sizeCm !== null && typeof sizeCm !== 'number') throw new SaveError(400, 'Invalid catch.');
-    if (typeof caughtAt !== 'number' || !Number.isSafeInteger(caughtAt)) throw new SaveError(400, 'Invalid catch.');
-    return { fish, sizeCm: sizeCm as number | null, caughtAt };
-  }).map((c, i, all) => {
-    if (requireOrder && i > 0 && c.caughtAt <= all[i - 1].caughtAt) throw new SaveError(400, 'Catches must be in time order.');
-    return c;
-  });
-}
-
-function fitsTime(f: FreeFish, at: number): boolean {
-  if (!f.time) return true;
-  const want = f.time === 'day';
-  return [at - LIMITS.timeSlackMs, at, at + LIMITS.timeSlackMs].some(t => isDayHourAt(bangkokHourAt(t)) === want);
-}
-function fitsSeason(f: FreeFish, at: number): boolean {
-  if (!f.season) return true;
-  return [at - LIMITS.seasonSlackMs, at, at + LIMITS.seasonSlackMs].some(t => thaiSeasonAt(t) === f.season);
-}
-
-/** Checks one catch on its own (catalogue, size, date, time of day, season). Returns why it fails, or null. */
-export function catchProblem(c: Catch, now: number, policy: { clockSkewMs?: number; maxCatchAgeMs?: number } = {}): string | null {
-  const f = FISH.get(c.fish);
-  if (!f || !READY_SHEETS.includes(f.sheet)) return 'not a fish this bay knows';
-  if (f.size) {
-    if (c.sizeCm === null || !Number.isInteger(c.sizeCm) || c.sizeCm < f.size[0] || c.sizeCm > f.size[1]) return `the size of a ${f.name} looks wrong`;
-  } else if (c.sizeCm !== null) return `a ${f.name} has no size`;
-  if (c.caughtAt > now + (policy.clockSkewMs ?? LIMITS.clockSkewMs)) return 'dated in the future (check the device clock)';
-  if (c.caughtAt < now - (policy.maxCatchAgeMs ?? LIMITS.maxCatchAgeMs)) return 'older than a week';
-  if (!fitsTime(f, c.caughtAt)) return `a ${f.name} does not bite at that time of day`;
-  if (!fitsSeason(f, c.caughtAt)) return `a ${f.name} does not bite in that season`;
-  return null;
-}
-
-/** Accepts every valid catch (each must also come ≥ minCatchGapMs after the previous accepted one) and
- *  reports the rest by index. Throws 422 only when none is valid, 429 past the daily cap. */
-export function applyCatches(doc: PlayerDoc, catches: Catch[], now: number) {
-  let prev = doc.lastCatchAt;
-  const accepted: Catch[] = [];
-  const rejected: { index: number; reason: string }[] = [];
-  catches.forEach((c, index) => {
-    const reason = catchProblem(c, now) ?? (prev !== null && c.caughtAt - prev < LIMITS.minCatchGapMs ? 'too soon after another catch' : null);
-    if (reason) { rejected.push({ index, reason }); return; }
-    accepted.push(c);
-    prev = c.caughtAt;
-  });
-  if (!accepted.length) throw new SaveError(422, `These catches can't be recorded: ${rejected[0]?.reason ?? 'invalid'}.`);
-  const today = bangkokDay(now);
-  const dayCount = (doc.catchDay.day === today ? doc.catchDay.count : 0) + accepted.length;
-  if (dayCount > LIMITS.catchesPerDay) throw new SaveError(429, 'That is more fish than one day can hold. Come back tomorrow.');
-
-  const fishBook = { ...doc.fishBook };
-  const newKinds: string[] = [];
-  const records: string[] = [];
-  for (const c of accepted) {
-    const old = fishBook[c.fish];
-    if (!old) newKinds.push(c.fish);
-    else if (c.sizeCm !== null && (old.best === null || c.sizeCm > old.best)) records.push(c.fish);
-    fishBook[c.fish] = old
-      ? { count: old.count + 1, best: c.sizeCm !== null && (old.best === null || c.sizeCm > old.best) ? c.sizeCm : old.best, first: old.first, last: c.caughtAt }
-      : { count: 1, best: c.sizeCm, first: c.caughtAt, last: c.caughtAt };
-  }
-  return {
-    fields: { fishBook, fishTotal: doc.fishTotal + accepted.length, lastCatchAt: prev, catchDay: { day: today, count: dayCount } },
-    changes: { recorded: accepted.length, kinds: accepted.map(c => c.fish), newKinds, records, rejected },
-  };
 }
 
 // ---- Dalbit story: one validated save at the end of each day -------------------------------------

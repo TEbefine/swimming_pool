@@ -57,9 +57,11 @@ export type KeptInfo = number | readonly { reason: 'spoiled' | 'daily_cap' | str
 export function keptNote(kept: KeptInfo): string | undefined {
   const lines = typeof kept === 'number' ? Array.from({ length: kept }, () => ({ reason: 'daily_cap' })) : kept;
   const bad = lines.filter((l) => l.reason === 'spoiled').length;
-  const capped = lines.length - bad;
+  const trophies = lines.filter((l) => l.reason === 'tier_cap').length;
+  const capped = lines.length - bad - trophies;
   const parts: string[] = [];
   if (bad) parts.push(`${bad} fish went bad on the way.`);
+  if (trophies) parts.push('I can’t take another trophy today');
   if (capped) parts.push(`${capped} fish stay in your cooler: Gen's ice boxes are full for today.`);
   return parts.length ? parts.join(' ') : undefined;
 }

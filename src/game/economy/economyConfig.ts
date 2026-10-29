@@ -88,9 +88,7 @@ export const ICE = {
   retentionMs: (FRESH.lifetimeMin + FRESH.iceMaxPerFishMin) * 60_000 + 10_000,
 } as const;
 
-/** Server sale policy. Retention includes the maximum future server-verified ice extension. */
+/** Server sale clock tolerance. Redemption retention lives in the versioned deck policy. */
 export const SALE = {
   clockSkewMs: 10_000,
-  soldRetentionMs: (FRESH.lifetimeMin + FRESH.iceMaxPerFishMin) * 60_000,
-  maxRecentSold: ECONOMY_SAVE.opsPerDay * (COOLER.baseSlots + COOLER.upgradeSlots * COOLER.upgradePrices.length),
 } as const;

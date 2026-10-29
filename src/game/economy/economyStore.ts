@@ -297,7 +297,7 @@ export class EconomyStore {
     const waiting = new Set(this.pending?.uids ?? []);
     const fish = this.wallet.cooler.filter((c) => uids.includes(c.uid) && !waiting.has(c.uid));
     if (!fish.length) return refused(REASON_LINES.nothing_selected);
-    const catches = fish.map((c) => ({ fish: c.fishId, sizeCm: c.sizeCm, caughtAt: c.caughtAt }));
+    const catches = fish.map((c) => ({ fish: c.fishId, sizeCm: c.sizeCm, caughtAt: c.caughtAt, ...(c.ticket ? { ticket: c.ticket } : {}) }));
     return this.send({ op: 'shop.sell', body: { op: 'shop.sell', operationId: this.deps.newOperationId(), catches }, uids: fish.map((c) => c.uid), tickets: fish.map((c) => c.ticket ?? null), vendor: 'gen', at: this.now() });
   }
 
