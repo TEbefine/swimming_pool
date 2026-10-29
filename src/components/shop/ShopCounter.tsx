@@ -8,7 +8,7 @@ import { freshnessOf, itemPrice, marketOf } from '../../game/economy/market';
 import { SHOP_BY_ID, shopIcon, stockOf } from '../../game/economy/shopCatalog';
 import type { ShopItem, Vendor } from '../../game/economy/shopCatalog';
 import type { CartLine, SellLine } from '../../game/economy/wallet';
-import { coolerSlots, goodsFreshRatio } from '../../game/economy/wallet';
+import { coolerSlots, goodsFreshRatio, goodsLeftMin } from '../../game/economy/wallet';
 import {
   buyFrom, gameNow, quoteBuyNow, quoteSellNow, reasonLine, refreshWallet, retryTrade, sellToGen, syncEconomy, useBagItem, useEconomyStatus, useWallet,
 } from '../../game/economy/walletStore';
@@ -448,7 +448,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
         const it = SHOP_BY_ID[g.id];
         const r = goodsFreshRatio(g, now);
         const key = `goods:${g.uid}`;
-        const leftMin = it?.perishMin ? Math.max(0, it.perishMin - (now - g.at) / 60_000) : null;
+        const leftMin = goodsLeftMin(g, now);
         return (
           <button type="button" tabIndex={-1} key={g.uid} data-sp={key} className={`sp-row${isFocus(key)}`}
             onClick={() => { setFocus(targets.indexOf(key)); tapGoods(g.uid); }}>

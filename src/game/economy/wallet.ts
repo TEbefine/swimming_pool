@@ -25,6 +25,21 @@ export interface Goods {
   qty: number;
   /** When it was bought (perishable clock). */
   at: number;
+  /** Server mode: the expiry the SERVER saved (it wins over today's catalogue). Missing = from the catalogue. */
+  expiresAt?: number | null;
+}
+
+/** When this bag item goes off (null = keeps). Same rule as the server's normalizeGoods: a perishable item keeps
+ *  its saved valid expiry, else purchase time + the catalogue's perish time; a keeper never expires. */
+export function goodsExpiry(g: Goods): number | null {
+  const it = SHOP_BY_ID[g.id];
+  if (!it || it.perishMin === undefined) return null;
+  return typeof g.expiresAt === 'number' && Number.isFinite(g.expiresAt) && g.expiresAt > g.at ? g.expiresAt : g.at + it.perishMin * 60_000;
+}
+/** Minutes left before it goes off (null = keeps). */
+export function goodsLeftMin(g: Goods, now: number): number | null {
+  const exp = goodsExpiry(g);
+  return exp === null ? null : Math.max(0, (exp - now) / 60_000);
 }
 
 export interface TradeLog {
@@ -159,8 +174,9 @@ export function settle(w: Wallet, now: number): { wallet: Wallet; spoiled: Coole
   const w1 = next;
   const spoiled = next.cooler.filter((c) => !freshnessOf(c.caughtAt, fishIceMin(w1, c), now));
   const expired = next.goods.filter((g) => {
-    const it = SHOP_BY_ID[g.id];
-    return !it || (it.perishMin !== undefined && now - g.at >= it.perishMin * 60_000);
+    if (!SHOP_BY_ID[g.id]) return true;
+    const exp = goodsExpiry(g);
+    return exp !== null && exp <= now;
   });
   if (spoiled.length || expired.length) {
     next = {
@@ -183,9 +199,9 @@ export function bagSlotsUsed(w: Wallet): number {
 
 /** How fresh a bought item still is: 1 = just bought … 0 = about to go off (null = keeps forever). */
 export function goodsFreshRatio(g: Goods, now: number): number | null {
-  const it = SHOP_BY_ID[g.id];
-  if (!it?.perishMin) return null;
-  return Math.max(0, 1 - (now - g.at) / (it.perishMin * 60_000));
+  const exp = goodsExpiry(g);
+  if (exp === null || exp <= g.at) return null;
+  return Math.max(0, Math.min(1, (exp - now) / (exp - g.at)));
 }
 
 // ---- fishing → cooler ------------------------------------------------------------------------

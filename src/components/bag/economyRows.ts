@@ -8,6 +8,7 @@
 import { ECONOMY_ON } from '../../game/economy/flags';
 import { freshnessOf, iceMinutesFor } from '../../game/economy/market';
 import { SHOP_BY_ID, shopIcon } from '../../game/economy/shopCatalog';
+import { goodsLeftMin } from '../../game/economy/wallet';
 import type { Wallet } from '../../game/economy/wallet';
 import { FREE_BY_ID, TIERS } from '../../game/fishing/freeFishCatalog';
 import { freeIcon } from '../../game/fishing/freeFish';
@@ -50,7 +51,7 @@ export function coolerRows(w: Wallet, now: number): EconomyRow[] {
 export function goodsRows(w: Wallet, now: number): EconomyRow[] {
   return w.goods.filter((g) => SHOP_BY_ID[g.id]).map((g) => {
     const it = SHOP_BY_ID[g.id];
-    const leftMin = it.perishMin ? Math.max(0, it.perishMin - (now - g.at) / 60_000) : null;
+    const leftMin = goodsLeftMin(g, now); // the server's saved expiry wins
     const bits = [leftMin !== null ? `${mmss(leftMin)} left` : 'Keeps', it.use === 'ice' ? '◯ Use: ice every fish in your cooler' : ''];
     return {
       id: GOODS_PREFIX + g.uid,
