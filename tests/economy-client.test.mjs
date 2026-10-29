@@ -39,9 +39,11 @@ function world({ economyApi = 'on' } = {}) {
   /** What cloud.ts does: POST, throw {status, message, data} on a refusal. */
   w.transport = async (body) => {
     w.sent.push(structuredClone(body));
-    const req = { method: 'POST', body: structuredClone(body), headers: { origin, 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.9', authorization: `Bearer ${TOKEN}` }, socket: { remoteAddress: '127.0.0.1' } };
+    const req = { method: 'POST', body: structuredClone(body), headers: { origin, 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.9', authorization: `Bearer ${w.badToken ? 'expired-session-token-000000000' : TOKEN}` }, socket: { remoteAddress: '127.0.0.1' } };
     const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v; }, end(v) { this.body = JSON.parse(v); } };
     await handler(req, res);
+    if (w.hold) await w.hold; // the server has answered; the network delivers it later
+    if (w.garbled > 0 && res.statusCode === 200) { w.garbled--; throw Object.assign(new Error('Saving is unavailable right now.'), { status: 200 }); } // committed, unreadable body
     if (w.loseAnswers > 0) { w.loseAnswers--; throw Object.assign(new Error('Saving timed out.'), { status: 0 }); } // committed, answer lost
     if (res.statusCode !== 200) throw Object.assign(new Error(res.body.error), { status: res.statusCode, data: res.body });
     return res.body;
@@ -283,4 +285,106 @@ test('sandbox pages stay on the device: no transport, no server', async () => {
   assert.equal(r.ok, true, 'offline does not matter in the sandbox');
   assert.equal(w.sent.length, 0);
   assert.ok(s.getWallet().coins > 0);
+});
+
+// ---- ChatGPT's PR #20 review: three edge cases, reproduced here as regressions --------------------------------
+
+test('review P1: a lost purchase whose Retry gets 401 stays pending; after unlocking, Retry replays; never charged twice', async () => {
+  const w = world();
+  const s = phone(w);
+  w.players.set(ADDRESS, { coins: 500 });
+  await s.sync();
+  w.loseAnswers = 1;
+  const lost = await s.buy([{ id: 'ice_block', qty: 1 }], 'gen', 15);
+  assert.equal(lost.kind, 'uncertain');
+  assert.equal(w.players.get(ADDRESS).coins, 485, 'the server DID charge');
+  w.badToken = true; // the session expired meanwhile
+  const denied = await s.retry();
+  assert.equal(denied.kind, 'signin');
+  assert.ok(s.getStatus().pending, 'a 401 on Retry says nothing about the first attempt: keep it');
+  assert.equal((await s.buy([{ id: 'ice_block', qty: 1 }], 'gen', 15)).kind, 'pending', 'no second Pay while it is unresolved');
+  w.badToken = false; // unlocked again
+  const again = await s.retry();
+  assert.equal(again.ok, true, 'the server replays the first purchase');
+  assert.equal(w.logs.size, 1, 'ONE purchase in the ledger');
+  assert.equal(w.players.get(ADDRESS).coins, 485);
+  assert.equal(s.getWallet().coins, 485);
+  assert.equal(s.getWallet().goods.reduce((n, g) => n + (g.id === 'ice_block' ? g.qty : 0), 0), 1);
+});
+
+test('review P1: an unreadable success answer keeps the trade; a 401 on a FIRST attempt settles it', async () => {
+  const w = world();
+  const s = phone(w);
+  w.players.set(ADDRESS, { coins: 500 });
+  await s.sync();
+  w.garbled = 1;
+  assert.equal((await s.buy([{ id: 'ice_block', qty: 1 }], 'gen', 15)).kind, 'uncertain');
+  assert.ok(s.getStatus().pending, 'unreadable 200: it may have committed');
+  assert.equal((await s.retry()).ok, true);
+  assert.equal(w.logs.size, 1);
+  // a 401 on the very first attempt: nothing was written, so nothing is kept
+  w.badToken = true;
+  const first = await s.buy([{ id: 'ice_block', qty: 1 }], 'gen', 15);
+  assert.equal(first.kind, 'signin');
+  assert.equal(s.getStatus().pending, null);
+  assert.equal(w.logs.size, 1);
+});
+
+test('review P2: ice that the server applied just in time keeps the fish, even if the answer is late', async () => {
+  const w = world();
+  const s = phone(w);
+  w.players.set(ADDRESS, { coins: 100 });
+  await s.sync();
+  await s.buy([{ id: 'ice_block', qty: 1 }], 'gen', 15);
+  const uid = catchAt(w, s, 30 * MIN - 1_000); // 29:59 old
+  const ice = s.getWallet().goods.find((g) => g.id === 'ice_block').uid;
+  let release;
+  w.hold = new Promise((r) => { release = r; });
+  const using = s.useItem(ice); // commits on the server now; the answer waits
+  await new Promise((r) => setImmediate(r));
+  w.clock += 2_000; // 30:01 here, before the ice event is known
+  s.refresh();
+  assert.ok(s.getWallet().cooler.length === 0, 'looks spoiled on screen for a moment…');
+  release(); w.hold = null;
+  assert.equal((await using).ok, true);
+  assert.deepEqual(s.getWallet().cooler.map((c) => c.uid), [uid], '…and is back once the server says it was iced');
+  assert.equal((await s.sell([uid])).ok, true, 'and the server agrees it is fresh');
+});
+
+test('review P2: a lost ice answer + reload still keeps the fish until Retry settles it', async () => {
+  const w = world();
+  const storage = memoryStorage();
+  let s = phone(w, storage);
+  w.players.set(ADDRESS, { coins: 100 });
+  await s.sync();
+  await s.buy([{ id: 'ice_block', qty: 1 }], 'gen', 15);
+  const uid = catchAt(w, s, 30 * MIN - 1_000);
+  w.loseAnswers = 1;
+  assert.equal((await s.useItem(s.getWallet().goods.find((g) => g.id === 'ice_block').uid)).kind, 'uncertain');
+  w.clock += 2_000;
+  s.refresh();
+  s = phone(w, storage); // reload
+  s.refresh();
+  catchAt(w, s, 0); // a new catch while it is unresolved must not drop the old fish either
+  assert.equal((await s.retry()).ok, true);
+  assert.ok(s.getWallet().cooler.some((c) => c.uid === uid), 'the iced fish survived the reload');
+});
+
+test('review P3: the Bag follows the server food clock (shorter, longer, keeper), not today\'s catalogue', async () => {
+  const w = world();
+  const s = phone(w);
+  const day = Math.floor((NOON + 7 * 3600_000) / 86_400_000);
+  w.players.set(ADDRESS, { coins: 0, econ: { day, soldToday: {}, earnedToday: 0, boughtToday: {} }, goods: [
+    { uid: 'short', id: 'sashimi_tai', qty: 1, at: NOON, expiresAt: NOON + 1 * MIN },
+    { uid: 'long', id: 'sashimi_tai', qty: 1, at: NOON, expiresAt: NOON + 300 * MIN },
+    { uid: 'keeper', id: 'nori', qty: 2, at: NOON, expiresAt: null },
+  ] });
+  await s.sync();
+  assert.deepEqual(s.getWallet().goods.map((g) => g.uid).sort(), ['keeper', 'long', 'short']);
+  w.clock += 2 * MIN;
+  assert.deepEqual(s.refresh().goods.map((g) => g.uid).sort(), ['keeper', 'long'], 'the short one went off on its own clock');
+  w.clock += 120 * MIN; // past today's catalogue time (60 min) but inside the saved 300
+  assert.deepEqual(s.refresh().goods.map((g) => g.uid).sort(), ['keeper', 'long']);
+  const load = await w.transport({ op: 'load' });
+  assert.deepEqual(load.goods.map((g) => g.uid).sort(), ['keeper', 'long'], 'phone and server agree');
 });

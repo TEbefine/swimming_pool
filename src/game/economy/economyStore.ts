@@ -95,7 +95,8 @@ export function parseServerEconomy(v: unknown): ServerEconomy | null {
     coins: Math.max(0, Math.floor(r.coins)),
     coolerLevel: isNum(r.coolerLevel) ? Math.max(0, Math.floor(r.coolerLevel)) : 0,
     goods: r.goods.filter((g): g is ServerGoods => !!g && typeof g === 'object' && typeof (g as ServerGoods).uid === 'string'
-      && typeof (g as ServerGoods).id === 'string' && isNum((g as ServerGoods).qty) && isNum((g as ServerGoods).at) && !!SHOP_BY_ID[(g as ServerGoods).id]),
+      && typeof (g as ServerGoods).id === 'string' && isNum((g as ServerGoods).qty) && isNum((g as ServerGoods).at) && !!SHOP_BY_ID[(g as ServerGoods).id])
+      .map(({ uid, id, qty, at, expiresAt }) => ({ uid, id, qty, at, expiresAt: isNum(expiresAt) ? expiresAt : null })),
     econ: { day: isNum(e.day) ? e.day : 0, soldToday: counts(e.soldToday), earnedToday: isNum(e.earnedToday) ? e.earnedToday : 0, boughtToday: counts(e.boughtToday) },
     iceUsedAt: Array.isArray(r.iceUsedAt) ? r.iceUsedAt.filter(isNum) : [],
   };
@@ -174,7 +175,7 @@ export class EconomyStore {
       coins: s?.coins ?? 0,
       coolerLevel: s?.coolerLevel ?? 0,
       cooler: this.cooler,
-      goods: (s?.goods ?? []).map(({ uid, id, qty, at }) => ({ uid, id, qty, at })),
+      goods: (s?.goods ?? []).map(({ uid, id, qty, at, expiresAt }) => ({ uid, id, qty, at, expiresAt })), // the server's food clock
       day: s?.econ.day ?? base.day,
       soldToday: s?.econ.soldToday ?? {},
       earnedToday: s?.econ.earnedToday ?? 0,
@@ -235,7 +236,9 @@ export class EconomyStore {
       return this.wallet;
     }
     const fresh = this.derive().cooler; // settle() already dropped the spoiled fish
-    if (fresh.length !== this.cooler.length) this.setCooler(fresh);
+    // While an ice use is unresolved (in flight, or its answer was lost), a fish that looks spoiled HERE may have
+    // been iced on the server just in time. Never forget it until the server's ice events have arrived.
+    if (fresh.length !== this.cooler.length && !this.iceUnresolved()) this.setCooler(fresh);
     else this.emit();
     return this.wallet;
   }
@@ -264,7 +267,8 @@ export class EconomyStore {
     const r = addCatch(this.wallet, fishId, sizeCm, { now: this.now() });
     if (r.ok) {
       if (this.deps.sandbox) this.setLocal(r.wallet);
-      else this.setCooler(r.wallet.cooler);
+      // Ice unresolved: keep every stored fish (see refresh) and just add the new one.
+      else this.setCooler(this.iceUnresolved() ? [...this.cooler, r.fish] : r.wallet.cooler);
     }
     return r;
   }
@@ -343,6 +347,9 @@ export class EconomyStore {
   devCoins(n: number) { if (this.deps.sandbox) this.setLocal({ ...this.local, coins: Math.max(0, this.local.coins + n) }); }
   devReset() { if (this.deps.sandbox) this.setLocal(freshWallet(this.now())); else this.setCooler([]); }
 
+  /** A Block of ice was sent and the server's answer is not in yet (or was lost). */
+  private iceUnresolved(): boolean { return this.pending?.op === 'bag.use'; }
+
   private blocked(vendor: Vendor): TradeOutcome | null {
     if (this.busy) return { ok: false, kind: 'busy', message: '' };
     if (this.pending) return { ok: false, kind: 'pending', message: TRADE_LINES.pendingFirst };
@@ -369,8 +376,19 @@ export class EconomyStore {
       if (who !== this.scope) return { ok: false, kind: 'refused', message: '' };
       const err = raw as ErrorLike;
       const status = typeof err.status === 'number' ? err.status : 0;
-      // No HTTP answer, or the server/platform failed: it MAY have committed. Keep the request for Retry.
-      if (status === 0 || status >= 500) return { ok: false, kind: 'uncertain', message: TRADE_LINES.uncertain };
+      // Does this answer SETTLE the trade (prove it never happened)?
+      // - 400/409/422 come from validation/pricing, which the server runs AFTER looking up the operationId: had the
+      //   first attempt committed, it would have replayed that result instead. Settled, also on a Retry.
+      // - 401/403/429 are checked BEFORE the lookup. On the first attempt they prove nothing was written (this was
+      //   the only attempt); on a Retry they say nothing about the first attempt, so the trade stays pending.
+      // - No answer, 5xx, or an unreadable 200: it MAY have committed. Keep it for Retry.
+      const settles = status === 400 || status === 409 || status === 422 || (!isRetry && (status === 401 || status === 403 || status === 429));
+      if (!settles) {
+        if (status === 401) return { ok: false, kind: 'signin', message: `${TRADE_LINES.signin} Then tap Retry: your last trade is kept.` };
+        if (status === 403 && err.data?.shopClosed) return { ok: false, kind: 'closed', message: `${TRADE_LINES.closed} Your last trade is kept for Retry.` };
+        if (status === 429) return { ok: false, kind: 'uncertain', message: 'Busy right now. Wait a minute, then tap Retry.' };
+        return { ok: false, kind: 'uncertain', message: TRADE_LINES.uncertain };
+      }
       // A real answer that says no: nothing was written. Forget the request.
       this.clearPending();
       if (err.data && isNum(err.data.serverNow)) this.receiveView(who, { serverNow: err.data.serverNow });
