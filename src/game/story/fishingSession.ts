@@ -18,7 +18,10 @@ import { cast, difficultyOf, isOver, newFishing, press as pressRule, step, TUNIN
 import { ITEMS, itemIcon, withArticle, type ItemId } from './items';
 import { addItem, addLedger, getStory, recordSize, setEnergy, setFlag } from './storyStore';
 import { BOTTLE_NOTES, FREE_BY_ID, FREE_TABLE, TIERS, addToFishBook, freeIcon, freeTableNow } from '../fishing/freeFish';
-import { catchToCooler } from '../economy/walletStore';
+import { catchToCooler, ECONOMY_ON, gameNow } from '../economy/walletStore';
+import { getFishingDeckAddress, reserveFishingCast } from '../fishing/deckClient';
+import { BOOK_ONLY_CATCH, finishFreeCast, prepareFreeCast } from '../fishing/freeCast';
+import type { FreeCast } from '../fishing/freeCast';
 import { coolerSlots } from '../economy/wallet';
 import { bangkokHour } from '../world/cityView';
 
@@ -200,6 +203,7 @@ interface Drop { x: number; y: number; vx: number; vy: number; born: number }
 let drops: Drop[] = [];
 let nextDropAt = 0;
 // the cast
+let freeCast: FreeCast | null = null;
 let chargeAt = 0; // when ◯ went down for the power gauge
 let flightMs = 460;
 let popText: { text: string; color: string; at: number } | null = null;
@@ -326,8 +330,10 @@ function throwLine(info: CastInfo) {
   biteSounded = false;
   tension = 0;
   drops = [];
+  freeCast = mode === 'free' && ECONOMY_ON
+    ? prepareFreeCast(info, gameNow(), testHooks.forceFish ? () => null : reserveFishingCast) : null;
   fs = mode === 'free'
-    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), info, forceFish: testHooks.forceFish, hour: bangkokHour() })
+    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), info, rolled: freeCast?.rolled, forceFish: testHooks.forceFish, hour: bangkokHour() })
     : cast(Math.random, { firstCatch: !st.flags.first_catch, forceFish: testHooks.forceFish, info });
   testHooks.onCast?.(info);
   sound.playEmoteSound('jump'); // the swing whoosh
@@ -376,11 +382,14 @@ function finish(now: number) {
   if (fs.phase === 'caught' && fish) {
     info = catchInfo(fish);
     if (mode === 'free') {
-      const r = addToFishBook(fish, fs.sizeCm);
+      const stamp = freeCast ? finishFreeCast(freeCast, gameNow(), getFishingDeckAddress()) : undefined;
+      const r = addToFishBook(fish, fs.sizeCm, stamp);
       record = r.record;
       info.isNew = r.isNew;
       // ECO-01: fish you can sell go in the cooler (off in the live game → returns null)
-      const c = catchToCooler(fish, fs.sizeCm);
+      const bookOnly = ECONOMY_ON && !stamp?.ticket;
+      const c = bookOnly ? null : catchToCooler(fish, fs.sizeCm, stamp);
+      if (bookOnly) info.cooler = { text: BOOK_ONLY_CATCH, full: false };
       if (c?.ok) info.cooler = { text: `Cooler ${c.wallet.cooler.length}/${coolerSlots(c.wallet)}`, full: c.wallet.cooler.length >= coolerSlots(c.wallet) };
       else if (c && c.reason === 'cooler_full') info.cooler = { text: 'Cooler full!', full: true };
       // tell everyone in the room about the big ones (chat bubble over your head)

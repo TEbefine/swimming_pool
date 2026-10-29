@@ -1,6 +1,6 @@
-# ECO-03 approved plan and stage 2 review
+# ECO-03 approved plan and stage reviews
 
-2026-10-29. Owner: Teera. Based on main `79bd8d0` (merged PR #21), pulled before code. Stage 2 is approved for commit/push to `dev-test-id`; stage 3 is next and must stop for review. Claude's ECO-02 fixes and context entry are preserved. The earlier local review edits to AI_CONTEXT.md were discarded; this session records only the newly authorized ECO-03 work.
+2026-10-29. Owner: Teera. Based on main `79bd8d0` (merged PR #21), pulled before code. Stages 2 and 3 are approved after independent Claude reviews; stage 4 is built for review on `dev-test-id`. Claude's ECO-02 fixes and context entry are preserved. The earlier local review edits to AI_CONTEXT.md were discarded; this session records only the newly authorized ECO-03 work.
 
 ## Approved decisions
 
@@ -60,7 +60,7 @@ There is no deck endpoint, fetch/cache/index allocation, ticket in the cooler, s
 
 ## Remaining stages after review
 
-3. Implemented, awaiting Claude review: authenticated stateless POST /api/fishing-deck and per-ID device caching/random-start index reservation; zero Firestore reads/writes for issuance. See the stage 3 review below.
+3. Approved after Claude review (250 pass and endpoint probes): authenticated stateless POST /api/fishing-deck and per-ID device caching/random-start index reservation; zero Firestore reads/writes for issuance. See the stage 3 review below.
 4. Wire only free fishing to the shared roll and carry the same ticket/timestamps through cooler, pending data and retries. Keep the minigame feel unchanged and preserve Claude's pending-ice protection. Derive Nice from distance using the frozen deck band/canonical adapter, rather than passing the minigame's own flag. Add a test using REAL fishingSession onCast outputs at 0.80/0.92 and adjacent values; valid casts must never throw mid-cast. No such gameplay integration is included in stage 3.
 5. Verify tickets in validateSaleCatch; apply the five-minute bound, current/previous sold bits and approved tier limits inside the existing sale transaction. Test concurrent redemption, boundary casts, ice/rollover, duplicates across devices and historical receipt replay in the emulator. Unticketed/over-duration catches cannot sell.
 6. Propose free-fishing rarity/speed tuning with measured odds and a stated coins/hour model. Propose Fish Book verification separately, with independent markers.
@@ -84,3 +84,29 @@ The device stores `sp_fishing_deck_v1_<address>` with deck, device receipt time,
 Client fetches only when ECONOMY_ON and authenticated/dev identity are present; sandbox and the production-off build send none. Attach triggers a background request; existing valid cache avoids refetch. Visible rollover and reconnect/return refresh it, with one-minute retry on unavailable config/network. Old-ID responses are ignored. No cast/minigame source is wired to reservations yet, and sale validation still uses ECO-02 rules until stage 5.
 
 Validation: **250 tests pass**, including 15 new route/cache/compiled-client tests. The real Vite middleware issues a deck without an env file. TypeScript passes; production build passes with Vercel smoke tests for nonce/login/items/fishing-deck, including no dev fallback on Vercel and the shared economy switch. The compiled-client test executes production/Preview/sandbox builds and checks request counts. Existing stage 2 roll tests and PR #21 regressions remain green. No physical iPhone claim; the endpoint is stateless, with no Firestore changes to exercise in the emulator. Manual dev check: start `npm run dev`, open the normal TEST ID, inspect one successful `/api/fishing-deck` request and the per-ID cache; reload within the window reuses it.
+
+
+## Stage 4 review — 2026-10-29
+
+Pulled dev-test-id before writing code (already current at `9c95f69`). Teera approved stage 3 after Claude's independent review: 250 pass; other-player/window, closed switch, dev-secret-on-Vercel and missing-token probes refused; same window returned the same seed. Stage 4 is authorized for commit/push, then stops for review. No merge to main or Vercel configuration is included.
+
+Free fishing now calls `prepareFreeCast(info, gameNow(), reserveFishingCast)` synchronously when the line is thrown. The one economy-clock reading is both castAt and the time injected into reserveCast's strict `[startAt,endAt)` window check. The deck store's own receipt offset is used only for background availability/refresh, never stamping or validating a cast. Finish reads gameNow() again for caughtAt. Both Fish Book pending data and cooler receive that same stamp, without re-stamping. A backwards clock correction keeps caughtAt >= castAt and makes the catch Book-only; crossing a deck boundary during a normal catch keeps the original ticket. Exactly five minutes remains eligible, longer is Book-only. Changing Player ID mid-cast also loses sale eligibility.
+
+`freeCast.ts` derives Nice from distance using the frozen v1 band, ignoring the minigame's flag. It catches bad/unavailable reservation or roll validation and falls back without interrupting the cast. The shared roll supplies only fish/size/base difficulty/big to a small optional free-table input of `cast`. The existing wait, nibbles, strike window, reel physics, drawing, sounds and story branch retain their rules; no TUNING value or catalogue/odds changes. Dalbit ignores this optional input and never reserves a deck card.
+
+No usable deck (expired/offline too long, exhausted, unavailable, blocked storage), invalid ticket or a cast lasting over five minutes means the original local roll still plays. The catch is recorded in the Book/pending list and does not enter the cooler, so it cannot be selected for a sale. The existing catch card says **“Fish Book only — can't be sold.”** Production with the economy gate off keeps its prior local Book flow. Sandbox fishing has no authenticated deck and is Book-only too; sandbox shop fixtures remain available. Full coolers and protected/god/treasure catches retain their existing handling.
+
+A ticket is `{version,deckId,castIndex,castInfo:{distance,nice},castAt}` with no seed. It survives cooler persistence and Fish Book pending persistence. Uncertain sales retain same-order tickets alongside the exact old request in PendingTrade; reload/Retry keeps them. **The wire schema and server sale handler deliberately remain ECO-02 until stage 5**: sale requests still contain only fish/size/caughtAt, and Fish Book requests still project those three fields. Stage 5 must introduce ticket verification/wire fields and current/previous sold bits/tier caps together, preserving exact retries of already-pending requests. This stage does not close the modified-client authenticity gap. Existing legacy cooler fish are not migrated/removed here; stage 5 will refuse unticketed sales.
+
+Claude's pending-ice protection is unchanged: unresolved ice still prevents persistent spoilage removal; adding a newly ticketed catch appends to the protected underlying cooler exactly as before. The Bag continues to show cooler fish/countdowns and server goods/expiry; sold/spoiled fish leave through the existing reconciliation. No Bag/UI/store migration, server authority, database field, emulator rule or extra request/write is added. Casts do not fetch a deck or await the network.
+
+Validation: **258 tests pass**, TypeScript and production build/four-API smoke pass. Eight integration tests cover:
+
+- Economy/deck offsets differing by +/-4 seconds at a window edge: reservation follows gameNow even when the deck clock disagrees, and castAt <= caughtAt across rollover.
+- Real fishingSession press/hold/release on both gauge sweeps at exact 0.80/0.92, their neighbours and 0/1, through onCast; valid canonical rolls and a deliberately flipped Nice flag never throw.
+- Real session catch -> Book/cooler with identical tickets/timestamps and shared-roll fish/size; real offline, storage-failure and exhausted casts land via the old local roll, show Book-only and leave no cooler fish.
+- Unchanged wait/nibble/reel rules and story first-catch behavior; duration boundaries, malformed reservations, changed owner and backwards clock correction.
+- A ticketed fish survives pending ice, apparent spoilage, a new catch and reload without losing its ticket.
+- Cooler parsing/reload and uncertain sale/reload/Retry preserve ticket metadata and exact request timestamps/body. Existing PR #21 pending-ice, uncertain-trade and goods-expiry regressions remain green.
+
+The real session tests compile the actual gameplay/stores with Vite into an isolated JS context, replacing only React's subscription hook with a snapshot read and providing browser/canvas primitives. They drive the normal minigame to a catch without changing TUNING. No physical iPhone/Safari or visual feel claim is made. No Firestore changes require new emulator coverage in this stage. Teera's next local check: npm run dev, catch with a deck and inspect Cooler/Bag, then test an unavailable deck and confirm the Book-only line. Stage 5, tuning and Fish Book verification remain unstarted.

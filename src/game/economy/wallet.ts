@@ -3,6 +3,8 @@
 // All-or-nothing: a failed action never half-changes anything. Expiry is checked on read (no timers).
 // The same functions will run on the save server later (ECO-01 step 8), so the phone can't cheat.
 
+import { parseCatchTicket } from '../fishing/catchTicket.js';
+import type { CatchStamp, CatchTicket } from '../fishing/catchTicket.js';
 import { BAG, COOLER, ICE, LOG_KEEP, SELL, SHOP } from './economyConfig.js';
 import { SHOP_BY_ID } from './shopCatalog.js';
 import type { Vendor } from './shopCatalog.js';
@@ -16,6 +18,7 @@ export interface CoolerFish {
   fishId: string;
   sizeCm: number | null;
   caughtAt: number;
+  ticket?: CatchTicket;
 }
 
 /** One bag slot of shop goods. Perishable goods are always qty 1 (each has its own clock). */
@@ -142,7 +145,10 @@ export function parseWallet(raw: unknown, now: number): Wallet {
   const r = raw as Partial<Wallet>;
   const cooler = Array.isArray(r.cooler)
     ? r.cooler.filter((c): c is CoolerFish => !!c && isStr(c.uid) && isStr(c.fishId) && isNum(c.caughtAt) && (c.sizeCm === null || isNum(c.sizeCm)))
-      .map(({ uid, fishId, sizeCm, caughtAt }) => ({ uid, fishId, sizeCm, caughtAt })) // old per-fish ice is dropped
+      .map(({ uid, fishId, sizeCm, caughtAt, ticket }) => {
+        const parsed = parseCatchTicket(ticket, caughtAt);
+        return { uid, fishId, sizeCm, caughtAt, ...(parsed ? { ticket: parsed } : {}) };
+      }) // old per-fish ice is dropped
     : [];
   const goods = Array.isArray(r.goods)
     ? r.goods.filter((g): g is Goods => !!g && isStr(g.uid) && isStr(g.id) && isNum(g.qty) && g.qty > 0 && isNum(g.at) && !!SHOP_BY_ID[g.id])
@@ -207,11 +213,11 @@ export function goodsFreshRatio(g: Goods, now: number): number | null {
 // ---- fishing → cooler ------------------------------------------------------------------------
 
 /** A free-fishing catch goes into the cooler (if Gen could ever buy it, and there is room). */
-export function addCatch(w0: Wallet, fishId: string, sizeCm: number | null, ctx: Ctx): Ok<{ fish: CoolerFish }> | Fail {
+export function addCatch(w0: Wallet, fishId: string, sizeCm: number | null, ctx: Ctx, stamp?: CatchStamp): Ok<{ fish: CoolerFish }> | Fail {
   const { wallet: w } = settle(w0, ctx.now);
   if (!isSellableFish(FREE_BY_ID[fishId])) return { ok: false, wallet: w, reason: 'not_sellable', item: fishId };
   if (w.cooler.length >= coolerSlots(w)) return { ok: false, wallet: w, reason: 'cooler_full', item: fishId };
-  const fish: CoolerFish = { uid: (ctx.uid ?? defaultUid)(), fishId, sizeCm, caughtAt: ctx.now };
+  const fish: CoolerFish = { uid: (ctx.uid ?? defaultUid)(), fishId, sizeCm, ...(stamp ?? { caughtAt: ctx.now }) };
   return { ok: true, wallet: { ...w, cooler: [...w.cooler, fish] }, fish };
 }
 

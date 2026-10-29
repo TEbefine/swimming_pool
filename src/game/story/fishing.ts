@@ -213,6 +213,8 @@ export function difficultyOf(s: Pick<FishingState, 'easy' | 'baseDiff'> & Partia
 }
 
 export interface CastOptions {
+  /** Free fishing only: a shared deck roll replaces fish/size, leaving timing and physics below intact. */
+  rolled?: { fish: string; sizeCm: number | null; baseDiff: number; big: boolean };
   info?: CastInfo;
   /** Which fish can bite (default: the story's). */
   table?: FishTable;
@@ -230,12 +232,14 @@ export function cast(rng: Rng, opts: CastOptions = {}): FishingState {
   const isStory = !opts.table;
   const table = opts.table ?? { ...STORY_TABLE, tiers: storyTiers() };
   const firstCatch = !!opts.firstCatch && !opts.forceFish && isStory;
+  const rolled = opts.table ? opts.rolled : undefined;
   const sp: Species =
+    (rolled && table.species.find((x) => x.id === rolled.fish)) ||
     (opts.forceFish && table.species.find((x) => x.id === opts.forceFish)) ||
     (firstCatch ? table.species.find((x) => x.id === 'mackerel')! : rollFrom(rng, table, info, opts.hour));
-  const sizeCm = firstCatch ? 30 : sizeFrom(rng, sp, info);
-  const big = !firstCatch && !!sp.size && sizeCm !== null && sizeCm >= sp.size[0] + (sp.size[1] - sp.size[0]) * TUNING.bigShare;
-  const baseDiff = sp.difficulty;
+  const sizeCm = rolled ? rolled.sizeCm : firstCatch ? 30 : sizeFrom(rng, sp, info);
+  const big = rolled ? rolled.big : !firstCatch && !!sp.size && sizeCm !== null && sizeCm >= sp.size[0] + (sp.size[1] - sp.size[0]) * TUNING.bigShare;
+  const baseDiff = rolled ? rolled.baseDiff : sp.difficulty;
   const d = firstCatch ? 1 : difficultyOf({ easy: false, baseDiff, big });
   const wait = (TUNING.waitMin + rng() * TUNING.waitSpread) * (info.nice ? TUNING.niceWait : 1);
   const biteAt = Math.max(1.4, wait);

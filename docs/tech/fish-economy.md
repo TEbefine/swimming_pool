@@ -310,7 +310,7 @@ Excluded now: deck route/fetching, allocation, gameplay tickets, sale verificati
 
 Verification: **235 tests pass**, including 10 new tests. 7,680 cases agree with the existing free cast; 7,680 agree between a Vite-built browser IIFE in an isolated JS context and strictly compiled NodeNext ESM. Fixed protocol vectors, five-state boundaries, Bangkok calendar boundaries, legal kinds/sizes, malformed inputs and the retirement inequality are covered. `npx tsc -b` and `npm run build` (including all existing production API smoke checks) pass. No physical iPhone/Safari claim; no new emulator test is needed for this pure, unwired stage. Full approved plan/proof and review scope: `docs/ai/ECO-03-plan.md`.
 
-## 15. ECO-03 stage 3 — issuance/cache (2026-10-29, Claude review pending)
+## 15. ECO-03 stage 3 — issuance/cache (2026-10-29, approved after Claude review)
 
 Stage 2 is published to dev-test-id as `4a7c460`, merged in PR #22 and independently verified by Claude (235 pass), as reported by Teera. Stage 3 is prepared for commit/push to dev-test-id for Claude review. Teera is testing local npm run dev; Vercel variables will be set later. `POST /api/fishing-deck` (body `{}`) returns `{address,version,deckId,seed,window:{startAt,endAt},casts,serverNow}` for the origin-bound authenticated Player ID. Same address/window = same HMAC seed; the request cannot select an owner/window/seed. ECONOMY_API must be `on`, with the same closed-shop response before services. Token verification + HMAC only: zero Firestore reads/writes. Bounded per-instance limits: 10 requests/IP/minute, 5/ID/minute.
 
@@ -323,3 +323,16 @@ deckStore.ts caches per ID, validates owner/version/window, ignores old-account 
 250 tests pass (15 new), including real zero-setup Vite middleware and actual compiled production/Preview/sandbox fetch gating. TypeScript and production/four-function API smoke checks pass. No Firestore mutation/rules change; no physical iPhone test claimed. See docs/ai/ECO-03-plan.md for review details.
 
 Stage 4 owner requirement: derive Nice from distance using frozen deck bands/canonical conversion; never trust the minigame flag or throw during a valid cast. Test real fishingSession onCast outputs, including exact 0.80/0.92 band edges and adjacent values. Stage 3 does not yet change minigame/Dalbit/catch/sale behavior or enforce tier caps. Fish Book verification and tuning remain separate later work.
+
+
+## 16. ECO-03 stage 4 — free fishing draws from the deck (2026-10-29, review pending)
+
+Teera approved stage 3 after Claude's 250-pass review and endpoint probes. Pulled dev-test-id first. Stage 4 changes the free-fishing roll source only: shared roll -> existing cast timing/physics, without tuning or changing Dalbit. Nice is derived from distance with the frozen deck band, independent of the HUD flag. Bad/unavailable reservations never interrupt fishing. Casts do no networking.
+
+One clock: throw captures gameNow() once, uses it as castAt and injects that exact timestamp into reserveCast's deck-window check. The store's separate deck-receipt clock is only for background refresh. Finish reads gameNow() for caughtAt and passes the same stamp to Book pending and cooler. Normal boundary-crossing catches keep their original ticket. More than five minutes, a backwards clock correction or an owner change makes a catch Book-only. caughtAt never precedes castAt.
+
+No deck (including offline expiry/exhaustion/storage failures) -> old local roll -> Fish Book only, excluded from cooler/sale selection, with **“Fish Book only — can't be sold.”** on the catch card. The economy-off production flow retains its previous local Book behavior. Sandbox fishing has no authenticated deck and is Book-only. Existing cooler-full handling, ice protection and Bag goods/countdowns are preserved.
+
+Catch ticket = `{version,deckId,castIndex,castInfo:{distance,nice},castAt}`; seed stays out of catches. Cooler and pending Book data retain it across persistence; PendingTrade retains same-order tickets beside its exact uncertain request for reload/Retry. The API still accepts/sends the ECO-02 three-field catch schema in this stage. Stage 5 must wire/authenticate tickets, enforce five minutes, current/previous sold bits and tier limits together; legacy unticketed cooler fish are left for that refusal. Book verification is still excluded.
+
+258 tests, TypeScript and production/four-API build pass. Real Vite-compiled session tests drive press/hold/release at exact Nice edges and neighbours on both sweeps, and drive actual catches with and without decks. Store tests cover differing offsets at a window edge, duration, persistence and exact retries. Existing pending-ice/Bag-related regressions pass. No Firestore/rules change; no physical iPhone or visual-feel validation claimed. Full scope/checklist: docs/ai/ECO-03-plan.md. Stop here for review; no stage 5/tuning work.

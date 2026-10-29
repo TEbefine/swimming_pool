@@ -21,24 +21,24 @@ test('disabled economy, guest and offline never fetch a deck', async () => {
 test('one fetch per window, concurrent requests coalesce; same ID reload restores deck and cursor', async () => {
   const w = rig({ clockOffset: 120_000 }); await Promise.all([w.store.sync(), w.store.sync()]);
   assert.equal(w.calls, 1); assert.equal(w.store.now(), NOW);
-  assert.equal(w.store.reserveCast().castIndex, 8191);
-  assert.equal(w.store.reserveCast().castIndex, 0);
+  assert.equal(w.store.reserveCast(w.now).castIndex, 8191);
+  assert.equal(w.store.reserveCast(w.now).castIndex, 0);
   await w.store.sync(); assert.equal(w.calls, 1); assert.equal(w.random, 1);
   const reload = rig({ storage: w.storage, clockOffset: 120_000 }); reload.online = false;
   await reload.store.sync(); assert.equal(reload.calls, 0); assert.equal(reload.random, 0);
-  assert.equal(reload.store.reserveCast().castIndex, 1);
-  assert.equal(w.store.reserveCast().castIndex, 2, 'sequential tabs pick up persisted draws');
+  assert.equal(reload.store.reserveCast(reload.now).castIndex, 1);
+  assert.equal(w.store.reserveCast(w.now).castIndex, 2, 'sequential tabs pick up persisted draws');
 });
 test('wrap once, then exhaustion is Book-only; same-window sync cannot replenish cards', async () => {
   const w = rig(); await w.store.sync(); const indices = new Set();
-  for (let i = 0; i < FISHING_DECK.casts; i++) indices.add(w.store.reserveCast().castIndex);
-  assert.equal(indices.size, FISHING_DECK.casts); assert.equal(w.store.reserveCast(), null);
-  await w.store.sync(); assert.equal(w.calls, 1); assert.equal(w.store.reserveCast(), null);
+  for (let i = 0; i < FISHING_DECK.casts; i++) indices.add(w.store.reserveCast(w.now).castIndex);
+  assert.equal(indices.size, FISHING_DECK.casts); assert.equal(w.store.reserveCast(w.now), null);
+  await w.store.sync(); assert.equal(w.calls, 1); assert.equal(w.store.reserveCast(w.now), null);
 });
 test('expired cache is unusable offline; exact next window gets a new deck/start online', async () => {
   const w = rig(); await w.store.sync(); const old = w.store.getDeck();
   w.now = old.window.endAt; w.online = false; await w.store.sync();
-  assert.equal(w.store.getDeck(), null); assert.equal(w.store.reserveCast(), null); assert.equal(w.calls, 1);
+  assert.equal(w.store.getDeck(), null); assert.equal(w.store.reserveCast(w.now), null); assert.equal(w.calls, 1);
   w.online = true; await w.store.sync(); assert.equal(w.store.getDeck().deckId, old.deckId + 1); assert.equal(w.random, 2);
 });
 test('old account answers never replace a newly attached ID; other IDs have separate caches', async () => {
@@ -53,10 +53,10 @@ test('old account answers never replace a newly attached ID; other IDs have sepa
 });
 test('missing config/auth, synchronous transport errors and storage errors never escape to gameplay', async () => {
   const w = rig(); w.store.setTransport(() => { throw Error('closed'); }); await w.store.sync();
-  assert.equal(w.store.reserveCast(), null);
+  assert.equal(w.store.reserveCast(w.now), null);
   w.store.setTransport(async () => issueFishingDeck(A, NOW, SECRET)); await w.store.sync();
-  w.failWrite = true; assert.equal(w.store.reserveCast(), null, 'a card is never returned before persistence');
-  w.failWrite = false; assert.ok(w.store.reserveCast());
+  w.failWrite = true; assert.equal(w.store.reserveCast(w.now), null, 'a card is never returned before persistence');
+  w.failWrite = false; assert.ok(w.store.reserveCast(w.now));
 });
 test('malformed/other-owner cache and responses are ignored; returned decks cannot mutate storage', async () => {
   const deck = issueFishingDeck(A, NOW, SECRET);

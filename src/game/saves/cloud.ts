@@ -107,7 +107,7 @@ export async function attachPlayer(next: string | null): Promise<void> {
   if (IS_TEST || next === address) return;
   const ticket = ++attachTicket;
   address = next;
-  attachFishingDeck(next); // stage 3: background fetch/cache only, never on the cast path
+  attachFishingDeck(next); // background fetch/cache only, never on the cast path
   if (!next) {
     status = 'guest'; storyStatus = 'idle'; lastCatchAt = null;
     attachFishBook(null);

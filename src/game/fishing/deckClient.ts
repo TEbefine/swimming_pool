@@ -26,7 +26,8 @@ export async function refreshFishingDeck() {
   timer = setTimeout(() => { void refreshFishingDeck(); }, deck ? Math.max(1000, deck.window.endAt - store.now() + 1) : 60_000);
 }
 export const getFishingDeck = () => store.getDeck();
-export const reserveFishingCast = () => store.reserveCast();
+export const getFishingDeckAddress = () => store.getAddress();
+export const reserveFishingCast = (castAt: number) => store.reserveCast(castAt);
 if (ECONOMY_ON && !ECONOMY_SANDBOX && typeof window !== 'undefined') {
   window.addEventListener('online', () => { void refreshFishingDeck(); });
   document.addEventListener('visibilitychange', () => {

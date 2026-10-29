@@ -2,6 +2,7 @@
 // The kinds themselves live in freeFishCatalog.ts (pure data, shared with the save server).
 
 import { useSyncExternalStore } from 'react';
+import type { CatchStamp, CatchTicket } from './catchTicket';
 import type { FishTable } from '../story/fishing';
 import { FREE_FISH, TIERS, thaiSeasonAt } from './freeFishCatalog';
 import type { FreeTier, Season } from './freeFishCatalog';
@@ -60,7 +61,7 @@ export interface FishBook {
   entries: Record<string, FishBookEntry>;
   total: number;
 }
-export interface PendingCatch { fish: string; sizeCm: number | null; caughtAt: number }
+export interface PendingCatch { fish: string; sizeCm: number | null; caughtAt: number; ticket?: CatchTicket }
 
 const IS_TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test');
 // test mode (?test=...) keeps its own book so testing never fills the real one
@@ -121,12 +122,12 @@ export function useFishBook(): FishBook {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => book, () => book);
 }
 /** Add a catch. Returns { isNew: first ever of this kind, record: beat the best size }. */
-export function addToFishBook(id: string, sizeCm: number | null): { isNew: boolean; record: boolean } {
+export function addToFishBook(id: string, sizeCm: number | null, stamp?: CatchStamp): { isNew: boolean; record: boolean } {
   const old = book.entries[id];
   const record = !!old && sizeCm !== null && (old.best === null || sizeCm > old.best);
   // caughtAt is the catch's identity on this device: keep it strictly increasing.
   const lastAt = pending.length ? pending[pending.length - 1].caughtAt : 0;
-  const c: PendingCatch = { fish: id, sizeCm, caughtAt: Math.max(Date.now(), lastAt + 1) };
+  const c: PendingCatch = { fish: id, sizeCm, ...(stamp ?? { caughtAt: Math.max(Date.now(), lastAt + 1) }) };
   if (scope) {
     pending = [...pending, c];
     writeJson(pendingKey(scope), pending);

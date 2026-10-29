@@ -36,7 +36,7 @@ export class FishingDeckStore {
   setTransport(transport: DeckTransport) { this.transport = transport; }
   getAddress() { return this.address; }
   private key() { return `sp_fishing_deck_v1_${this.address}`; }
-  private read(): Cache | null {
+  private read(strict = false): Cache | null {
     try {
       const raw = this.deps.storage.get(this.key());
       if (!raw || raw.length > 4096 || !this.address) return null;
@@ -44,7 +44,7 @@ export class FishingDeckStore {
       const deck = parseFishingDeck(c?.deck, this.address);
       return deck && integer(c.savedAt) && integer(c.startIndex) && c.startIndex < deck.casts && integer(c.draws) && c.draws <= deck.casts
         ? { deck, savedAt: c.savedAt, startIndex: c.startIndex, draws: c.draws } : null;
-    } catch { return null; }
+    } catch (error) { if (strict) throw error; return null; }
   }
   private persist(): boolean {
     try { this.deps.storage.set(this.key(), JSON.stringify(this.cache)); return true; } catch { return false; }
@@ -56,11 +56,10 @@ export class FishingDeckStore {
     this.cache = next ? this.read() : null;
   }
   now() { return this.deps.clock() + (this.cache ? this.cache.deck.serverNow - this.cache.savedAt : 0); }
-  getDeck(): FishingDeck | null {
+  getDeck(at = this.now()): FishingDeck | null {
     if (!this.deps.enabled || !this.address || !this.cache) return null;
     const deck = this.cache.deck;
-    const now = this.now();
-    return now >= deck.window.startAt && now < deck.window.endAt ? structuredClone(deck) : null;
+    return Number.isSafeInteger(at) && at >= deck.window.startAt && at < deck.window.endAt ? structuredClone(deck) : null;
   }
   async sync(): Promise<void> {
     if (!this.deps.enabled || !this.address || !this.transport || !this.deps.online() || this.getDeck()) return;
@@ -86,15 +85,16 @@ export class FishingDeckStore {
     this.inFlight = request;
     return request.promise;
   }
-  /** Stage 4 can call this synchronously. Persist before handing out a card; never throw mid-cast.
+  /** Inject the exact gameNow() stamp used for castAt; the cache offset is only for background refresh.
+   * Called synchronously. Persist before handing out a card; never throw mid-cast.
    * Failure/exhaustion = Book-only. No network, and wrapping stops after ONE full traversal. */
-  reserveCast(): { deck: FishingDeck; castIndex: number } | null {
+  reserveCast(castAt: number): { deck: FishingDeck; castIndex: number } | null {
     try {
       // Pick up sequential consumption by another tab when present. Separate devices can still collide.
-      const stored = this.read();
+      const stored = this.read(true);
       if (stored && this.cache && stored.deck.deckId === this.cache.deck.deckId && stored.deck.seed === this.cache.deck.seed
         && stored.startIndex === this.cache.startIndex && stored.draws > this.cache.draws) this.cache = stored;
-      const deck = this.getDeck();
+      const deck = this.getDeck(castAt);
       if (!deck || !this.cache || this.cache.draws >= deck.casts) return null;
       const castIndex = (this.cache.startIndex + this.cache.draws) % deck.casts;
       this.cache = { ...this.cache, draws: this.cache.draws + 1 };
