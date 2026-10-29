@@ -2,6 +2,8 @@
 // The kinds themselves live in freeFishCatalog.ts (pure data, shared with the save server).
 
 import { useSyncExternalStore } from 'react';
+import { LIMITS } from '../../../server/saves/limits.js';
+import type { CatchStamp, CatchTicket } from './catchTicket';
 import type { FishTable } from '../story/fishing';
 import { FREE_FISH, TIERS, thaiSeasonAt } from './freeFishCatalog';
 import type { FreeTier, Season } from './freeFishCatalog';
@@ -60,7 +62,7 @@ export interface FishBook {
   entries: Record<string, FishBookEntry>;
   total: number;
 }
-export interface PendingCatch { fish: string; sizeCm: number | null; caughtAt: number }
+export interface PendingCatch { fish: string; sizeCm: number | null; caughtAt: number; ticket?: CatchTicket }
 
 const IS_TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test');
 // test mode (?test=...) keeps its own book so testing never fills the real one
@@ -120,13 +122,17 @@ export function getFishBook(): FishBook {
 export function useFishBook(): FishBook {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => book, () => book);
 }
-/** Add a catch. Returns { isNew: first ever of this kind, record: beat the best size }. */
-export function addToFishBook(id: string, sizeCm: number | null): { isNew: boolean; record: boolean } {
+/** Add a catch. Return its final stamp too, so the cooler uses the same time and ticket eligibility. */
+export function addToFishBook(id: string, sizeCm: number | null, stamp?: CatchStamp): { isNew: boolean; record: boolean; stamp: CatchStamp } {
   const old = book.entries[id];
   const record = !!old && sizeCm !== null && (old.best === null || sizeCm > old.best);
-  // caughtAt is the catch's identity on this device: keep it strictly increasing.
+  // Keep pending catches far enough apart for the server's recording rule.
   const lastAt = pending.length ? pending[pending.length - 1].caughtAt : 0;
-  const c: PendingCatch = { fish: id, sizeCm, caughtAt: Math.max(Date.now(), lastAt + 1) };
+  const requestedStamp = stamp ?? { caughtAt: Date.now() };
+  // A corrected timestamp cannot keep its original ticket. Do not mutate the caller's stamp.
+  const finalStamp: CatchStamp = requestedStamp.caughtAt - lastAt < LIMITS.minCatchGapMs
+    ? { caughtAt: lastAt + LIMITS.minCatchGapMs } : requestedStamp;
+  const c: PendingCatch = { fish: id, sizeCm, ...finalStamp };
   if (scope) {
     pending = [...pending, c];
     writeJson(pendingKey(scope), pending);
@@ -135,7 +141,7 @@ export function addToFishBook(id: string, sizeCm: number | null): { isNew: boole
     writeJson(KEY, localBook);
   }
   rebuild();
-  return { isNew: !old, record };
+  return { isNew: !old, record, stamp: finalStamp };
 }
 export function resetFishBook() {
   if (scope) {

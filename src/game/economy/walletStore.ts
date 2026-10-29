@@ -6,6 +6,7 @@
 // The live game has no shop at all until ECO-04 (ECONOMY_ON is false there, and the server refuses money ops).
 
 import { useSyncExternalStore } from 'react';
+import type { CatchStamp } from '../fishing/catchTicket';
 import { EconomyStore, formatMoney } from './economyStore';
 import type { EconomyStatus, Transport, TradeOutcome } from './economyStore';
 import type { Vendor } from './shopCatalog';
@@ -64,9 +65,9 @@ export function reasonLine(r: Fail): string {
 }
 
 /** Free fishing calls this for every catch. Off in the live game. */
-export function catchToCooler(fishId: string, sizeCm: number | null) {
+export function catchToCooler(fishId: string, sizeCm: number | null, stamp?: CatchStamp) {
   if (!ECONOMY_ON) return null;
-  return store.addCatch(fishId, sizeCm);
+  return store.addCatch(fishId, sizeCm, stamp);
 }
 export const quoteSellNow = (uids: string[]) => store.quoteSell(uids);
 export const quoteBuyNow = (cart: CartLine[], vendor: Vendor) => store.quoteBuy(cart, vendor);

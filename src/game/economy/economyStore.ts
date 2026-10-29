@@ -11,6 +11,8 @@
 //   lost, the exact request is kept (also across a reload) and the player taps Retry: the server replays the
 //   original result instead of paying or charging twice. Nothing is queued or sent automatically.
 
+import { parseCatchTicket } from '../fishing/catchTicket.js';
+import type { CatchStamp, CatchTicket } from '../fishing/catchTicket.js';
 import { CURRENCY, ICE } from './economyConfig.js';
 import type { Vendor } from './shopCatalog.js';
 import { SHOP_BY_ID } from './shopCatalog.js';
@@ -39,6 +41,8 @@ export interface PendingTrade {
   body: Record<string, unknown>;
   /** shop.sell: cooler uids in the same order as body.catches (result indices point here). */
   uids?: string[];
+  /** Same-order tickets retained with an uncertain sale; stage 5 will add them to the wire schema. */
+  tickets?: (CatchTicket | null)[];
   vendor?: Vendor;
   at: number;
 }
@@ -106,13 +110,16 @@ function parseCooler(v: unknown): CoolerFish[] {
   if (!Array.isArray(v)) return [];
   return v.filter((c): c is CoolerFish => !!c && typeof c === 'object' && typeof c.uid === 'string' && typeof c.fishId === 'string'
     && isNum(c.caughtAt) && (c.sizeCm === null || isNum(c.sizeCm)))
-    .map(({ uid, fishId, sizeCm, caughtAt }) => ({ uid, fishId, sizeCm, caughtAt }));
+    .map(({ uid, fishId, sizeCm, caughtAt, ticket }) => {
+      const parsed = parseCatchTicket(ticket, caughtAt);
+      return { uid, fishId, sizeCm, caughtAt, ...(parsed ? { ticket: parsed } : {}) };
+    });
 }
 function parsePending(v: unknown): PendingTrade | null {
   if (!v || typeof v !== 'object') return null;
   const p = v as PendingTrade;
   if (!['shop.sell', 'shop.buy', 'bag.use'].includes(p.op) || !p.body || typeof p.body !== 'object' || typeof p.body.operationId !== 'string') return null;
-  return { op: p.op, body: p.body, uids: Array.isArray(p.uids) ? p.uids.filter((u) => typeof u === 'string') : undefined, vendor: p.vendor, at: isNum(p.at) ? p.at : 0 };
+  return { op: p.op, body: p.body, tickets: p.tickets, uids: Array.isArray(p.uids) ? p.uids.filter((u) => typeof u === 'string') : undefined, vendor: p.vendor, at: isNum(p.at) ? p.at : 0 };
 }
 
 interface ErrorLike { status?: number; message?: string; data?: Record<string, unknown> }
@@ -263,8 +270,8 @@ export class EconomyStore {
 
   // ---- fishing ----
   /** Free fishing calls this for every catch. Returns the pure result (ok + wallet, or a reason). */
-  addCatch(fishId: string, sizeCm: number | null) {
-    const r = addCatch(this.wallet, fishId, sizeCm, { now: this.now() });
+  addCatch(fishId: string, sizeCm: number | null, stamp?: CatchStamp) {
+    const r = addCatch(this.wallet, fishId, sizeCm, { now: this.now() }, stamp);
     if (r.ok) {
       if (this.deps.sandbox) this.setLocal(r.wallet);
       // Ice unresolved: keep every stored fish (see refresh) and just add the new one.
@@ -291,7 +298,7 @@ export class EconomyStore {
     const fish = this.wallet.cooler.filter((c) => uids.includes(c.uid) && !waiting.has(c.uid));
     if (!fish.length) return refused(REASON_LINES.nothing_selected);
     const catches = fish.map((c) => ({ fish: c.fishId, sizeCm: c.sizeCm, caughtAt: c.caughtAt }));
-    return this.send({ op: 'shop.sell', body: { op: 'shop.sell', operationId: this.deps.newOperationId(), catches }, uids: fish.map((c) => c.uid), vendor: 'gen', at: this.now() });
+    return this.send({ op: 'shop.sell', body: { op: 'shop.sell', operationId: this.deps.newOperationId(), catches }, uids: fish.map((c) => c.uid), tickets: fish.map((c) => c.ticket ?? null), vendor: 'gen', at: this.now() });
   }
 
   /** `expectedTotal` = the total the Pay bar showed. The server never charges more than that. */
