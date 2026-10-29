@@ -286,3 +286,26 @@ In Vercel → project **swimming_pool** → Settings → Environment Variables:
 - Fish and size are still claimed by the phone (ECO-03 fixes). Two devices catching on the same millisecond collide (ECO-03).
 - `bag.use`, `shop.buy`, `shop.sell` share the 40 operations a day budget.
 - The Firestore emulator tests were not run in this session (no emulator download in the sandbox).
+
+## 14. ECO-03 stage 2 — shared roll only (2026-10-29, approved)
+
+Based on main `79bd8d0`, after pulling the merged PR #21 fixes. This stage adds only pure deck modules/tests and documentation on local `dev-test-id`. No existing gameplay, Dalbit, wallet, API, Firestore or gate implementation changed. The live economy remains gated until ECO-04.
+
+`src/game/fishing/deckConfig.ts` holds the approved version/window/cast-count/duration settings and future tier-sale policy. `deckRollV1.ts` freezes the current 32 ready A/B kinds and roll coefficients. `deckRoll.ts` exports the ONE pure client/server function:
+
+```ts
+rollDeckCatch({ version, seed, castIndex, castInfo: { distance, nice }, castAt })
+// -> { fish, sizeCm, baseDiff, big }
+```
+
+Each index has a separate uint32 mulberry32 stream, seeded by FNV-1a over the canonical domain/32-byte hex seed/index. No ambient randomness, clock, browser storage, locale or Node API. Five existing cast states collapse extra distance precision; inconsistent Nice claims refuse. Bangkok day/night and season use castAt. V1 data/math stay stable when live odds or ready art change; introduce a new version and retain v1 for outstanding tickets. The legacy story/fishing code is untouched. This pure function does not issue/authenticate a deck or validate its redemption window.
+
+Approved future sale policy (NOT enforced by stage 2): per Bangkok day Gen buys at most **2 legend / 10 epic / 0 god** fish. Other tiers retain existing limits. Over-limit fish return a kept line, “I can’t take another trophy today”. Tier counts derive from existing `econ.soldToday`; the accepted sale still uses the same two reads plus two writes, with no extra document operation. Exposed-seed look-ahead remains possible and is accepted for offline v1; these caps bound its money effect together with existing coin/rate limits.
+
+Retirement proof: a deck ends at exclusive E; its latest castAt < E and caughtAt <= castAt + **5 min**. Maximum confirmed-ice lifetime is **30 + 30 = 60 min**. A sellable fish therefore expires before E + **65 min**, or E + **65 min 10 s** even with a conservative extra skew margin. Keep its sold bits while it is current and previous; only retire at E + **6 hours** when current becomes d+2, leaving **294 min 50 s** of margin. Sale verification must enforce the strict cast window and five-minute duration; longer casts remain Fish Book-only. Do not clear previous bits at midnight or an early request, and replay saved operation IDs before time-sensitive checks. Two 8,192-bit windows use 2,048 raw bytes / 2,736 padded base64 characters, excluding metadata.
+
+Approved device policy for later integration: random start per device/deck, increment with wrap, persist start/cursor/draw count, never consume more than one complete deck. Reload must not reset the draw count. No server-assigned ranges. Distinct devices can overlap; an already-paid index refuses another sale. Offline exhaustion is Fish Book-only until the next window.
+
+Excluded now: deck route/fetching, allocation, gameplay tickets, sale verification/bits/cap enforcement, Fish Book verification and tuning. Fish Book verification will be proposed separately with its own markers. Rarity/speed tuning must first show 100,000-roll results and a coins/hour model, affect free fishing only and leave Dalbit unchanged.
+
+Verification: **235 tests pass**, including 10 new tests. 7,680 cases agree with the existing free cast; 7,680 agree between a Vite-built browser IIFE in an isolated JS context and strictly compiled NodeNext ESM. Fixed protocol vectors, five-state boundaries, Bangkok calendar boundaries, legal kinds/sizes, malformed inputs and the retirement inequality are covered. `npx tsc -b` and `npm run build` (including all existing production API smoke checks) pass. No physical iPhone/Safari claim; no new emulator test is needed for this pure, unwired stage. Full approved plan/proof and review scope: `docs/ai/ECO-03-plan.md`.
