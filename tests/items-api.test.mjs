@@ -70,7 +70,7 @@ test('load returns an empty save for a new Player ID and rejects extra fields', 
   const h = harness();
   const res = await h.call({ op: 'load' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body, { revision: 0, fishBook: {}, fishTotal: 0, lastCatchAt: null, story: { dalbit: null }, coins: 0, coolerLevel: 0, goods: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} } });
+  assert.deepEqual(res.body, { revision: 0, fishBook: {}, fishTotal: 0, lastCatchAt: null, story: { dalbit: null }, coins: 0, coolerLevel: 0, goods: [], iceUsedAt: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} } });
   assert.equal(h.players.size, 0, 'load creates no document');
   assert.equal(h.logs.size, 0);
   assert.equal((await h.call({ op: 'load', catches: [] })).statusCode, 400);
@@ -551,7 +551,7 @@ test('spoiled catches are kept while fresh ones sell; all-spoiled writes nothing
 test('duplicates, same-millisecond collisions, gap violations and over-capacity batches fail', async () => {
   const h = harness();
   const at = NOON - 60_000;
-  assert.equal((await sell(h, [sardine(at), sardine(at)])).statusCode, 400);
+  assert.equal((await sell(h, [sardine(at), sardine(at)])).statusCode, 422);
   assert.equal((await sell(h, [sardine(at), sardine(at + 2999)])).statusCode, 422);
   assert.equal((await sell(h, Array.from({ length: 11 }, (_, i) => sardine(at + i * 3000)))).statusCode, 422);
   assert.equal((await sell(h, [sardine(at), sardine(at + 3000)])).statusCode, 200);
@@ -668,4 +668,122 @@ test('sale balance overflow and daily operation exhaustion leave player and ledg
   const exhausted = stateOf(h);
   assert.equal((await sell(h, [sardine(NOON - 10_000)])).statusCode, 429);
   assert.deepEqual(stateOf(h), exhausted);
+});
+
+const buyOrder = (h, cart, extra = {}) => h.call({ op: 'shop.buy', operationId: opId(), vendor: 'gen', cart, ...extra });
+const useIce = (h, uid, extra = {}) => h.call({ op: 'bag.use', operationId: opId(), uid, ...extra });
+function funded(coins = 10000, at = NOON) {
+  const h = harness(at); h.players.set(address, { ...emptyPlayer(at), coins }); return h;
+}
+test('buy: food slots, keeper stacks, receipt compatibility, upgrade order and expiry preservation', async () => {
+  const h = funded();
+  const r = await buyOrder(h, [{ id: 'nori', qty: 10 }]);
+  assert.equal(r.statusCode, 200); assert.equal(r.body.goods[0].qty, 10);
+  assert.equal(r.body.result.expectedTotal, null);
+  await buyOrder(h, [{ id: 'nori', qty: 10 }]);
+  await buyOrder(h, [{ id: 'nori', qty: 1 }]);
+  assert.deepEqual(h.players.get(address).goods.map(g => g.qty), [20, 1]);
+  const food = await buyOrder(h, [{ id: 'sashimi_tai', qty: 2 }], { vendor: 'minato' });
+  assert.equal(food.statusCode, 200);
+  const pieces = food.body.goods.filter(g => g.id === 'sashimi_tai');
+  assert.equal(pieces.length, 2); assert.ok(pieces.every(g => g.qty === 1 && g.expiresAt === NOON + 3600000));
+  assert.notEqual(pieces[0].uid, pieces[1].uid);
+  const { buyReceipt } = await import('../src/game/economy/receipt.ts');
+  assert.equal(buyReceipt('minato', food.body.result.bought, food.body.result.balanceAfter, NOON).total, food.body.result.spent);
+  h.players.get(address).goods.find(g => g.uid === pieces[0].uid).expiresAt = NOON + 7200000;
+  h.tick(3600001);
+  const later = await buyOrder(h, [{ id: 'nori', qty: 1 }]);
+  assert.equal(later.body.goods.filter(g => g.id === 'sashimi_tai').length, 1);
+  assert.equal(later.body.goods.find(g => g.uid === pieces[0].uid).expiresAt, NOON + 7200000);
+  for (const [level, spent] of [[1,400],[2,900]]) {
+    const upgrade = await buyOrder(h, [{ id: 'cooler_box', qty: 1 }]);
+    assert.equal(upgrade.statusCode, 200); assert.equal(upgrade.body.coolerLevel, level); assert.equal(upgrade.body.result.spent, spent);
+  }
+  assert.equal((await buyOrder(h, [{ id: 'cooler_box', qty: 1 }])).statusCode, 422);
+});
+test('buy rejects cheats atomically, including daily limits, full bag and malformed quantities', async () => {
+  for (const [coins, cart, extra] of [
+    [0,[{id:'nori',qty:1}],{}], [10000,[{id:'nori',qty:11}],{}],
+    [10000,[{id:'nori',qty:1,price:0}],{}], [10000,[{id:'nori',qty:1}],{price:0}],
+    [10000,[{id:'sashimi_tai',qty:1}],{}], [10000,[{id:'fish_crate',qty:1}],{}],
+    [10000,[{id:'cooler_box',qty:2}],{}], [10000,[{id:'nori',qty:0}],{}],
+    [10000,[{id:'nori',qty:1.5}],{}], [10000,[{id:'__proto__',qty:1}],{}],
+    [10000,[{id:'nori',qty:1}],{expectedTotal:-1}], [10000,[{id:'nori',qty:1}],{expectedTotal:null}],
+  ]) {
+    const h = funded(coins), before = structuredClone(h.players.get(address));
+    assert.notEqual((await buyOrder(h, cart, extra)).statusCode, 200);
+    assert.deepEqual(h.players.get(address), before); assert.equal(h.logs.size, 0);
+  }
+  const h = funded();
+  assert.equal((await buyOrder(h,[{id:'sashimi_otoro',qty:2}],{vendor:'minato'})).statusCode,200);
+  const before = structuredClone(h.players.get(address));
+  assert.equal((await buyOrder(h,[{id:'sashimi_otoro',qty:1}],{vendor:'minato'})).statusCode,422);
+  assert.deepEqual(h.players.get(address),before);
+  const full = funded();
+  for(let i=0;i<2;i++) assert.equal((await buyOrder(full,[{id:'sashimi_tai',qty:10}],{vendor:'minato'})).statusCode,200);
+  assert.equal((await buyOrder(full,[{id:'nori',qty:1}])).statusCode,422);
+});
+test('expectedTotal protects midnight special, accepts lower totals, and participates in replay hash', async () => {
+  const { marketOf, itemPrice } = await import('../src/game/economy/market.ts');
+  let midnight = Date.UTC(2026,9,10,17);
+  while(marketOf(midnight-1).special === marketOf(midnight).special) midnight += 86400000;
+  const old = marketOf(midnight-1).special;
+  const expected = itemPrice(old, marketOf(midnight-1),0,[400,900]);
+  const h = funded(10000, midnight-1); h.tick(1);
+  const denied = await buyOrder(h,[{id:old,qty:1}],{vendor:'minato',expectedTotal:expected});
+  assert.equal(denied.statusCode,409); assert.equal(denied.body.error,'Prices just changed. Take another look.'); assert.equal(h.logs.size,0);
+  const id = opId();
+  const accepted = await buyOrder(h,[{id:'nori',qty:1}],{operationId:id,expectedTotal:100});
+  assert.equal(accepted.body.result.spent,30); assert.equal(accepted.body.result.expectedTotal,100);
+  h.tick(86400000);
+  const replay = await buyOrder(h,[{id:'nori',qty:1}],{operationId:id,expectedTotal:100});
+  assert.deepEqual(replay.body.result,accepted.body.result); assert.equal(replay.body.replayed,true);
+  assert.equal((await buyOrder(h,[{id:'nori',qty:2}],{operationId:id,expectedTotal:100})).statusCode,409);
+  assert.equal((await buyOrder(h,[{id:'nori',qty:1}],{operationId:id,expectedTotal:101})).statusCode,409);
+  assert.equal((await buyOrder(h,[{id:old,qty:1}],{vendor:'minato'})).statusCode,200);
+});
+test('ice pure boundaries, spending, replay, retention and capacity', async () => {
+  const { iceMinutesFor } = await import('../src/game/economy/market.ts');
+  const m=60000;
+  assert.equal(iceMinutesFor(NOON,[NOON-1]),0);
+  assert.equal(iceMinutesFor(NOON,[NOON+30*m]),0);
+  assert.equal(iceMinutesFor(NOON,[NOON+29*m,NOON+44*m,NOON+45*m]),30);
+  assert.equal(iceMinutesFor(NOON,[NOON+29*m,NOON+45*m]),15);
+  const h=funded();
+  assert.equal((await useIce(h,'missing')).statusCode,422);
+  await buyOrder(h,[{id:'ice_block',qty:10}]); await buyOrder(h,[{id:'ice_block',qty:10}]);
+  const uid=h.players.get(address).goods[0].uid, id=opId();
+  const used=await useIce(h,uid,{operationId:id}); assert.equal(used.statusCode,200);
+  const replay=await useIce(h,uid,{operationId:id}); assert.equal(replay.body.replayed,true); assert.deepEqual(replay.body.result,used.body.result);
+  for(let i=1;i<16;i++) assert.equal((await useIce(h,uid)).statusCode,200);
+  assert.equal(h.players.get(address).goods[0].qty,4);
+  const before=structuredClone(h.players.get(address));
+  assert.equal((await useIce(h,uid)).statusCode,409); assert.deepEqual(h.players.get(address),before);
+  h.tick(3610000); assert.equal((await useIce(h,uid)).statusCode,200); assert.equal(h.players.get(address).iceUsedAt.length,1);
+  await buyOrder(h,[{id:'nori',qty:1}]);
+  const other=h.players.get(address).goods.find(g=>g.id==='nori').uid;
+  assert.equal((await useIce(h,other)).body.error,'Eating and gifts come later');
+});
+test('reversed sale retains original indices and uses confirmed ice for both validity and price', async () => {
+  const h=funded(); h.players.get(address).iceUsedAt=[NOON-10*60000];
+  const reversed=[sardine(NOON-10000),sardine(NOON-35*60000),sardine(NOON-59*60000)];
+  const r=await sell(h,reversed); assert.equal(r.statusCode,200);
+  assert.deepEqual(r.body.result.sold.map(l=>l.index),[1,0]);
+  assert.deepEqual(r.body.result.keptLines.map(l=>l.index),[2]);
+  assert.equal(r.body.result.sold[0].fresh.id,'tired');
+  assert.equal((await sell(funded(),[{...sardine(NOON-10000),icedMin:30}])).statusCode,400);
+});
+test('ice history has explicit storage bounds, survives midnight and never truncates live events', async () => {
+  const { ICE } = await import('../src/game/economy/economyConfig.ts');
+  assert.equal(ICE.maxEvents,16); assert.equal(ICE.retentionMs,3610000);
+  assert.equal(JSON.stringify(Array(16).fill(9999999999999)).length,225);
+  assert.equal(JSON.stringify(Array(16).fill(Number.MAX_SAFE_INTEGER)).length,273);
+  const midnight=Date.UTC(2026,9,10,17), h=funded(1000,midnight-1);
+  await buyOrder(h,[{id:'ice_block',qty:2}]); const uid=h.players.get(address).goods[0].uid;
+  await useIce(h,uid); h.tick(1);
+  assert.deepEqual((await h.call({op:'load'})).body.iceUsedAt,[midnight-1]);
+  const raw=h.players.get(address); raw.iceUsedAt=Array(17).fill(midnight-1);
+  const before=structuredClone(raw);
+  assert.equal((await useIce(h,uid)).statusCode,409); assert.deepEqual(h.players.get(address),before);
+  assert.equal((await h.call({op:'load'})).body.iceUsedAt.length,17);
 });

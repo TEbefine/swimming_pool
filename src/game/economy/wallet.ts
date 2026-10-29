@@ -292,6 +292,11 @@ function goodsAfter(goods: Goods[], cart: CartLine[], now: number, uid: () => st
 /** Price an order at one counter and find the FIRST problem (if any), without changing anything. */
 export function quoteBuy(w0: Wallet, cart0: CartLine[], vendor: Vendor, now: number): { wallet: Wallet; quote: BuyQuote } {
   const { wallet: w } = settle(w0, now);
+  return quoteBuySettled(w, cart0, vendor, now);
+}
+
+/** Shared buy core: callers settle their own persisted expiry model first. */
+export function quoteBuySettled(w: Wallet, cart0: CartLine[], vendor: Vendor, now: number): { wallet: Wallet; quote: BuyQuote } {
   const market = marketOf(now);
   const cart = cleanCart(cart0);
   const lines: BuyLine[] = [];
@@ -318,7 +323,12 @@ export function quoteBuy(w0: Wallet, cart0: CartLine[], vendor: Vendor, now: num
 
 /** Buy an order at one counter. All or nothing. */
 export function buy(w0: Wallet, cart0: CartLine[], vendor: Vendor, ctx: Ctx): Ok<{ lines: BuyLine[]; spent: number }> | Fail {
-  const { wallet: w, quote } = quoteBuy(w0, cart0, vendor, ctx.now);
+  return buySettled(settle(w0, ctx.now).wallet, cart0, vendor, ctx);
+}
+
+/** Shared allocation/commit core, with no second expiry pass over server goods. */
+export function buySettled(w0: Wallet, cart0: CartLine[], vendor: Vendor, ctx: Ctx): Ok<{ lines: BuyLine[]; spent: number }> | Fail {
+  const { wallet: w, quote } = quoteBuySettled(w0, cart0, vendor, ctx.now);
   if (quote.problem) return { ok: false, wallet: w, reason: quote.problem, item: quote.problemItem };
   const cart = cleanCart(cart0);
   const goods = goodsAfter(w.goods, cart, ctx.now, ctx.uid ?? defaultUid)!;

@@ -8,7 +8,7 @@ import { ITEMS, ITEM_IDS } from '../../src/game/story/items.js';
 import type { ItemId } from '../../src/game/story/items.js';
 import { isStoryCounter, isStoryFlag } from '../../src/game/story/storyKeys.js';
 
-import { BAG, COOLER, ECONOMY_SAVE, SALE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
+import { ICE, BAG, COOLER, ECONOMY_SAVE, SALE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
 import { SHOP_BY_ID, SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
 import { bkkDay } from '../../src/game/economy/market.js';
 
@@ -90,6 +90,7 @@ export interface StoryState {
 }
 export interface StorySave { day: number; step: string; revision: number; savedAt: number; state: StoryState }
 export interface PlayerDoc {
+  iceUsedAt: number[];
   coins: number;
   coolerLevel: number;
   goods: PlayerGoods[];
@@ -125,7 +126,7 @@ export interface LogEntry {
 
 export function emptyPlayer(now: number): PlayerDoc {
   return {
-    coins: 0, coolerLevel: 0, goods: [], econ: emptyEconomy(now), recentSoldAt: [],
+    coins: 0, coolerLevel: 0, goods: [], econ: emptyEconomy(now), recentSoldAt: [], iceUsedAt: [],
     schemaVersion: 1, createdAt: now, updatedAt: now, revision: 0,
     fishBook: {}, fishTotal: 0, lastCatchAt: null, catchDay: { day: '', count: 0 },
     storyWorlds: {}, ownedCards: {}, communityMemory: {}, opWindow: { start: 0, count: 0 }, writeDay: { day: '', count: 0 },
@@ -144,6 +145,7 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
     goods: normalizeGoods(d.goods, now),
     econ: normalizeEconomy(d.econ, now),
     recentSoldAt: normalizeRecentSold(d.recentSoldAt, now),
+    iceUsedAt: Array.isArray(d.iceUsedAt) ? d.iceUsedAt.filter(at => Number.isSafeInteger(at) && at >= 0 && at <= now && at > now - ICE.retentionMs).sort((a, b) => a - b) : [],
     createdAt: num(d.createdAt, now),
     updatedAt: num(d.updatedAt, now),
     revision: num(d.revision, 0),
@@ -164,7 +166,7 @@ export function playerView(doc: PlayerDoc) {
   return {
     revision: doc.revision, fishBook: doc.fishBook, fishTotal: doc.fishTotal,
     lastCatchAt: doc.lastCatchAt, story: { dalbit: doc.storyWorlds.dalbit ?? null },
-    coins: doc.coins, coolerLevel: doc.coolerLevel, goods: doc.goods, econ: doc.econ,
+    coins: doc.coins, coolerLevel: doc.coolerLevel, goods: doc.goods, econ: doc.econ, iceUsedAt: doc.iceUsedAt,
   };
 }
 
@@ -264,7 +266,7 @@ export function countOperation(doc: PlayerDoc, now: number): Pick<PlayerDoc, 'op
 // ---- Fish Book: catches shown to a Fishing Guide -------------------------------------------------
 export interface Catch { fish: string; sizeCm: number | null; caughtAt: number }
 
-export function parseCatches(raw: unknown): Catch[] {
+export function parseCatches(raw: unknown, requireOrder = true): Catch[] {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > LIMITS.catchesPerRequest) throw new SaveError(400, 'Invalid catch list.');
   return raw.map(item => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw new SaveError(400, 'Invalid catch.');
@@ -276,7 +278,7 @@ export function parseCatches(raw: unknown): Catch[] {
     if (typeof caughtAt !== 'number' || !Number.isSafeInteger(caughtAt)) throw new SaveError(400, 'Invalid catch.');
     return { fish, sizeCm: sizeCm as number | null, caughtAt };
   }).map((c, i, all) => {
-    if (i > 0 && c.caughtAt <= all[i - 1].caughtAt) throw new SaveError(400, 'Catches must be in time order.');
+    if (requireOrder && i > 0 && c.caughtAt <= all[i - 1].caughtAt) throw new SaveError(400, 'Catches must be in time order.');
     return c;
   });
 }

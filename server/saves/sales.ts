@@ -2,7 +2,7 @@
 // No cooler, no Fish Book mutation, no client prices/ice. ECO-03 extends validateSaleCatch below.
 import { COOLER, SALE, SELL } from '../../src/game/economy/economyConfig.js';
 import { FREE_BY_ID } from '../../src/game/fishing/freeFishCatalog.js';
-import { freshnessOf, isSellableFish, marketOf, quoteFish } from '../../src/game/economy/market.js';
+import { iceMinutesFor, freshnessOf, isSellableFish, marketOf, quoteFish } from '../../src/game/economy/market.js';
 import type { SellLine } from '../../src/game/economy/wallet.js';
 import { catchProblem, checkedCoinBalance, LIMITS, SaveError } from './rules.js';
 import type { Catch, PlayerDoc } from './rules.js';
@@ -28,7 +28,7 @@ export interface SoldSaleLine extends SellLine {
 /** Single authenticity entry point: ECO-03 can add deckId/castIndex verification here.
  * Older catches are judged by freshness instead of the Fish Book's seven-day recording window.
  * All impossible claims throw; valid-but-spoiled catches are kept, not fatal to the batch. */
-export function validateSaleCatch(c: Catch, context: { now: number; recentSoldAt: readonly number[]; previous: number | null }): 'spoiled' | null {
+export function validateSaleCatch(c: Catch, context: { now: number; recentSoldAt: readonly number[]; previous: number | null; iceUsedAt: readonly number[] }): 'spoiled' | null {
   const problem = catchProblem(c, context.now, { clockSkewMs: SALE.clockSkewMs, maxCatchAgeMs: Infinity });
   if (problem) throw new SaveError(422, `I can't take that catch: ${problem}.`);
   if (!isSellableFish(FREE_BY_ID[c.fish])) throw new SaveError(422, "That one isn't for the shop. It belongs in your Fish Book.");
@@ -37,8 +37,8 @@ export function validateSaleCatch(c: Catch, context: { now: number; recentSoldAt
     || context.recentSoldAt.some(at => Math.abs(c.caughtAt - at) < LIMITS.minCatchGapMs)) {
     throw new SaveError(422, "Those catches came too close together. I can't take them.");
   }
-  // Stage (c) will derive this extension from server-owned ice events, never from the request.
-  return freshnessOf(c.caughtAt, 0, context.now) ? null : 'spoiled';
+  // Only confirmed server ice events influence freshness.
+  return freshnessOf(c.caughtAt, iceMinutesFor(c.caughtAt, context.iceUsedAt), context.now) ? null : 'spoiled';
 }
 
 export function applySale(doc: PlayerDoc, catches: Catch[], now: number) {
@@ -46,8 +46,9 @@ export function applySale(doc: PlayerDoc, catches: Catch[], now: number) {
   if (catches.length > capacity) throw new SaveError(422, "That's more fish than your cooler holds.");
   if (doc.recentSoldAt.length >= SALE.maxRecentSold) throw new SaveError(409, SALE_LINES.sold_set_full);
   // Validate the ENTIRE batch before pricing. An impossible last catch cannot sell the first ones.
-  const spoiled = catches.map((c, index) => validateSaleCatch(c, {
-    now, recentSoldAt: doc.recentSoldAt, previous: index ? catches[index - 1].caughtAt : null,
+  const ordered = catches.map((c, index) => ({ c, index })).sort((a, b) => a.c.caughtAt - b.c.caughtAt);
+  const spoiled = ordered.map(({ c }, i) => validateSaleCatch(c, {
+    now, recentSoldAt: doc.recentSoldAt, previous: i ? ordered[i - 1].c.caughtAt : null, iceUsedAt: doc.iceUsedAt,
   }));
   const market = marketOf(now);
   const soldToday = { ...doc.econ.soldToday };
@@ -55,12 +56,12 @@ export function applySale(doc: PlayerDoc, catches: Catch[], now: number) {
   let earned = 0;
   const sold: SoldSaleLine[] = [];
   const keptLines: KeptSaleLine[] = [];
-  for (const [index, c] of catches.entries()) {
-    if (spoiled[index]) {
+  for (const [position, { index, c }] of ordered.entries()) {
+    if (spoiled[position]) {
       keptLines.push({ index, caughtAt: c.caughtAt, reason: 'spoiled', message: SALE_LINES.spoiled });
       continue;
     }
-    const quote = quoteFish({ fishId: c.fish, sizeCm: c.sizeCm, caughtAt: c.caughtAt, icedMin: 0 }, now, market, soldToday[c.fish] ?? 0)!;
+    const quote = quoteFish({ fishId: c.fish, sizeCm: c.sizeCm, caughtAt: c.caughtAt, icedMin: iceMinutesFor(c.caughtAt, doc.iceUsedAt) }, now, market, soldToday[c.fish] ?? 0)!;
     if (doc.econ.earnedToday + earned + quote.price > SELL.dailyCap || soldCount >= LIMITS.catchesPerDay) {
       keptLines.push({ index, caughtAt: c.caughtAt, reason: 'daily_cap', message: SALE_LINES.daily_cap });
       continue;
