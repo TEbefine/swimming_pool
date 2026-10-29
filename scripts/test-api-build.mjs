@@ -19,8 +19,9 @@ async function collect(directory) {
     else files[path] = new FileFsRef({ fsPath: join(root, path) });
   }
 }
-for (const path of ['api', 'server/identity', 'server/saves']) await collect(path);
+for (const path of ['api', 'server/identity', 'server/saves', 'server/fishing']) await collect(path);
 for (const path of ['package.json', 'tsconfig.json', 'src/identity/loginMessage.ts', 'src/game/fishing/freeFishCatalog.ts', 'src/game/story/items.ts', 'src/game/story/storyKeys.ts', 'src/game/economy/economyConfig.ts', 'src/game/economy/market.ts', 'src/game/economy/shopCatalog.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
+files['src/game/fishing/deckConfig.ts'] = new FileFsRef({ fsPath: join(root, 'src/game/fishing/deckConfig.ts') });
 const regionConfig = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
 assert.deepEqual(regionConfig.regions, ['sin1']);
 assert.deepEqual(regionConfig.functions['api/*.ts'].regions, ['sin1']);
@@ -38,10 +39,19 @@ const headers = {};
 const res = { statusCode: 0, setHeader(k, v) { headers[k] = v; }, end(body) { this.body = body; } };
 await module.default({ method: 'GET' }, res);
 assert.equal(res.statusCode, 405);
-assert.deepEqual(JSON.parse(res.body), { error: process.argv[1].endsWith('/api/items.js') ? 'Use POST to save.' : 'Use POST to sign in.' });
+assert.deepEqual(JSON.parse(res.body), { error: process.argv[1].endsWith('/api/items.js') ? 'Use POST to save.' : process.argv[1].endsWith('/api/fishing-deck.js') ? 'Use POST for fishing tickets.' : 'Use POST to sign in.' });
 assert.equal(headers['Cache-Control'], 'no-store');
 assert.equal(headers['Allow'], 'POST');
 assert.equal(headers['X-Lumen-Function-Region'], 'sin1');
+if (process.argv[1].endsWith('/api/fishing-deck.js')) {
+  const req = { method: 'POST', body: {}, headers: { origin: 'https://swimming-pool-five.vercel.app', 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.1' }, socket: { remoteAddress: '127.0.0.1' } };
+  delete process.env.ECONOMY_API;
+  await module.default(req, res);
+  assert.equal(res.statusCode, 403);
+  process.env.ECONOMY_API = 'on'; delete process.env.FISHING_DECK_SECRET;
+  await module.default(req, res);
+  assert.equal(res.statusCode, 503, 'Vercel has no dev-secret fallback');
+}
 if (process.argv[1].endsWith('/api/login.js')) {
   // Use the actual traced Admin -> jwks-rsa -> jose chain, with generated keys and no network.
   const apiRequire = createRequire(process.argv[1]);
@@ -57,7 +67,7 @@ if (process.argv[1].endsWith('/api/login.js')) {
 }
 `;
 try {
-  for (const entrypoint of ['api/nonce.ts', 'api/login.ts', 'api/items.ts']) {
+  for (const entrypoint of ['api/nonce.ts', 'api/login.ts', 'api/items.ts', 'api/fishing-deck.ts']) {
     const diagnostics = [];
     const originalError = console.error;
     console.error = (...args) => { diagnostics.push(args.join(' ')); originalError(...args); };
@@ -69,6 +79,7 @@ try {
     }); } finally { console.error = originalError; }
     assert.ok(!diagnostics.some(line => /error TS\d+/.test(line)), `Vercel TypeScript errors: ${diagnostics.join('\n')}`);
     const lambda = result.output;
+    assert.ok(!Object.keys(lambda.files).some(path => path.includes('server/dev/')), 'Dev-only code cannot enter an API function');
     assert.deepEqual(lambda.regions, ['sin1'], `${entrypoint}: emitted function must explicitly request Singapore`);
     assert.equal(lambda.runtime, 'nodejs24.x');
     const output = join(temporary, entrypoint.replace(/[/.]/g, '-'));

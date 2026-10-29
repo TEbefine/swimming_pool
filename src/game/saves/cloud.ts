@@ -10,6 +10,8 @@ import { attachStory, getDraftMeta, getStory, setDraftMeta, storyForSave, subscr
 import type { StoryState } from '../story/storyStore';
 import { DEV_TEST_ADDRESS, DEV_TEST_TOKEN } from '../../identity/devTestIdentity';
 import { attachWallet, receiveServerView, registerEconomyTransport } from '../economy/walletStore';
+import { attachFishingDeck, registerDeckTransport } from '../fishing/deckClient';
+import { FISHING_DECK } from '../fishing/deckConfig';
 
 interface StorySave { day: number; step: string; revision: number; savedAt: number; state: StoryState }
 interface ServerView {
@@ -62,13 +64,14 @@ async function idToken(): Promise<string> {
   return user.idToken;
 }
 
-async function call(body: Record<string, unknown>): Promise<ServerView> {
+async function callJson(path: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const who = address;
   const token = await idToken();
+  if (who !== address) throw new SaveRequestError(401, 'Player ID changed before sending.');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20_000);
+  const timer = setTimeout(() => controller.abort(), FISHING_DECK.requestTimeoutMs);
   try {
-    const res = await fetch('/api/items', {
+    const res = await fetch(path, {
       method: 'POST', credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
@@ -76,12 +79,15 @@ async function call(body: Record<string, unknown>): Promise<ServerView> {
     const data = await res.json().catch(() => null) as (ServerView & { error?: string }) | null;
     if (!res.ok || !data) throw new SaveRequestError(res.status, data?.error ?? 'Saving is unavailable right now.', (data ?? undefined) as Record<string, unknown> | undefined);
     // Every answer carries the economy (coins, goods, ice) and the server clock: keep the wallet cache current.
-    receiveServerView(who, data as unknown as Record<string, unknown>);
-    return data;
+    if (path === '/api/items') receiveServerView(who, data as unknown as Record<string, unknown>);
+    return data as unknown as Record<string, unknown>;
   } catch (err) {
     if (err instanceof SaveRequestError) throw err;
     throw new SaveRequestError(0, controller.signal.aborted ? 'Saving timed out.' : 'Could not reach the save server.');
   } finally { clearTimeout(timer); }
+}
+async function call(body: Record<string, unknown>): Promise<ServerView> {
+  return callJson('/api/items', body) as unknown as Promise<ServerView>;
 }
 
 function newOperationId(): string {
@@ -101,6 +107,7 @@ export async function attachPlayer(next: string | null): Promise<void> {
   if (IS_TEST || next === address) return;
   const ticket = ++attachTicket;
   address = next;
+  attachFishingDeck(next); // stage 3: background fetch/cache only, never on the cast path
   if (!next) {
     status = 'guest'; storyStatus = 'idle'; lastCatchAt = null;
     attachFishBook(null);
@@ -241,6 +248,7 @@ listeners.add(scheduleRetry);
 
 // The shop's trades use the same authenticated transport (ECO-02 d). Guests and ?test= pages never call it.
 if (!IS_TEST) registerEconomyTransport((body) => call(body) as unknown as Promise<Record<string, unknown>>);
+if (!IS_TEST) registerDeckTransport(() => callJson('/api/fishing-deck', {}));
 
 if (!IS_TEST && typeof window !== 'undefined') {
   subscribeStory(() => { void maybeSaveStoryDay(); });
