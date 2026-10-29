@@ -368,7 +368,7 @@ test('40 accepted operations exhaust the shared daily budget; replay and load do
   assert.equal(h.players.get(address).writeDay.count, 1);
 });
 
-test('stage (a) adds no writable economy operation or client-authoritative fields', async () => {
+test('incomplete economy operations and client-authoritative fields are refused', async () => {
   const h = harness();
   for (const op of ['shop.sell', 'shop.buy', 'bag.use']) {
     assert.equal((await h.call({ op, operationId: opId() })).statusCode, 400);
@@ -459,4 +459,213 @@ test('balance reads clamp without throwing; commit guard still refuses invalid b
   const saved = await record(h, [{ fish: 'sardine', sizeCm: 15, caughtAt: NOON - 10_000 }]);
   assert.equal(saved.statusCode, 200, 'bad stored coins do not block unrelated saves');
   assert.equal(h.players.get(address).coins, cap);
+});
+
+// ECO-02(b): sale intent, server quotes and append-only receipts.
+const sell = (h, catches, id = opId()) => h.call({ op: 'shop.sell', operationId: id, catches });
+const sardine = (at, sizeCm = 15) => ({ fish: 'sardine', sizeCm, caughtAt: at });
+const stateOf = h => structuredClone({ players: [...h.players], logs: [...h.logs] });
+
+test('sale returns shared price parts directly consumable by sellReceipt and leaves the Fish Book alone', async () => {
+  const { marketOf, quoteFish } = await import('../src/game/economy/market.ts');
+  const { sellReceipt } = await import('../src/game/economy/receipt.ts');
+  const h = harness();
+  // Showing first must not make a catch unsellable.
+  const catches = [sardine(NOON - 60_000), sardine(NOON - 30_000, 20)];
+  await record(h, catches);
+  const original = structuredClone(h.players.get(address));
+  const res = await sell(h, catches);
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  const { result } = res.body;
+  assert.equal(result.sold.length, 2);
+  for (const [i, c] of catches.entries()) {
+    const quote = quoteFish({ fishId: c.fish, sizeCm: c.sizeCm, caughtAt: c.caughtAt, icedMin: 0 }, NOON, marketOf(NOON), i);
+    for (const key of Object.keys(quote)) assert.deepEqual(result.sold[i][key], quote[key]);
+    assert.equal(result.sold[i].isWanted, quote.wanted > 1);
+  }
+  assert.equal(result.earned, result.sold.reduce((n, c) => n + c.price, 0));
+  assert.equal(result.balanceAfter, result.earned);
+  assert.equal(res.body.coins, result.earned);
+  assert.equal(result.kept, 0);
+  assert.equal(result.pricedAt, NOON);
+  const receipt = sellReceipt(result.sold, result.kept, result.balanceAfter, result.pricedAt);
+  assert.equal(receipt.total, result.earned); assert.equal(receipt.vat, null);
+  const saved = h.players.get(address);
+  for (const key of ['fishBook', 'fishTotal', 'lastCatchAt', 'catchDay']) assert.deepEqual(saved[key], original[key]);
+  assert.deepEqual(saved.recentSoldAt, catches.map(c => c.caughtAt));
+  const log = [...h.logs.values()].at(-1);
+  assert.equal(log.op, 'shop.sell'); assert.deepEqual(log.changes, result);
+  assert.equal(log.newRevision, log.prevRevision + 1);
+});
+
+test('impossible catches refuse the entire sale, including a valid first fish', async () => {
+  const { READY_SHEETS } = await import('../src/game/fishing/freeFishCatalog.ts');
+  const h = harness();
+  const bad = [
+    { ...sardine(NOON - 10_000), fish: 'invented' },
+    sardine(NOON - 10_000, 999), sardine(NOON - 10_000, 15.5),
+    sardine(NOON - 10_000, null), sardine(NOON + 10_001),
+    { fish: 'bottle_message', sizeCm: null, caughtAt: NOON - 10_000 },
+    { fish: 'jade_moon_koi', sizeCm: 60, caughtAt: NOON - 10_000 },
+  ];
+  for (const c of bad) {
+    const before = stateOf(h);
+    const res = await sell(h, [sardine(NOON - 20_000), c]);
+    assert.equal(res.statusCode, 422, JSON.stringify(res.body));
+    assert.deepEqual(stateOf(h), before);
+  }
+  // Seasonal sheets are not live yet: enable their catalogue eligibility only within this fixture
+  // so the real shared season check, rather than sheet readiness, is what rejects the claim.
+  READY_SHEETS.push('c');
+  try {
+    const res = await sell(h, [{ fish: 'mango_threadfin', sizeCm: 20, caughtAt: NOON - 10_000 }]);
+    assert.equal(res.statusCode, 422); assert.match(res.body.error, /season/);
+  } finally { READY_SHEETS.pop(); }
+  assert.equal(h.players.size, 0); assert.equal(h.logs.size, 0);
+});
+
+test('sale allows exactly ten seconds future skew without changing Fish Book tolerance', async () => {
+  const h = harness();
+  assert.equal((await sell(h, [sardine(NOON + 10_000)])).statusCode, 200);
+  const book = harness();
+  assert.equal((await record(book, [sardine(NOON + 30_000)])).statusCode, 200);
+});
+
+test('spoiled catches are kept while fresh ones sell; all-spoiled writes nothing, even beyond a week', async () => {
+  const h = harness();
+  const res = await sell(h, [sardine(NOON - 30 * 60_000), sardine(NOON - 10_000)]);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.result.keptLines, [{ index: 0, caughtAt: NOON - 30 * 60_000, reason: 'spoiled', message: 'That one went bad on the way.' }]);
+  assert.deepEqual(h.players.get(address).recentSoldAt, [NOON - 10_000]);
+  const empty = harness();
+  for (const age of [30 * 60_000, 8 * 24 * 3600_000]) {
+    const before = stateOf(empty);
+    const r = await sell(empty, [sardine(NOON - age)]);
+    assert.equal(r.statusCode, 422); assert.equal(r.body.result.kept, 1);
+    assert.equal(r.body.result.keptLines[0].reason, 'spoiled');
+    assert.deepEqual(stateOf(empty), before);
+  }
+  assert.equal((await sell(empty, [sardine(NOON - 30 * 60_000 + 1)])).statusCode, 200, 'one ms before expiry');
+});
+
+test('duplicates, same-millisecond collisions, gap violations and over-capacity batches fail', async () => {
+  const h = harness();
+  const at = NOON - 60_000;
+  assert.equal((await sell(h, [sardine(at), sardine(at)])).statusCode, 400);
+  assert.equal((await sell(h, [sardine(at), sardine(at + 2999)])).statusCode, 422);
+  assert.equal((await sell(h, Array.from({ length: 11 }, (_, i) => sardine(at + i * 3000)))).statusCode, 422);
+  assert.equal((await sell(h, [sardine(at), sardine(at + 3000)])).statusCode, 200);
+  const before = stateOf(h);
+  assert.equal((await sell(h, [sardine(at)])).statusCode, 409);
+  assert.equal((await sell(h, [sardine(at, 20)])).statusCode, 409, 'different size cannot bypass same timestamp identity');
+  assert.equal((await sell(h, [sardine(at - 1)])).statusCode, 422, 'gap enforced against existing sales in both directions');
+  assert.deepEqual(stateOf(h), before);
+  const upgraded = harness();
+  upgraded.players.set(address, { ...emptyPlayer(NOON), coolerLevel: 2 });
+  assert.equal((await sell(upgraded, Array.from({ length: 20 }, (_, i) => sardine(NOON - 120_000 + i * 3000)))).statusCode, 200);
+});
+
+test('client money, ice, address and extra catch fields never enter the sale', async () => {
+  const h = harness();
+  const other = '0x' + 'ef'.repeat(20);
+  h.players.set(other, { ...emptyPlayer(NOON), coins: 77 });
+  const before = stateOf(h);
+  for (const field of ['price', 'total', 'coins', 'balance', 'address', 'icedMin']) {
+    assert.equal((await h.call({ op: 'shop.sell', operationId: opId(), catches: [sardine(NOON)], [field]: other })).statusCode, 400);
+  }
+  assert.equal((await sell(h, [{ ...sardine(NOON), price: 999 }])).statusCode, 400);
+  assert.equal((await sell(h, [{ ...sardine(NOON), icedMin: 30 }])).statusCode, 400);
+  assert.deepEqual(stateOf(h), before);
+  assert.equal((await sell(h, [sardine(NOON)])).statusCode, 200);
+  assert.deepEqual(h.players.get(other), before.players[0][1]);
+  assert.ok([...h.logs.keys()].every(k => k.startsWith(address + '/')));
+});
+
+test('same operation replays the exact receipt after spoilage, midnight and later sales; changed body fails', async () => {
+  const h = harness();
+  const id = opId();
+  const catches = [sardine(NOON - 10_000)];
+  const first = await sell(h, catches, id);
+  await sell(h, [sardine(NOON)]);
+  const balance = h.players.get(address).coins;
+  h.tick(24 * 3600_000);
+  const before = stateOf(h);
+  const retry = await sell(h, catches.map(c => ({ caughtAt: c.caughtAt, fish: c.fish, sizeCm: c.sizeCm })), id);
+  assert.equal(retry.statusCode, 200);
+  assert.equal(retry.body.replayed, true);
+  assert.deepEqual(retry.body.result, first.body.result);
+  assert.equal(retry.body.coins, balance, 'outer view is current, receipt balance is historical');
+  assert.deepEqual(stateOf(h), before);
+  assert.equal((await sell(h, [sardine(catches[0].caughtAt, 16)], id)).statusCode, 409);
+  assert.deepEqual(stateOf(h), before);
+});
+
+test('daily cap keeps excess fish without paying them; kept fish do not advance glut or sold-set', async () => {
+  const { SELL } = await import('../src/game/economy/economyConfig.ts');
+  const { quoteFish, marketOf } = await import('../src/game/economy/market.ts');
+  const h = harness();
+  const firstAt = NOON - 60_000;
+  const firstPrice = quoteFish({ fishId: 'sardine', sizeCm: 15, caughtAt: firstAt, icedMin: 0 }, NOON, marketOf(NOON), 0).price;
+  const doc = emptyPlayer(NOON); doc.econ.earnedToday = SELL.dailyCap - firstPrice;
+  h.players.set(address, doc);
+  const r = await sell(h, [sardine(firstAt), sardine(firstAt + 3000)]);
+  assert.equal(r.statusCode, 200); assert.equal(r.body.result.earned, firstPrice);
+  assert.equal(r.body.result.kept, 1); assert.equal(r.body.result.keptLines[0].reason, 'daily_cap');
+  assert.equal(r.body.econ.earnedToday, SELL.dailyCap);
+  assert.equal(r.body.econ.soldToday.sardine, 1);
+  assert.deepEqual(h.players.get(address).recentSoldAt, [firstAt]);
+  const before = stateOf(h);
+  const allKept = await sell(h, [sardine(firstAt + 3000)]);
+  assert.equal(allKept.statusCode, 422); assert.equal(allKept.body.result.kept, 1);
+  assert.deepEqual(stateOf(h), before);
+});
+
+test('sold markers survive Bangkok midnight but expire at exactly caughtAt plus 60 minutes', async () => {
+  const midnight = Date.UTC(2026, 9, 10, 17);
+  const h = harness(midnight - 1);
+  const at = midnight - 10_000;
+  await sell(h, [sardine(at)]);
+  h.setClock(midnight);
+  assert.equal((await sell(h, [sardine(at)])).statusCode, 409);
+  const next = await sell(h, [sardine(midnight)]);
+  assert.equal(next.statusCode, 200);
+  assert.equal(next.body.econ.soldToday.sardine, 1, 'glut resets on server Bangkok day');
+  const saved = h.players.get(address);
+  assert.ok(normalizePlayer(saved, at + 3600_000 - 1).recentSoldAt.includes(at));
+  assert.ok(!normalizePlayer(saved, at + 3600_000).recentSoldAt.includes(at));
+});
+
+test('sold-set capacity is derived, never evicts live markers, and refuses overflow atomically', async () => {
+  const { SALE, COOLER } = await import('../src/game/economy/economyConfig.ts');
+  assert.equal(SALE.maxRecentSold, LIMITS.opsPerDay * (COOLER.baseSlots + COOLER.upgradeSlots * COOLER.upgradePrices.length));
+  assert.equal(SALE.maxRecentSold, 800);
+  const h = harness();
+  const markers = Array.from({ length: 800 }, (_, i) => NOON - 3500_000 + i * 3000);
+  h.players.set(address, { ...emptyPlayer(NOON), recentSoldAt: markers });
+  const before = stateOf(h);
+  assert.equal((await sell(h, [sardine(NOON - 10_000)])).statusCode, 409);
+  assert.deepEqual(stateOf(h), before);
+  h.players.get(address).recentSoldAt = markers.slice(1);
+  const beforeOverflow = stateOf(h);
+  assert.equal((await sell(h, [sardine(NOON - 10_000), sardine(NOON)])).statusCode, 409);
+  assert.deepEqual(stateOf(h), beforeOverflow);
+  assert.equal((await sell(h, [sardine(NOON - 10_000)])).statusCode, 200);
+  assert.equal(h.players.get(address).recentSoldAt.length, 800);
+  const malformed = { ...emptyPlayer(NOON), recentSoldAt: [...markers, NOON, markers[0], 'bad', NaN] };
+  assert.equal(normalizePlayer(malformed, NOON).recentSoldAt.length, 801, 'normalization never truncates live markers to meet a lowered cap');
+});
+
+test('sale balance overflow and daily operation exhaustion leave player and ledger untouched', async () => {
+  const { SELL, ECONOMY_SAVE } = await import('../src/game/economy/economyConfig.ts');
+  const h = harness();
+  h.players.set(address, { ...emptyPlayer(NOON), coins: SELL.dailyCap * ECONOMY_SAVE.balanceCapDays });
+  const before = stateOf(h);
+  assert.equal((await sell(h, [sardine(NOON - 10_000)])).statusCode, 409);
+  assert.deepEqual(stateOf(h), before);
+  const doc = emptyPlayer(NOON);
+  doc.writeDay = { day: '2026-10-10', count: LIMITS.opsPerDay };
+  h.players.set(address, doc);
+  const exhausted = stateOf(h);
+  assert.equal((await sell(h, [sardine(NOON - 10_000)])).statusCode, 429);
+  assert.deepEqual(stateOf(h), exhausted);
 });

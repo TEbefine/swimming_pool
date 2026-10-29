@@ -8,7 +8,7 @@ import { ITEMS, ITEM_IDS } from '../../src/game/story/items.js';
 import type { ItemId } from '../../src/game/story/items.js';
 import { isStoryCounter, isStoryFlag } from '../../src/game/story/storyKeys.js';
 
-import { BAG, COOLER, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
+import { BAG, COOLER, ECONOMY_SAVE, SALE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
 import { SHOP_BY_ID, SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
 import { bkkDay } from '../../src/game/economy/market.js';
 
@@ -28,7 +28,8 @@ export interface PlayerEconomy {
 
 export class SaveError extends Error {
   status: number;
-  constructor(status: number, message: string) { super(message); this.status = status; }
+  details?: Record<string, unknown>;
+  constructor(status: number, message: string, details?: Record<string, unknown>) { super(message); this.status = status; this.details = details; }
 }
 
 // ---- limits (tune here) -------------------------------------------------------------------------
@@ -93,6 +94,8 @@ export interface PlayerDoc {
   coolerLevel: number;
   goods: PlayerGoods[];
   econ: PlayerEconomy;
+  /** Internal redemption markers; independent of the Fish Book and Bangkok-day reset. */
+  recentSoldAt: number[];
   schemaVersion: 1;
   createdAt: number;
   updatedAt: number;
@@ -122,7 +125,7 @@ export interface LogEntry {
 
 export function emptyPlayer(now: number): PlayerDoc {
   return {
-    coins: 0, coolerLevel: 0, goods: [], econ: emptyEconomy(now),
+    coins: 0, coolerLevel: 0, goods: [], econ: emptyEconomy(now), recentSoldAt: [],
     schemaVersion: 1, createdAt: now, updatedAt: now, revision: 0,
     fishBook: {}, fishTotal: 0, lastCatchAt: null, catchDay: { day: '', count: 0 },
     storyWorlds: {}, ownedCards: {}, communityMemory: {}, opWindow: { start: 0, count: 0 }, writeDay: { day: '', count: 0 },
@@ -140,6 +143,7 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
     coolerLevel: safeCount(d.coolerLevel, COOLER.upgradePrices.length),
     goods: normalizeGoods(d.goods, now),
     econ: normalizeEconomy(d.econ, now),
+    recentSoldAt: normalizeRecentSold(d.recentSoldAt, now),
     createdAt: num(d.createdAt, now),
     updatedAt: num(d.updatedAt, now),
     revision: num(d.revision, 0),
@@ -202,6 +206,13 @@ function normalizeEconomy(raw: unknown, now: number): PlayerEconomy {
   }
   base.earnedToday = clampedCount(econ.earnedToday, SELL.dailyCap);
   return base;
+}
+/** No size truncation: a malformed/old oversized set must never lose live protection.
+ * The sale write path refuses overflow; ordinary loads still succeed. */
+function normalizeRecentSold(raw: unknown, now: number): number[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter((at): at is number => typeof at === 'number'
+    && Number.isSafeInteger(at) && at >= 0 && at > now - SALE.soldRetentionMs))].sort((a, b) => a - b);
 }
 function normalizeGoods(raw: unknown, now: number): PlayerGoods[] {
   if (!Array.isArray(raw)) return [];
@@ -281,14 +292,14 @@ function fitsSeason(f: FreeFish, at: number): boolean {
 }
 
 /** Checks one catch on its own (catalogue, size, date, time of day, season). Returns why it fails, or null. */
-export function catchProblem(c: Catch, now: number): string | null {
+export function catchProblem(c: Catch, now: number, policy: { clockSkewMs?: number; maxCatchAgeMs?: number } = {}): string | null {
   const f = FISH.get(c.fish);
   if (!f || !READY_SHEETS.includes(f.sheet)) return 'not a fish this bay knows';
   if (f.size) {
     if (c.sizeCm === null || !Number.isInteger(c.sizeCm) || c.sizeCm < f.size[0] || c.sizeCm > f.size[1]) return `the size of a ${f.name} looks wrong`;
   } else if (c.sizeCm !== null) return `a ${f.name} has no size`;
-  if (c.caughtAt > now + LIMITS.clockSkewMs) return 'dated in the future (check the device clock)';
-  if (c.caughtAt < now - LIMITS.maxCatchAgeMs) return 'older than a week';
+  if (c.caughtAt > now + (policy.clockSkewMs ?? LIMITS.clockSkewMs)) return 'dated in the future (check the device clock)';
+  if (c.caughtAt < now - (policy.maxCatchAgeMs ?? LIMITS.maxCatchAgeMs)) return 'older than a week';
   if (!fitsTime(f, c.caughtAt)) return `a ${f.name} does not bite at that time of day`;
   if (!fitsSeason(f, c.caughtAt)) return `a ${f.name} does not bite in that season`;
   return null;

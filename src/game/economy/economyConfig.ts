@@ -82,3 +82,10 @@ export const ECONOMY_SAVE = {
   /** Balance ceiling = SELL.dailyCap times this many days. */
   balanceCapDays: 400,
 } as const;
+
+/** Server sale policy. Retention includes the maximum future server-verified ice extension. */
+export const SALE = {
+  clockSkewMs: 10_000,
+  soldRetentionMs: (FRESH.lifetimeMin + FRESH.iceMaxPerFishMin) * 60_000,
+  maxRecentSold: ECONOMY_SAVE.opsPerDay * (COOLER.baseSlots + COOLER.upgradeSlots * COOLER.upgradePrices.length),
+} as const;
