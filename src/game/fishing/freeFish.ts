@@ -2,6 +2,7 @@
 // The kinds themselves live in freeFishCatalog.ts (pure data, shared with the save server).
 
 import { useSyncExternalStore } from 'react';
+import { LIMITS } from '../../../server/saves/limits.js';
 import type { CatchStamp, CatchTicket } from './catchTicket';
 import type { FishTable } from '../story/fishing';
 import { FREE_FISH, TIERS, thaiSeasonAt } from './freeFishCatalog';
@@ -125,11 +126,12 @@ export function useFishBook(): FishBook {
 export function addToFishBook(id: string, sizeCm: number | null, stamp?: CatchStamp): { isNew: boolean; record: boolean; stamp: CatchStamp } {
   const old = book.entries[id];
   const record = !!old && sizeCm !== null && (old.best === null || sizeCm > old.best);
-  // caughtAt is the catch's identity on this device: keep it strictly increasing.
+  // Keep pending catches far enough apart for the server's recording rule.
   const lastAt = pending.length ? pending[pending.length - 1].caughtAt : 0;
   const requestedStamp = stamp ?? { caughtAt: Date.now() };
   // A corrected timestamp cannot keep its original ticket. Do not mutate the caller's stamp.
-  const finalStamp: CatchStamp = requestedStamp.caughtAt <= lastAt ? { caughtAt: lastAt + 1 } : requestedStamp;
+  const finalStamp: CatchStamp = requestedStamp.caughtAt - lastAt < LIMITS.minCatchGapMs
+    ? { caughtAt: lastAt + LIMITS.minCatchGapMs } : requestedStamp;
   const c: PendingCatch = { fish: id, sizeCm, ...finalStamp };
   if (scope) {
     pending = [...pending, c];
