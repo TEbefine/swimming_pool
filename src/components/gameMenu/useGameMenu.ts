@@ -14,6 +14,9 @@ import { getEmoteItems, type EmoteItem } from '../startMenu/EmoteScreen';
 import { OPTION_ROWS } from '../startMenu/optionRows';
 import { MenuStore, type MenuContext, type MenuHost, type MenuInput, type MenuState, type Sfx } from './menuModel';
 import { DpadAdapter, KeyGate, menuInputFromKey } from './menuInput';
+import { bagUsesEconomy, coolerIds, coolerRows, goodsIds, goodsRows, COOLER_PREFIX, GOODS_PREFIX } from '../bag/economyRows';
+import { gameNow, getWallet, refreshWallet, useBagItem } from '../../game/economy/walletStore';
+import { SHOP_BY_ID } from '../../game/economy/shopCatalog';
 
 /** What the App must do when the menu hands control to something else. */
 export interface GameMenuCallbacks {
@@ -65,10 +68,16 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
 
   const [{ store, dpad }] = useState(() => {
     const dpadRef: { current: DpadAdapter | null } = { current: null };
+    const storeRef: { current: MenuStore | null } = { current: null };
 
     const getContext = (): MenuContext => ({
       pocketIds: POCKET_IDS,
       itemsIn: (pocket) => {
+        // ECO-02(d): with the money system on, FISH = the cooler you carry, ITEMS = story items + shop goods.
+        if (bagUsesEconomy(isStory.current)) {
+          if (pocket === 'fish') return [...carriedIn(getStory().bag, 'fish'), ...coolerIds(getWallet())];
+          if (pocket === 'items') return [...carriedIn(getStory().bag, 'items'), ...goodsIds(getWallet())];
+        }
         if (pocket === 'fish' && !isStory.current) {
           const book = getFishBook();
           const free = FREE_FISH.filter((f) => (book.entries[f.id]?.count ?? 0) > 0).map((f) => f.id);
@@ -77,7 +86,14 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
         }
         return carriedIn(getStory().bag, pocket);
       },
-      actionsFor: (id) => (FREE_BY_ID[id] ? ['check'] : itemActionsFor(id as ItemId)),
+      actionsFor: (id) => {
+        if (id.startsWith(COOLER_PREFIX)) return ['check'];
+        if (id.startsWith(GOODS_PREFIX)) {
+          const g = getWallet().goods.find((x) => GOODS_PREFIX + x.uid === id);
+          return g && SHOP_BY_ID[g.id]?.use === 'ice' ? ['use', 'check'] : ['check'];
+        }
+        return FREE_BY_ID[id] ? ['check'] : itemActionsFor(id as ItemId);
+      },
       linkIn: () => null,
       emoteCount: emotes.current.length,
       optionCount: OPTION_ROWS.length,
@@ -96,6 +112,21 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
       },
       changeOption: (index, dir) => OPTION_ROWS[index]?.change(dir),
       runItemAction: (itemId, action) => {
+        if (itemId.startsWith(COOLER_PREFIX)) {
+          const row = coolerRows(refreshWallet(), gameNow()).find((r) => r.id === itemId);
+          return row ? `${row.name}: ${row.meta}. Sell it to Gen at the Harbour Fish Shop.` : 'That fish is gone.';
+        }
+        if (itemId.startsWith(GOODS_PREFIX)) {
+          const row = goodsRows(refreshWallet(), gameNow()).find((r) => r.id === itemId);
+          if (!row) return "You don't have that any more.";
+          if (action !== 'use') return `${row.name}: ${row.note}`;
+          // The server spends the ice (dev / preview) or the device does (sandbox). The answer arrives later.
+          void useBagItem(itemId.slice(GOODS_PREFIX.length)).then((r) => {
+            storeRef.current?.showFeedback(r.ok ? r.message : r.message || 'Not now.');
+            storeRef.current?.refresh();
+          });
+          return 'Icing your cooler…';
+        }
         if (FREE_BY_ID[itemId]) {
           const f = FREE_BY_ID[itemId];
           const entry = getFishBook().entries[itemId];
@@ -111,6 +142,7 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
     };
 
     const store = new MenuStore(getContext, host);
+    storeRef.current = store;
     const dpad = new DpadAdapter((input) => store.press(input));
     dpadRef.current = dpad;
     return { store, dpad };

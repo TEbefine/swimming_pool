@@ -381,3 +381,10 @@
 .sp-frame[data-busy='true'] .sp-paybar { opacity: 0.6; pointer-events: none; }
 .sp-retry { margin: 2px 0 4px; background: #9c3a2f; color: var(--sp-cream); }
 .sp-retry .sp-meta { color: var(--sp-cream); }
+
+/* Readable numbers (Teera, 2026-10-29: the pixel 5 looked like S). Letters stay pixel; digits come from VT323. */
+.sp-coins, .sp-price, .sp-meta, .sp-fresh, .sp-qty, .sp-paybar, .sp-name small, .sp-tag,
+.sp-rc-row, .sp-rc-sub, .sp-rc-small, .sp-desc, .sp-chip {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}

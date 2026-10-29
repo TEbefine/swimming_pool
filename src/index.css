@@ -11,6 +11,18 @@
   font-display: swap;
 }
 
+/* Clear digits for money, prices, sizes and timers. ONLY these characters come from VT323 (a pixel face
+   with an unmistakable 5/S, 3/8, 0/O); every letter still falls back to Pool Pixel Default. Use --font-num. */
+@font-face {
+  font-family: 'Pool Numbers';
+  src: url('/fonts/VT323-400-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  size-adjust: 128%;
+  unicode-range: U+0030-0039, U+002B-002E, U+003A, U+0025, U+00D7, U+2212;
+}
+
 button, input, select, textarea {
   font-family: var(--font-pixel);
   font-synthesis: none;
@@ -25,6 +37,8 @@ button, input, select, textarea {
 :root {
   /* One bilingual pixel face, including Thai marks; keep strokes consistent. */
   --font-pixel: 'Pool Pixel Default', monospace;
+  /* Numbers you must be able to trust (coins, prices, countdowns): clear digits, pixel letters. */
+  --font-num: 'Pool Numbers', 'Pool Pixel Default', monospace;
   --font-sub: 'Pool Pixel Default', monospace;
   --font-code: 'Pool Pixel Default', monospace;
   

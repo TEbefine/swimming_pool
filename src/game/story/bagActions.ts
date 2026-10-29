@@ -11,14 +11,15 @@ import { ITEM_IDS, ITEMS, pocketOf, type Habitat, type ItemDef, type ItemId, typ
 import { getStory } from './storyStore';
 import { eatItem } from './dalbitPrologue';
 
-export type ItemActionId = 'eat' | 'check';
+export type ItemActionId = 'eat' | 'check' | 'use';
 
-export const ACTION_LABEL: Record<ItemActionId, string> = { eat: 'Eat', check: 'Check' };
+export const ACTION_LABEL: Record<ItemActionId, string> = { eat: 'Eat', check: 'Check', use: 'Use' };
 
 /** One line for the description box when the cursor is on an action row. */
 export const ACTION_HINT: Record<ItemActionId | 'cancel', string> = {
   eat: 'Eat it now to get energy back.',
   check: 'Look closely at it.',
+  use: 'Use it now.',
   cancel: 'Go back to the bag.',
 };
 

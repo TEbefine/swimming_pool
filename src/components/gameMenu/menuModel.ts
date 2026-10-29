@@ -14,7 +14,7 @@ import type { PocketId } from '../../game/story/items';
 export type MenuInput = 'up' | 'down' | 'left' | 'right' | 'confirm' | 'back' | 'start' | 'bag';
 export type MenuView = 'field' | 'bag' | 'emotes' | 'options';
 export type Sfx = 'move' | 'select' | 'back';
-export type ItemActionId = 'eat' | 'check';
+export type ItemActionId = 'eat' | 'check' | 'use';
 
 export type FieldId = 'fishbook' | 'bag' | 'name' | 'emotes' | 'options' | 'help' | 'resume';
 export const FIELD_IDS: readonly FieldId[] = ['fishbook', 'bag', 'name', 'emotes', 'options', 'help', 'resume'];
@@ -392,6 +392,16 @@ export class MenuStore {
 
   clearFeedback() {
     if (this.state.feedback) this.set({ ...this.state, feedback: null });
+  }
+
+  /** A line that arrives later (e.g. the server answered a Bag action). Ignored if the menu has closed. */
+  showFeedback(text: string) {
+    if (this.state.open) this.set({ ...this.state, feedback: text });
+  }
+
+  /** Something the Bag shows changed (the cooler, the goods): redraw without touching the cursor. */
+  refresh() {
+    if (this.state.open) this.set({ ...this.state, tick: this.state.tick + 1 });
   }
 
   private apply(step: Step) {
