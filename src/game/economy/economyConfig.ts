@@ -83,6 +83,11 @@ export const ECONOMY_SAVE = {
   balanceCapDays: 400,
 } as const;
 
+export const ICE = {
+  maxEvents: 16,
+  retentionMs: (FRESH.lifetimeMin + FRESH.iceMaxPerFishMin) * 60_000 + 10_000,
+} as const;
+
 /** Server sale policy. Retention includes the maximum future server-verified ice extension. */
 export const SALE = {
   clockSkewMs: 10_000,

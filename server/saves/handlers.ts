@@ -10,6 +10,7 @@ import {
   applyCatches, catchProblem, checkOperationId, countOperation, emptyPlayer, normalizePlayer, parseCatches, playerView,
   SaveError, validateStoryDay,
 } from './rules.js';
+import { applyBuy, applyIce, parseBuy, parseGoodsUid } from './purchases.js';
 import { applySale } from './sales.js';
 import type { LogEntry, PlayerDoc } from './rules.js';
 
@@ -48,7 +49,7 @@ export class DailyLimiter {
     if (++e.count > this.limit) throw new SaveError(429, 'That is a lot of saving for one day. Please come back tomorrow.');
   }
 }
-const FIELDS = ['op', 'operationId', 'catches', 'world', 'baseRevision', 'state'];
+const FIELDS = ['op', 'operationId', 'catches', 'world', 'baseRevision', 'state', 'vendor', 'cart', 'uid', 'expectedTotal'];
 
 /** Same JSON for the same request, whatever the key order (for the idempotency hash). */
 function stable(value: unknown): string {
@@ -94,10 +95,31 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         return;
       }
 
+      if (op === 'shop.buy' || op === 'bag.use') {
+        onlyFields(body, op === 'shop.buy' ? ['op', 'operationId', 'vendor', 'cart', 'expectedTotal'] : ['op', 'operationId', 'uid']);
+        const operationId = checkOperationId(body.operationId);
+        const purchase = op === 'shop.buy' ? parseBuy(body) : null;
+        const uid = op === 'bag.use' ? parseGoodsUid(body.uid) : null;
+        const hash = createHash('sha256').update(stable(purchase
+          ? [op, purchase.vendor, purchase.cart, purchase.expectedTotal ?? null] : [op, uid])).digest('hex');
+        const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
+          const t = now();
+          const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
+          if (rawLog) return replay(doc, rawLog, hash);
+          const budget = countOperation(doc, t);
+          const { fields, changes } = purchase
+            ? applyBuy(doc, purchase.cart, purchase.vendor, purchase.expectedTotal, t)
+            : applyIce(doc, uid!, t);
+          return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
+        });
+        reply(res, 200, result);
+        return;
+      }
+
       if (op === 'shop.sell') {
         onlyFields(body, ['op', 'operationId', 'catches']);
         const operationId = checkOperationId(body.operationId);
-        const catches = parseCatches(body.catches);
+        const catches = parseCatches(body.catches, false);
         const hash = createHash('sha256').update(stable([op, catches])).digest('hex');
         const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
           const t = now();

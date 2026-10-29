@@ -209,3 +209,37 @@ One Firestore transaction reads player and operation log. After strict request p
 **Accepted sale = 2 reads + 2 writes**, player + operation log, before Firestore contention retries. No per-catch writes. A replay/refusal after transaction lookup costs reads but writes nothing. Existing pre-read syntax/auth checks remain in place. The 40 accepted-op budget is shared with Fish Book/story; 200 players at the maximum is 16,000 writes plus other activity, not a global quota guarantee.
 
 Checks: `npm test` 199 pass; `npx tsc -b` passes; `npm run build` passes, including Vercel-built nonce/login/items API import/GET checks and Vite. `npm run test:rules` with Java 21 passes all 4 emulator tests, including actual concurrent duplicate sales (one payment), concurrent identical operation replay (one write), independent concurrent sales (no lost coins), and owner-only read/no-client-write for economy fields. API tests cover all requested cheats plus exact skew/freshness boundaries, mixed/all-kept batches, unchanged Fish Book, receipt compatibility, historical replay, midnight, full-set/overflow, maximum cooler capacity, balance ceiling and daily-op refusal. No physical iPhone validation claimed.
+
+
+## 12. ECO-02 stage (c) — server buy and ice (2026-10-29)
+
+Based on main/dev-test-id daca0094 after PR #18. This section supersedes stage (b)'s chronological-request requirement and zero-ice pricing. ECONOMY_ON, walletStore.ts, UI and Firestore rules remain unchanged.
+
+### Buy contract
+
+`POST /api/items`: `{op:'shop.buy', operationId, vendor, cart:[{id,qty}], expectedTotal?}`.
+Only these fields and cart id/qty are accepted. Quantities must be positive safe integers; max 10 pieces total, including repeated IDs. Vendor is gen/minato. Server calculates all prices from SHOP_BY_ID and itemPrice/marketOf(serverNow). Optional expectedTotal is a nonnegative safe integer, a ceiling consented to by the player, never a price source. A higher server total returns 409 “Prices just changed. Take another look.” and writes nothing; equal/lower charges server total. Omitted expectedTotal retains prior unguarded behavior.
+
+Response retains the current player view and `result:{bought:[{id,qty,unit,total,special}],spent,balanceAfter,vendor,pricedAt,marketDay,expectedTotal}` (null if omitted). Call `buyReceipt(result.vendor,result.bought,result.balanceAfter,result.pricedAt)` directly. Receipt VAT remains display-only: nothing is collected or stored for VAT/town.
+
+wallet.ts exports the same settled buying core used by the phone wrapper and server. The server normalizes its persisted expiry model first; it does not run client settle over stored food clocks. Existing valid expiresAt values are preserved. Each new perishable piece gets its own server UUID, qty=1, at=serverNow, expiresAt=serverNow+perishMin*60000. Keepers have null expiry and stack to BAG.maxStack=20; BAG.slots=20. Legacy perishable stacks remain intact, but no new piece is added to them. Upgrades bypass the bag and progress 0→1 (400), then 1→2 (900), one upgrade per cart; third upgrade refused. Funds, limits, stock availability, vendor and capacity failures roll back the entire order. Computed balance is checked before commit.
+
+### Ice contract and shared calculation
+
+`{op:'bag.use',operationId,uid}` spends one owned ice (decrement stack or remove last piece) and appends serverNow in the same transaction. Non-ice returns “Eating and gifts come later”. No owned ice/full event history refuses with no changes. Result `{uid,used:'ice_block',usedAt,balanceAfter}` is logged verbatim. Player view includes goods and iceUsedAt.
+
+Root `iceUsedAt:number[]`: default []; sorted, retained while event+3,610,000>now, at most 16 ordinary use events. Never reset at midnight or evict live events; capacity refuses use before spending. Equal millisecond events remain distinct because each spent an ice. Reads remain nonthrowing and preserve oversized legacy live arrays; use refuses until enough expire. Maximum array storage: 16×8=128 integer payload bytes, 225 compact JSON bytes for current 13-digit milliseconds, 273 for safe-integer-width timestamps, excluding key/Firestore overhead.
+
+`iceMinutesFor(caughtAt,iceUsedAt)` in market.ts sorts a copy and processes confirmed events chronologically. Events before caughtAt do not apply. At each event, freshnessOf with the extension accumulated so far must still be non-null; only then add 15 minutes, capped at 30. Ice at the exact spoil boundary cannot revive a fish. No client ice/minute claims accepted. Both validateSaleCatch and sale pricing use this function; stage (d) will use it on the phone. The server has no cooler and cannot refuse ice based on whether it helps currently held fish.
+
+### Sale ordering, replay and budget
+
+Sales accept any request order. A copy decorated with original indices is sorted before validation and sequential pricing; sold/keptLines retain original request indices. Duplicate timestamps and gaps below 3s still refuse. Fish Book ordering is unchanged. Hashing preserves original array order; changed order under an existing operation ID is a changed body.
+
+Buy hashes vendor, cart and optional expectedTotal; use hashes uid. Same ID/body returns original logged result even after price/expiry/day changes; changed body returns 409. Current player view accompanies the historical result. Accepted buy/use each read player+log and write player+create-only log: **2 reads + 2 writes**, excluding contention retries. Log spent is coins out; balanceAfter is the final balance. Replays/refusals write nothing. Shared 40 accepted operations/day means 80 writes/player, 16,000 for 200 players, plus other traffic.
+
+### Verification and remaining scope
+
+205 unit/API tests cover price-guard midnight protection, lower/unguarded prices, changed-cart/guard replay, funds, limits, vendor, soon items, quantity bounds, stacks, full bags, food slots and stored expiry, upgrade sequence, ice ownership/capacity/retention/exact spoil boundaries, shared iced sale pricing and reversed indices. Five emulator tests include real simultaneous buys competing for the same coins, last-ice use races, identical buy retries and ownership. Run npm test, npx tsc -b, npm run build (includes test:api), npm run test:rules.
+
+Server zero-ice pricing is resolved. Client wallet integration remains stage (d), so local unconfirmed ice does not count on the server. Claimed fish/size and timestamp collisions remain ECO-03 gaps. ECO-04 epoch reset must clear iceUsedAt as well as other economy state without erasing ledger history. TOWN-01 owns eventual VAT/fund/stock changes. No physical phone validation claimed for this API-only stage.

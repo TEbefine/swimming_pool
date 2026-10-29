@@ -6,7 +6,7 @@
 import { FREE_BY_ID, FREE_FISH, thaiSeasonAt } from '../fishing/freeFishCatalog.js';
 import type { FreeFish } from '../fishing/freeFishCatalog.js';
 import { FRESH, SELL, SHOP } from './economyConfig.js';
-import { SHOP_ITEMS } from './shopCatalog.js';
+import { SHOP_BY_ID, SHOP_ITEMS } from './shopCatalog.js';
 
 const DAY_MS = 86_400_000;
 const BKK_OFFSET_MS = 7 * 3_600_000; // Bangkok = UTC+7, no daylight saving
@@ -85,6 +85,18 @@ export function freshnessOf(caughtAt: number, icedMin: number, now: number): Fre
   return null;
 }
 
+/** Derive ice only from confirmed events. Ice cannot revive a spoiled fish or cool a later catch. */
+export function iceMinutesFor(caughtAt: number, iceUsedAt: readonly number[]): number {
+  let minutes = 0;
+  for (const at of [...iceUsedAt].sort((a, b) => a - b)) {
+    if (at < caughtAt) continue;
+    if (!freshnessOf(caughtAt, minutes, at)) break;
+    minutes = Math.min(FRESH.iceMaxPerFishMin, minutes + FRESH.iceExtendMin);
+    if (minutes === FRESH.iceMaxPerFishMin) break;
+  }
+  return minutes;
+}
+
 /** ×sizeMin for the smallest of its kind … ×sizeMax for the biggest. */
 export function sizeFactor(f: FreeFish, sizeCm: number | null): number {
   if (!f.size || sizeCm === null) return 1;
@@ -130,7 +142,7 @@ export function quoteFish(
 
 /** Today's price of a shop item for this player (special discount; the cooler price grows per level). */
 export function itemPrice(id: string, market: MarketDay, coolerLevel: number, coolerPrices: readonly number[]): number | null {
-  const it = SHOP_ITEMS.find((i) => i.id === id);
+  const it = Object.hasOwn(SHOP_BY_ID, id) ? SHOP_BY_ID[id] : undefined;
   if (!it || it.soon) return null;
   if (it.use === 'cooler_upgrade') return coolerPrices[coolerLevel] ?? null; // null = already the biggest
   return market.special === id ? Math.round(it.price * SHOP.specialFactor) : it.price;

@@ -145,4 +145,56 @@ try {
       await assertFails(getDoc(doc(stranger, `players/${address}`)));
     } finally { await deleteApp(app); }
   });
+  await test('shop.buy and bag.use: competing spends cannot double-spend coins or the last ice', async () => {
+    await import('./register-api-ts.mjs');
+    const { makeSaveServices } = await import('../server/saves/admin.ts');
+    const { createItemsHandler, DailyLimiter } = await import('../server/saves/handlers.ts');
+    const { IpLimiter } = await import('../server/identity/http.ts');
+    const app = initializeApp({ projectId: 'demo-lumen-bay' }, 'buy-use-tx-test');
+    try {
+      const address = '0x' + 'da'.repeat(20);
+      const other = '0x' + 'fe'.repeat(20);
+      const origin = 'https://test-lumen-bay.vercel.app';
+      const now = Date.UTC(2026, 9, 10, 5, 0);
+      const db = getFirestore(app);
+      await db.doc(`players/${other}`).set({ coins: 77 });
+      const services = makeSaveServices(() => db, () => ({
+        verifyIdToken: async () => ({ uid: address, walletSignedInAt: now - 1000, walletLoginOrigin: origin }),
+      }));
+      const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app' },
+        now: () => now, limiter: new IpLimiter(1000), playerLimiter: new IpLimiter(1000), playerDaily: new DailyLimiter(1000) }, services);
+      const call = async body => {
+        const req = { method: 'POST', body, socket: { remoteAddress: '127.0.0.1' },
+          headers: { origin, 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.9', authorization: 'Bearer emulator-test-token-0123456789' } };
+        const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v; }, end(v) { this.body = JSON.parse(v); } };
+        await handler(req, res); return res;
+      };
+      const ref = db.doc(`players/${address}`);
+      await ref.set({ coins: 30 });
+      const race = await Promise.all([1,2].map(i => call({op:'shop.buy',operationId:`op-buy-race-00000${i}`,vendor:'gen',cart:[{id:'nori',qty:1}],expectedTotal:30})));
+      assert.deepEqual(race.map(r=>r.statusCode).sort(),[200,422]);
+      let saved=(await ref.get()).data();
+      assert.equal(saved.coins,0); assert.equal(saved.goods[0].qty,1);
+      assert.equal((await ref.collection('log').get()).size,1);
+      await ref.update({goods:[{uid:'last-ice',id:'ice_block',qty:1,at:now,expiresAt:null}]});
+      const uses=await Promise.all([1,2].map(i=>call({op:'bag.use',operationId:`op-use-race-00000${i}`,uid:'last-ice'})));
+      assert.deepEqual(uses.map(r=>r.statusCode).sort(),[200,422]);
+      saved=(await ref.get()).data();
+      assert.equal(saved.goods.length,0); assert.deepEqual(saved.iceUsedAt,[now]);
+      assert.equal((await ref.collection('log').get()).size,2);
+      await ref.update({coins:60});
+      const body={op:'shop.buy',operationId:'op-buy-replay-00001',vendor:'gen',cart:[{id:'nori',qty:1}]};
+      const repeats=await Promise.all([call(body),call(body)]);
+      assert.ok(repeats.every(r=>r.statusCode===200));
+      assert.equal(repeats.filter(r=>r.body.replayed).length,1);
+      assert.deepEqual(repeats[0].body.result,repeats[1].body.result);
+      assert.equal((await ref.get()).data().coins,30);
+      assert.equal((await call({...body,operationId:'op-buy-foreign-0001',address:other})).statusCode,400);
+      const owner=env.authenticatedContext(address).firestore();
+      const stranger=env.authenticatedContext(other).firestore();
+      await assertSucceeds(getDoc(doc(owner,`players/${address}`)));
+      await assertFails(setDoc(doc(owner,`players/${address}`),{iceUsedAt:[now],coins:999}));
+      await assertFails(getDoc(doc(stranger,`players/${address}`)));
+    } finally { await deleteApp(app); }
+  });
 } finally { await env.cleanup(); }
