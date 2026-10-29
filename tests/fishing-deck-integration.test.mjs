@@ -149,7 +149,7 @@ async function sessionRig({ withDeck = true } = {}) {
     walkPlayerTo: async () => {}, setDialogFrozen() {}, setPlayerPose() {}, triggerEmote() {}, sendChat() {} };
   const ctx = new Proxy({ fillRect(x, y, width, height) { if ((this.fillStyle === '#C9A56B' || this.fillStyle === '#DDBB78') && width === 22 && height === 48) w.net = (176 - y) / 160 - .3; } }, { get: (obj, k) => k in obj ? obj[k] : () => {} });
   await api.startFishing(engine, 'free');
-  w.api = api; w.mem = mem; w.context = context;
+  w.api = api; w.mem = mem; w.context = context; w.engine = engine;
   w.throwAt = (distance, sweep = 0) => { w.perf = Math.ceil(w.perf) + 1000; api.fishingPress(); api.fishingHold(true); w.perf += (sweep ? 2 - distance : distance) * TUNING.chargeSweepMs; api.fishingHold(false); };
   w.land = () => {
     let lastNet = w.net;
@@ -198,6 +198,52 @@ test('actual session carries a deck catch to both Book and Bag cooler using the 
   const expected = rollDeckCatch({ ...fish.ticket, seed: w.api.getFishingDeck().seed });
   assert.equal(fish.fishId, expected.fish); assert.equal(fish.sizeCm, expected.sizeCm);
   assert.match(v.info.cooler.text, /^Cooler /); assert.equal(w.calls, 1);
+});
+
+test('Fish Book adjusts equal/backwards stamps without mutating tickets and preserves later stamps', async () => {
+  for (const delta of [0, -2000]) {
+    const w = await sessionRig();
+    const p = prepareFreeCast({ distance: .8, nice: true }, NOW, () => card());
+    const first = finishFreeCast(p, NOW + 3000, A);
+    assert.equal(w.api.addToFishBook('sardine', 15, first).stamp, first, 'unchanged stamps are shared');
+    const second = finishFreeCast(p, first.caughtAt + delta, A);
+    assert.ok(second.ticket, 'the input is ticketed before the Book adjusts it');
+    const original = structuredClone(second);
+    const adjusted = w.api.addToFishBook('sardine', 16, second).stamp;
+    assert.equal(adjusted.caughtAt, first.caughtAt + 1);
+    assert.equal(adjusted.ticket, undefined);
+    assert.deepEqual(second, original, 'caller stamp/ticket is not mutated');
+    const later = finishFreeCast(p, NOW + 10_000, A);
+    assert.equal(w.api.addToFishBook('sardine', 17, later).stamp, later);
+    const pending = w.api.getPendingCatches();
+    assert.equal(pending.length, 3);
+    assert.equal(pending[1].caughtAt, adjusted.caughtAt); assert.equal(pending[1].ticket, undefined);
+    assert.deepEqual(pending[2].ticket, later.ticket);
+    assert.equal(w.api.getFishBook().total, 3);
+  }
+});
+
+test('real catches after a backwards gameNow correction share the final Book-only stamp and skip the cooler', async () => {
+  const w = await sessionRig(); w.throwAt(.85);
+  assert.equal(w.land().phase, 'caught');
+  const first = w.api.getPendingCatches()[0];
+  assert.ok(first.ticket); assert.equal(w.api.getWallet().cooler.length, 1);
+  w.api.stopFishing(); await w.api.startFishing(w.engine, 'free');
+  w.api.receiveServerView(A, { serverNow: w.api.gameNow() - 60_000 });
+  assert.ok(w.api.gameNow() < first.caughtAt);
+  w.throwAt(.85); const view = w.land(); assert.equal(view.phase, 'caught');
+  assert.ok(w.api.gameNow() < first.caughtAt, 'second catch clock is still earlier than the first');
+  const pending = w.api.getPendingCatches();
+  assert.equal(pending.length, 2, 'both catches remain in the Book pending list');
+  assert.equal(pending[1].caughtAt, first.caughtAt + 1); assert.equal(pending[1].ticket, undefined);
+  assert.equal(w.api.getFishBook().total, 2);
+  assert.equal(w.api.getWallet().cooler.length, 1, 'the adjusted catch cannot enter the cooler');
+  assert.equal(w.api.getWallet().cooler[0].caughtAt, first.caughtAt);
+  assert.deepEqual(w.api.getWallet().cooler[0].ticket, first.ticket);
+  assert.equal(view.info.cooler.text, BOOK_ONLY_CATCH);
+  const savedPending = JSON.parse(w.mem.get(`free_fishing_pending_v1_${A}`));
+  assert.equal(savedPending[1].caughtAt, first.caughtAt + 1); assert.equal(savedPending[1].ticket, undefined);
+  assert.equal(JSON.parse(w.mem.get(`sp_cooler_v2_${A}`)).length, 1);
 });
 
 test('actual no-deck and storage-failure casts still land with a plain Book-only catch card and no cooler fish', async () => {

@@ -58,6 +58,25 @@ test('missing config/auth, synchronous transport errors and storage errors never
   w.failWrite = true; assert.equal(w.store.reserveCast(w.now), null, 'a card is never returned before persistence');
   w.failWrite = false; assert.ok(w.store.reserveCast(w.now));
 });
+test('failed reservation persistence keeps draws unchanged and retries the same index, including wrap', async () => {
+  for (const used of [0, 1]) {
+    const w = rig(); await w.store.sync();
+    for (let i = 0; i < used; i++) assert.ok(w.store.reserveCast(w.now));
+    const key = `sp_fishing_deck_v1_${A}`;
+    const before = w.storage.get(key), cached = JSON.parse(before);
+    const expected = (cached.startIndex + cached.draws) % FISHING_DECK.casts;
+    w.failWrite = true;
+    for (let i = 0; i < 2; i++) {
+      assert.equal(w.store.reserveCast(w.now), null);
+      assert.equal(w.storage.get(key), before, 'failed writes leave persisted draws unchanged');
+    }
+    w.failWrite = false;
+    assert.equal(w.store.reserveCast(w.now).castIndex, expected, 'failed writes also leave in-memory draws unchanged');
+    assert.equal(JSON.parse(w.storage.get(key)).draws, cached.draws + 1);
+    const reload = rig({ storage: w.storage });
+    assert.equal(reload.store.reserveCast(reload.now).castIndex, (expected + 1) % FISHING_DECK.casts);
+  }
+});
 test('malformed/other-owner cache and responses are ignored; returned decks cannot mutate storage', async () => {
   const deck = issueFishingDeck(A, NOW, SECRET);
   for (const raw of [null, {}, { ...deck, address: B }, { ...deck, seed: 'bad' }, { ...deck, casts: 1 }, { ...deck, deckId: deck.deckId + 1 }, { ...deck, window: { startAt: 0, endAt: 1 } }]) assert.equal(parseFishingDeck(raw, A), null);

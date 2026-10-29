@@ -387,8 +387,8 @@ function finish(now: number) {
       record = r.record;
       info.isNew = r.isNew;
       // ECO-01: fish you can sell go in the cooler (off in the live game → returns null)
-      const bookOnly = ECONOMY_ON && !stamp?.ticket;
-      const c = bookOnly ? null : catchToCooler(fish, fs.sizeCm, stamp);
+      const bookOnly = ECONOMY_ON && !r.stamp.ticket;
+      const c = bookOnly ? null : catchToCooler(fish, fs.sizeCm, r.stamp);
       if (bookOnly) info.cooler = { text: BOOK_ONLY_CATCH, full: false };
       if (c?.ok) info.cooler = { text: `Cooler ${c.wallet.cooler.length}/${coolerSlots(c.wallet)}`, full: c.wallet.cooler.length >= coolerSlots(c.wallet) };
       else if (c && c.reason === 'cooler_full') info.cooler = { text: 'Cooler full!', full: true };

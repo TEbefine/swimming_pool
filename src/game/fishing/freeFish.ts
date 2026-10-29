@@ -121,13 +121,16 @@ export function getFishBook(): FishBook {
 export function useFishBook(): FishBook {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => book, () => book);
 }
-/** Add a catch. Returns { isNew: first ever of this kind, record: beat the best size }. */
-export function addToFishBook(id: string, sizeCm: number | null, stamp?: CatchStamp): { isNew: boolean; record: boolean } {
+/** Add a catch. Return its final stamp too, so the cooler uses the same time and ticket eligibility. */
+export function addToFishBook(id: string, sizeCm: number | null, stamp?: CatchStamp): { isNew: boolean; record: boolean; stamp: CatchStamp } {
   const old = book.entries[id];
   const record = !!old && sizeCm !== null && (old.best === null || sizeCm > old.best);
   // caughtAt is the catch's identity on this device: keep it strictly increasing.
   const lastAt = pending.length ? pending[pending.length - 1].caughtAt : 0;
-  const c: PendingCatch = { fish: id, sizeCm, ...(stamp ?? { caughtAt: Math.max(Date.now(), lastAt + 1) }) };
+  const requestedStamp = stamp ?? { caughtAt: Date.now() };
+  // A corrected timestamp cannot keep its original ticket. Do not mutate the caller's stamp.
+  const finalStamp: CatchStamp = requestedStamp.caughtAt <= lastAt ? { caughtAt: lastAt + 1 } : requestedStamp;
+  const c: PendingCatch = { fish: id, sizeCm, ...finalStamp };
   if (scope) {
     pending = [...pending, c];
     writeJson(pendingKey(scope), pending);
@@ -136,7 +139,7 @@ export function addToFishBook(id: string, sizeCm: number | null, stamp?: CatchSt
     writeJson(KEY, localBook);
   }
   rebuild();
-  return { isNew: !old, record };
+  return { isNew: !old, record, stamp: finalStamp };
 }
 export function resetFishBook() {
   if (scope) {

@@ -97,8 +97,9 @@ export class FishingDeckStore {
       const deck = this.getDeck(castAt);
       if (!deck || !this.cache || this.cache.draws >= deck.casts) return null;
       const castIndex = (this.cache.startIndex + this.cache.draws) % deck.casts;
+      const previous = this.cache;
       this.cache = { ...this.cache, draws: this.cache.draws + 1 };
-      if (!this.persist()) return null;
+      if (!this.persist()) { this.cache = previous; return null; }
       return { deck, castIndex };
     } catch { return null; }
   }
