@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStory } from '../../game/story/storyStore';
 import { ITEMS, POCKETS, itemIcon } from '../../game/story/items';
 import { ACTION_HINT, carriedIn } from '../../game/story/bagActions';
@@ -11,6 +11,8 @@ import { PixelBackpack } from './PixelBackpack';
 import { PocketBar, pocketName } from './PocketBar';
 import { ItemList } from './ItemList';
 import { ItemActionMenu } from './ItemActionMenu';
+import { bagUsesEconomy, coolerRows, goodsRows } from './economyRows';
+import { gameNow, refreshWallet, useWallet } from '../../game/economy/walletStore';
 import './bag.css';
 
 interface BagScreenProps {
@@ -40,6 +42,8 @@ interface RowItem {
   icon?: string;
   note: string;
   meta: string;
+  /** Shown instead of ×count (e.g. a fish's freshness countdown). */
+  right?: string;
 }
 
 /** The Bag. Replaces the whole screen. It only draws: the cursor, pockets and popup live in the menu model. */
@@ -55,13 +59,40 @@ export const BagScreen: React.FC<BagScreenProps> = ({
 }) => {
   const story = useStory();
   const book = useFishBook();
+  const wallet = useWallet();
+  const economy = bagUsesEconomy(isStoryRoom);
+  // Fish age while the Bag is open: tick once a second (and drop the ones that spoiled).
+  const [now, setNow] = useState(() => gameNow());
+  useEffect(() => {
+    if (!economy) return;
+    refreshWallet();
+    const t = window.setInterval(() => { refreshWallet(); setNow(gameNow()); }, 1000);
+    return () => window.clearInterval(t);
+  }, [economy]);
 
   const pocketIndex = clamp(state.pocket, POCKETS.length);
   const pocket = POCKETS[pocketIndex];
 
   let rows: RowItem[] = [];
 
-  if (pocket.id === 'fish' && !isStoryRoom) {
+  const storyRows = (pocketId: typeof pocket.id): RowItem[] => carriedIn(story.bag, pocketId).map((id) => {
+    const item = ITEMS[id];
+    const bits: string[] = [];
+    if (item.energy) bits.push(`Energy +${item.energy}`);
+    if (item.sell?.gu && item.sell?.inn) bits.push(`Gu ${item.sell.gu}c / Inn ${item.sell.inn}c`);
+    else if (item.sell?.gu) bits.push(`Gu ${item.sell.gu}c`);
+    else if (item.sell?.inn) bits.push(`Inn ${item.sell.inn}c`);
+    if (item.driesTo) bits.push(`Dries → ${ITEMS[item.driesTo].name}`);
+    if (item.key) bits.push('Key item');
+    return { id, name: item.name, count: story.bag[id] ?? 0, icon: itemIcon(id), note: item.note, meta: bits.join(' · ') };
+  });
+
+  if (economy && pocket.id === 'fish') {
+    // What you CARRY: the cooler. Sold or spoiled fish are gone; the Fish Book keeps the collection.
+    rows = [...storyRows('fish'), ...coolerRows(wallet, now)];
+  } else if (economy && pocket.id === 'items') {
+    rows = [...storyRows('items'), ...goodsRows(wallet, now)];
+  } else if (pocket.id === 'fish' && !isStoryRoom) {
     const storyFish: RowItem[] = carriedIn(story.bag, 'fish').map((id) => {
       const item = ITEMS[id];
       const bits: string[] = [];
@@ -185,12 +216,12 @@ export const BagScreen: React.FC<BagScreenProps> = ({
               )}
             </div>
             <div className="gm-pocket-name">{pocketName(pocket.label)}</div>
-            <div className="gm-coins">Coins {story.coins}</div>
+            <div className="gm-coins">Coins {(economy ? wallet.coins : story.coins).toLocaleString('en-US')}</div>
           </div>
 
           <ItemList
             items={rows}
-            emptyText={POCKET_EMPTY_TEXT[pocket.id]}
+            emptyText={economy && pocket.id === 'fish' ? 'Your cooler is empty. Cast a line at Quiet Bay; the Fish Book keeps every kind you caught.' : POCKET_EMPTY_TEXT[pocket.id]}
             active={row}
             held={!!popup}
             onPoint={onPoint}

@@ -233,11 +233,12 @@ test('ice keeps every fish in the cooler fresh longer, up to a limit', () => {
   assert.equal(W.useGoods(w, ice(), ctx()).reason, 'nothing_to_cool');
   w = W.addCatch(w, 'sardine', 15, ctx()).wallet;
   w = W.useGoods(w, ice(), ctx()).wallet;
-  assert.equal(w.cooler[0].icedMin, FRESH.iceExtendMin);
+  assert.equal(W.fishIceMin(w, w.cooler[0]), FRESH.iceExtendMin);
+  assert.deepEqual(w.iceUsedAt, [NOON], 'ice is an event, like on the server');
   assert.ok(W.settle(w, NOON + 40 * MIN).wallet.cooler.length === 1, 'still in the cooler at 40 min');
   w = W.useGoods(w, ice(), ctx()).wallet;
   assert.equal(W.useGoods(w, ice(), ctx()).reason, 'nothing_to_cool'); // already at the max
-  assert.equal(w.cooler[0].icedMin, FRESH.iceMaxPerFishMin);
+  assert.equal(W.fishIceMin(w, w.cooler[0]), FRESH.iceMaxPerFishMin);
   const nori = W.buy(w, [{ id: 'nori', qty: 1 }], 'gen', ctx()).wallet;
   assert.equal(W.useGoods(nori, nori.goods.find((g) => g.id === 'nori').uid, ctx()).reason, 'cant_use');
 });

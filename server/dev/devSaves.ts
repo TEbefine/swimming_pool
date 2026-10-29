@@ -32,7 +32,7 @@ export function devSaves(): Plugin {
         req.headers.origin = origin;
         (req as typeof req & { body?: unknown }).body = Buffer.concat(chunks).toString('utf8');
         const handler = createItemsHandler({
-          env: { LOGIN_ALLOWED_ORIGINS: origin },
+          env: { LOGIN_ALLOWED_ORIGINS: origin, ECONOMY_API: 'on' }, // dev saves: the shop is open
           limiter: new IpLimiter(10_000), playerLimiter: new IpLimiter(10_000), playerDaily: new DailyLimiter(1_000_000),
         }, {
           verifyToken: async (token: string) => {

@@ -8,12 +8,12 @@ const { LIMITS, STORY, emptyPlayer, normalizePlayer, playerView, checkedCoinBala
 // ID-01 (c): /api/items with an in-memory transaction store. No Firebase, no network, no credentials.
 const address = '0x' + 'ab'.repeat(20);
 const origin = 'https://test-lumen-bay.vercel.app';
-const env = { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app' };
+const env = { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ECONOMY_API: 'on' };
 const NOON = Date.UTC(2026, 9, 10, 5, 0); // 12:00 Bangkok, rainy season
 const NIGHT = Date.UTC(2026, 9, 10, 15, 0); // 22:00 Bangkok
 const TOKEN = 'mock-id-token-for-tests-0123456789';
 
-function harness(start = NOON, realPlayerLimits = false) {
+function harness(start = NOON, realPlayerLimits = false, envOverride = env) {
   let clock = start;
   const players = new Map();
   const logs = new Map();
@@ -33,7 +33,7 @@ function harness(start = NOON, realPlayerLimits = false) {
     },
   };
   const limits = realPlayerLimits ? {} : { playerLimiter: new IpLimiter(1000), playerDaily: new DailyLimiter(100_000) };
-  const handler = createItemsHandler({ env, now: () => clock, limiter: new IpLimiter(1000), ...limits }, services);
+  const handler = createItemsHandler({ env: envOverride, now: () => clock, limiter: new IpLimiter(1000), ...limits }, services);
   return {
     players, logs,
     setClock: v => { clock = v; }, tick: ms => { clock += ms; }, now: () => clock,
@@ -70,7 +70,7 @@ test('load returns an empty save for a new Player ID and rejects extra fields', 
   const h = harness();
   const res = await h.call({ op: 'load' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body, { revision: 0, fishBook: {}, fishTotal: 0, lastCatchAt: null, story: { dalbit: null }, coins: 0, coolerLevel: 0, goods: [], iceUsedAt: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} } });
+  assert.deepEqual(res.body, { revision: 0, fishBook: {}, fishTotal: 0, lastCatchAt: null, story: { dalbit: null }, coins: 0, coolerLevel: 0, goods: [], iceUsedAt: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} }, serverNow: NOON });
   assert.equal(h.players.size, 0, 'load creates no document');
   assert.equal(h.logs.size, 0);
   assert.equal((await h.call({ op: 'load', catches: [] })).statusCode, 400);
@@ -786,4 +786,30 @@ test('ice history has explicit storage bounds, survives midnight and never trunc
   const before=structuredClone(raw);
   assert.equal((await useIce(h,uid)).statusCode,409); assert.deepEqual(h.players.get(address),before);
   assert.equal((await h.call({op:'load'})).body.iceUsedAt.length,17);
+});
+
+// ECO-02(d): the server switch. Production keeps money ops closed until ECO-04 flips ECONOMY_API.
+test('with ECONOMY_API off, sell/buy/use refuse and write nothing; load and Fish Book still work', async () => {
+  for (const offEnv of [{ VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app' }, { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ECONOMY_API: 'true' }]) {
+    const h = harness(NOON, false, offEnv);
+    const before = stateOf(h);
+    for (const body of [
+      { op: 'shop.sell', operationId: opId(), catches: [sardine(NOON - 60_000)] },
+      { op: 'shop.buy', operationId: opId(), vendor: 'gen', cart: [{ id: 'ice_block', qty: 1 }] },
+      { op: 'bag.use', operationId: opId(), uid: 'abc' },
+    ]) {
+      const r = await h.call(body);
+      assert.equal(r.statusCode, 403, body.op);
+      assert.equal(r.body.error, "The shop isn't open yet.");
+      assert.equal(r.body.shopClosed, true);
+    }
+    assert.deepEqual(stateOf(h), before, 'a closed shop changes nothing');
+    const loaded = await h.call({ op: 'load' });
+    assert.equal(loaded.statusCode, 200);
+    assert.equal(loaded.body.coins, 0, 'load still shows the economy fields');
+    assert.equal((await record(h, [sardine(NOON - 10_000)])).statusCode, 200, 'Fish Book saves are unaffected');
+  }
+  // and with the switch on, the same sale goes through
+  const on = harness();
+  assert.equal((await sell(on, [sardine(NOON - 60_000)])).statusCode, 200);
 });

@@ -9,7 +9,7 @@ import type { FishBookEntry, PendingCatch } from '../fishing/freeFish';
 import { attachStory, getDraftMeta, getStory, setDraftMeta, storyForSave, subscribeStory } from '../story/storyStore';
 import type { StoryState } from '../story/storyStore';
 import { DEV_TEST_ADDRESS, DEV_TEST_TOKEN } from '../../identity/devTestIdentity';
-import { attachWallet } from '../economy/walletStore';
+import { attachWallet, receiveServerView, registerEconomyTransport } from '../economy/walletStore';
 
 interface StorySave { day: number; step: string; revision: number; savedAt: number; state: StoryState }
 interface ServerView {
@@ -26,7 +26,9 @@ export type StorySaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
 class SaveRequestError extends Error {
   status: number;
-  constructor(status: number, message: string) { super(message); this.status = status; }
+  /** The server's JSON body on a refusal (e.g. a sale where every fish was kept). */
+  data?: Record<string, unknown>;
+  constructor(status: number, message: string, data?: Record<string, unknown>) { super(message); this.status = status; this.data = data; }
 }
 
 const IS_TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test');
@@ -61,6 +63,7 @@ async function idToken(): Promise<string> {
 }
 
 async function call(body: Record<string, unknown>): Promise<ServerView> {
+  const who = address;
   const token = await idToken();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20_000);
@@ -71,7 +74,9 @@ async function call(body: Record<string, unknown>): Promise<ServerView> {
       body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => null) as (ServerView & { error?: string }) | null;
-    if (!res.ok || !data) throw new SaveRequestError(res.status, data?.error ?? 'Saving is unavailable right now.');
+    if (!res.ok || !data) throw new SaveRequestError(res.status, data?.error ?? 'Saving is unavailable right now.', (data ?? undefined) as Record<string, unknown> | undefined);
+    // Every answer carries the economy (coins, goods, ice) and the server clock: keep the wallet cache current.
+    receiveServerView(who, data as unknown as Record<string, unknown>);
     return data;
   } catch (err) {
     if (err instanceof SaveRequestError) throw err;
@@ -105,7 +110,7 @@ export async function attachPlayer(next: string | null): Promise<void> {
     return;
   }
   status = 'loading'; storyStatus = 'idle';
-  attachWallet(next); // device-only wallet for now (ECO-01); the server copy comes in step 8
+  attachWallet(next); // this Player ID's cooler + cached server economy (ECO-02 d); the load below refreshes it
   emit();
   try {
     const view = await call({ op: 'load' });
@@ -233,6 +238,9 @@ function scheduleRetry() {
   retryDelay = Math.min(retryDelay * 2, 5 * 60_000);
 }
 listeners.add(scheduleRetry);
+
+// The shop's trades use the same authenticated transport (ECO-02 d). Guests and ?test= pages never call it.
+if (!IS_TEST) registerEconomyTransport((body) => call(body) as unknown as Promise<Record<string, unknown>>);
 
 if (!IS_TEST && typeof window !== 'undefined') {
   subscribeStory(() => { void maybeSaveStoryDay(); });

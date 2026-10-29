@@ -5,6 +5,8 @@ export interface BagItemRowData {
   id: string;
   name?: string;
   count: number;
+  /** Shown instead of ×count (a fish's freshness countdown). */
+  right?: string;
 }
 
 interface ItemListProps {
@@ -51,7 +53,7 @@ export const ItemList: React.FC<ItemListProps> = ({ items, emptyText, active, he
           >
             <span className="gm-cursor" aria-hidden="true" />
             <span className="gm-row-label">{displayName}</span>
-            <span className="gm-qty">×{it.count}</span>
+            <span className="gm-qty">{it.right ?? `×${it.count}`}</span>
           </button>
         );
       })}

@@ -6,7 +6,12 @@ import { devSaves } from './server/dev/devSaves.js'
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   // Vercel's trusted build environment, not a URL/hostname or editable VITE_* override.
-  define: { 'import.meta.env.IDENTITY_PREVIEW': JSON.stringify(process.env.VERCEL_ENV === 'preview') },
+  define: {
+    'import.meta.env.IDENTITY_PREVIEW': JSON.stringify(process.env.VERCEL_ENV === 'preview'),
+    // ECO-02(d): the shop on dev-test-id previews only. BOTH the flag and a Vercel *preview* build are needed,
+    // so a production build stays shop-less even if the flag is set there by mistake.
+    'import.meta.env.ECONOMY_PREVIEW': JSON.stringify(process.env.VERCEL_ENV === 'preview' && process.env.VITE_ECONOMY_PREVIEW === '1'),
+  },
   plugins: [
     react(),
     tailwindcss(),

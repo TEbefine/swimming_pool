@@ -243,3 +243,6 @@
   position: relative;
   flex: none;
 }
+
+/* Readable numbers (coins, counts, countdowns): digits from VT323, letters stay pixel. */
+.gm-coins, .gm-qty, .gm-bag-desc { font-family: var(--font-num); font-variant-numeric: tabular-nums; }

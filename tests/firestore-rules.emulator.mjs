@@ -64,7 +64,7 @@ try {
       const services = makeSaveServices(() => getFirestore(app), () => ({
         verifyIdToken: async () => ({ uid: address, walletSignedInAt: now - 1000, walletLoginOrigin: origin }),
       }));
-      const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app' }, now: () => now, limiter: new IpLimiter(1000) }, services);
+      const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ECONOMY_API: 'on' }, now: () => now, limiter: new IpLimiter(1000) }, services);
       const call = async body => {
         const req = { method: 'POST', body, socket: { remoteAddress: '127.0.0.1' },
           headers: { origin, 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.9', authorization: 'Bearer emulator-test-token-0123456789' } };
@@ -102,7 +102,7 @@ try {
       const services = makeSaveServices(() => db, () => ({
         verifyIdToken: async () => ({ uid: address, walletSignedInAt: now - 1000, walletLoginOrigin: origin }),
       }));
-      const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app' },
+      const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ECONOMY_API: 'on' },
         now: () => now, limiter: new IpLimiter(1000), playerLimiter: new IpLimiter(1000), playerDaily: new DailyLimiter(1000) }, services);
       const call = async body => {
         const req = { method: 'POST', body, socket: { remoteAddress: '127.0.0.1' },
@@ -161,7 +161,7 @@ try {
       const services = makeSaveServices(() => db, () => ({
         verifyIdToken: async () => ({ uid: address, walletSignedInAt: now - 1000, walletLoginOrigin: origin }),
       }));
-      const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app' },
+      const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ECONOMY_API: 'on' },
         now: () => now, limiter: new IpLimiter(1000), playerLimiter: new IpLimiter(1000), playerDaily: new DailyLimiter(1000) }, services);
       const call = async body => {
         const req = { method: 'POST', body, socket: { remoteAddress: '127.0.0.1' },
