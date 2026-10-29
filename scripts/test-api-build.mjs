@@ -20,7 +20,7 @@ async function collect(directory) {
   }
 }
 for (const path of ['api', 'server/identity', 'server/saves', 'server/fishing']) await collect(path);
-for (const path of ['package.json', 'tsconfig.json', 'src/identity/loginMessage.ts', 'src/game/fishing/freeFishCatalog.ts', 'src/game/story/items.ts', 'src/game/story/storyKeys.ts', 'src/game/economy/economyConfig.ts', 'src/game/economy/market.ts', 'src/game/economy/shopCatalog.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
+for (const path of ['package.json', 'tsconfig.json', 'src/identity/loginMessage.ts', 'src/game/fishing/freeFishCatalog.ts', 'src/game/fishing/fishBookConfig.ts', 'src/game/fishing/deckRollV1.ts', 'src/game/story/items.ts', 'src/game/story/storyKeys.ts', 'src/game/economy/economyConfig.ts', 'src/game/economy/market.ts', 'src/game/economy/shopCatalog.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
 files['src/game/fishing/deckConfig.ts'] = new FileFsRef({ fsPath: join(root, 'src/game/fishing/deckConfig.ts') });
 const regionConfig = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
 assert.deepEqual(regionConfig.regions, ['sin1']);

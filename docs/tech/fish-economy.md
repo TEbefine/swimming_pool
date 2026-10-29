@@ -346,3 +346,10 @@ Stage 4 review fixes (2026-10-29, Teera authorized only these two): pulled dev-t
 Shared-gap correction from 820dca0 (2026-10-29): Teera superseded the +1 ms rule. addToFishBook now checks caughtAt - lastAt < LIMITS.minCatchGapMs and adjusts to exactly lastAt + that gap, dropping the ticket while sharing the final stamp with cooler eligibility. The unchanged LIMITS object lives in pure server/saves/limits.ts, re-exported by rules.ts; this avoids bringing Node-only validation code into the browser. Updated regressions cover backward/equal/just-under-gap inputs and exact-gap preservation, and execute real parseCatches/applyCatches to accept both catches together and separately within the existing clockSkewMs. The old +1 ms recording limitation above is superseded; no other behavior, server validation, wire schema, odds, TUNING, UI or reservation changes.
 
 Validation for the shared-gap correction: 261 tests pass, zero failures/skips; npx tsc -b and npm run build (four API smoke checks) pass. Physical iPhone testing not performed. Stopped for review.
+
+
+## 17. ECO-03 stage 5, step 1 — fresh Book/paid-index foundations (2026-10-29)
+
+Approved simplified plan: docs/ai/ECO-03-stage5-fishbook-plan.md. Gen stays the buyer. Only Teera has saves; reset is allowed, so there is no archive, migration, versioning or old-field preservation. The new Book stores only per-kind best/sold, with presence = found; 27 supported sellable kinds, shared star thresholds 25/12/6/3 and species-only strike scale 1.15.
+
+Step 1 adds pure config/data helpers and canonical current/previous bitmap/cutoff helpers only. No API/gameplay integration or schema/rules change; the current sale still needs the step-2 verifier. No active reset/cutoff, Book writes or mastery modifier is enabled. Twelve new pure tests; 273 total tests pass, TypeScript and production/four-API build pass. No emulator scenario is relevant until transaction wiring in step 2. All testing was local; no shared-database writes, main merge or settings changes. Commit/push only dev-test-id and stop for review.
