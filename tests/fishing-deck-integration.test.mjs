@@ -119,27 +119,30 @@ test('pending ice keeps a ticketed fish through apparent spoilage, a new catch a
 
 // Compile the REAL session and its stores. Only React's subscription hook is replaced with snapshot reads.
 // No gameplay implementation is mocked; casts use real press/hold/release, timing and physics.
-let bundle;
-async function sessionRig({ withDeck = true } = {}) {
+const bundles = new Map();
+async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {}) {
+  let bundle = bundles.get(dev);
   if (!bundle) {
     const { build } = await import('vite');
     const root = fileURLToPath(new URL('../src/', import.meta.url));
-    const built = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.ECONOMY_PREVIEW': 'true' },
+    const built = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.ECONOMY_PREVIEW': 'true', 'import.meta.env.DEV': JSON.stringify(dev) },
       plugins: [{ name: 'session-test-entry', enforce: 'pre', resolveId(id) { if (id === root + 'stage4-test-entry.ts' || id === 'react') return id === 'react' ? '\0react' : '\0session-test'; },
         load(id) { if (id === '\0react') return 'export const useSyncExternalStore = (_, get) => get();';
           if (id === '\0session-test') return `export * from '${root}game/story/fishingSession.ts'; export * from '${root}game/fishing/deckClient.ts'; export * from '${root}game/economy/walletStore.ts'; export * from '${root}game/fishing/freeFish.ts';`; } }],
       build: { minify: false, write: false, lib: { entry: root + 'stage4-test-entry.ts', name: 'Session', formats: ['iife'] } } });
     bundle = (Array.isArray(built) ? built : [built]).flatMap(b => b.output).find(c => c.type === 'chunk' && c.isEntry).code;
+    bundles.set(dev, bundle);
   }
   const { createContext, Script } = await import('node:vm');
   const w = { time: NOW, perf: 1000, failStorage: false, calls: 0, net: .1 };
   const mem = storage();
+  for (const [key, value] of Object.entries(seedStorage)) mem.set(key, value);
   const math = Object.create(Math); math.random = () => .5;
   class ClockDate extends Date { constructor(...args) { super(...(args.length ? args : [w.time])); } static now() { return w.time; } }
   const context = createContext({ atob, btoa, Math: math, Date: ClockDate, structuredClone, URLSearchParams,
     performance: { now: () => w.perf }, location: { search: '' }, navigator: { onLine: true },
     localStorage: { getItem: k => { if (w.failStorage) throw Error('blocked'); return mem.get(k); }, setItem: (k, v) => { if (w.failStorage) throw Error('quota'); mem.set(k, v); }, removeItem: k => mem.remove(k) },
-    crypto: { getRandomValues: a => a.fill(7) }, document: { hidden: false, addEventListener() {} }, window: { location: { search: '' }, addEventListener() {}, setTimeout() {} },
+    crypto: { getRandomValues: a => a.fill(4) }, document: { hidden: false, addEventListener() {} }, window: { location: { search: '' }, addEventListener() {}, setTimeout() {} },
     setTimeout: () => 1, clearTimeout() {}, fetch: async () => ({ json: async () => ({}) }), Image: class { complete = false; },
   });
   new Script(bundle).runInContext(context); const api = context.Session;
@@ -189,6 +192,35 @@ test('real minigame casts at Nice edges and neighbours always produce valid cano
     }
   }
   assert.equal(outputs.length, 16); assert.equal(w.calls, 1, 'casting never requests a deck');
+});
+
+test('real DEV reset response clears old v1 cooler/pending/Book/cache revisions together, never identity or an automatic sale', async () => {
+  const oldTicket = { version: 1, deckId: Math.floor(NOW / FISHING_DECK.windowMs), castIndex: 4, castAt: NOW - 1000, castInfo: { distance: .85, nice: true } };
+  const pending = { op: 'shop.sell', at: NOW, uids: ['old-v1'], tickets: [oldTicket], body: {
+    op: 'shop.sell', operationId: 'op-old-v1-pending-0001', catches: [{ fish: 'sardine', sizeCm: 20, caughtAt: NOW, ticket: oldTicket }],
+  } };
+  const oldView = { ...playerView(emptyPlayer(NOW), NOW), revision: 99, coins: 999,
+    fishBook: { sardine: { best: 22, starred: true } }, redeemFromDeckId: 0 };
+  const w = await sessionRig({ dev: true, seedStorage: {
+    identity_vault: 'keep', [`sp_econ_v2_${A}`]: JSON.stringify(oldView),
+    [`sp_pending_v2_${A}`]: JSON.stringify(pending),
+    [`sp_cooler_v2_${A}`]: JSON.stringify([{ uid: 'old-v1', fishId: 'sardine', sizeCm: 20, caughtAt: NOW, ticket: oldTicket }]),
+    [`sp_verified_book_v1_${A}`]: JSON.stringify(oldView),
+  } });
+  let sends = 0; w.api.registerEconomyTransport(async () => { sends++; throw Error('must not upload old pending'); });
+  assert.equal(w.api.getWallet().coins, 999); assert.equal(w.api.getEconomyStatus().pending.body.operationId, pending.body.operationId);
+  assert.equal(w.api.getFishBook().entries.sardine.starred, true);
+  const reserved = w.api.reserveFishingCast(w.time); assert.equal(reserved.deck.version, 2);
+  const fresh = { ...playerView(emptyPlayer(NOW), NOW), redeemFromDeckId: 0, devFishingResetId: 'new-v2-dataset', serverNow: NOW };
+  w.api.receiveServerView(A, fresh); await w.api.refreshFishingDeck();
+  assert.equal(w.api.getWallet().coins, 0); assert.equal(w.api.getWallet().cooler.length, 0);
+  assert.equal(w.api.getEconomyStatus().pending, null); assert.equal(Object.keys(w.api.getFishBook().entries).length, 0);
+  assert.equal(w.mem.get(`sp_pending_v2_${A}`), null); assert.equal(w.mem.get('identity_vault'), 'keep');
+  const again = w.api.reserveFishingCast(w.time); assert.equal(again.castIndex, reserved.castIndex, 'reset also clears the cursor');
+  const stamp = { caughtAt: NOW, ticket: { ...oldTicket, version: 2 } };
+  assert.equal(w.api.catchToCooler('sardine', 20, stamp).ok, true);
+  w.api.receiveServerView(A, fresh); assert.equal(w.api.getWallet().cooler.length, 1, 'same reset token cannot erase a new catch');
+  assert.equal(sends, 0);
 });
 
 test('actual session catches a ticketed fish without awarding a local Book entry; Gen message is explicit', async () => {

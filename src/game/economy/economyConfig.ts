@@ -29,7 +29,7 @@ export const SELL = {
   glutStep: 0.9,
   glutFloor: 0.5,
   /** Hard ceiling per player per Bangkok day. Not a pacing tool (glut does that): an anti-cheat ceiling. */
-  dailyCap: 5000,
+  dailyCap: 3000,
   /** Every sale pays at least this. */
   minPrice: 1,
 };

@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { canonicalAddress, LoginError, validSessionClaims } from '../identity/challenge.js';
 import { allowedOrigin, clientIp, header, IpLimiter, readBody, reply } from '../identity/http.js';
 import type { Request, Response } from '../identity/http.js';
-import { FISHING_DECK } from '../../src/game/fishing/deckConfig.js';
+import { FISHING_DECK, isFishingDeckVersion } from '../../src/game/fishing/deckConfig.js';
 
 interface Claims { uid: string; walletSignedInAt?: unknown; walletLoginOrigin?: unknown }
 interface Services { verifyToken(token: string): Promise<Claims> }
@@ -20,7 +20,7 @@ export function fishingDeckSecret(env: NodeJS.ProcessEnv): string {
 
 export function fishingDeckSeed(address: string, version: number, deckId: number, secret: string): string {
   const owner = canonicalAddress(address);
-  if (version !== FISHING_DECK.version || !Number.isSafeInteger(deckId) || deckId < 0) throw new RangeError('Invalid fishing deck.');
+  if (!isFishingDeckVersion(version) || !Number.isSafeInteger(deckId) || deckId < 0) throw new RangeError('Invalid fishing deck.');
   return createHmac('sha256', secret).update(JSON.stringify(['lumen-bay/fishing-deck', version, owner, deckId])).digest('hex');
 }
 

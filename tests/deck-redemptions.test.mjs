@@ -34,7 +34,7 @@ test('activation is fixed/injected and fails closed; only current/previous windo
   assert.throws(() => checkRedemptionWindow(t(0, D + 1), ctx), e => e.code === 'outside_window');
   assert.throws(() => checkRedemptionWindow(t(0, D - 2), { now: NOW, redeemFromDeckId: 0 }), e => e.code === 'outside_window');
   for (const ticket of [t(0), t(0, D - 1)]) assert.doesNotThrow(() => checkRedemptionWindow(ticket, ctx));
-  for (const ticket of [t(-1), t(1.5), t(C.casts), { ...t(0), version: 2 }, { ...t(0), deckId: NaN }]) assert.throws(() => checkRedemptionWindow(ticket, ctx), e => e.code === 'invalid_ticket');
+  for (const ticket of [t(-1), t(1.5), t(C.casts), { ...t(0), version: 1 }, { ...t(0), deckId: NaN }]) assert.throws(() => checkRedemptionWindow(ticket, ctx), e => e.code === 'invalid_ticket');
   assert.throws(() => checkRedemptionWindow(t(0), { now: NOW, redeemFromDeckId: -1 }), e => e.code === 'invalid_state');
 });
 
@@ -55,7 +55,7 @@ test('rotation retains the whole previous window, ignores request order and does
 test('unsafe active markers never become empty; malformed retired slots cannot erase a live slot', () => {
   assert.deepEqual(readPaidDecks(undefined, NOW), { ok: true, windows: [] });
   for (const raw of [null, {}, [slot(), slot()], [slot(), slot(D - 1), slot(D - 2)], [slot(D + 1)],
-    [{ ...slot(), version: 2 }], [slot(D, 'bad')], [slot(D, Buffer.alloc(1023).toString('base64'))], [{ ...slot(), extra: true }], [{ bits: slot().bits }]]) {
+    [{ ...slot(), version: 1 }], [slot(D, 'bad')], [slot(D, Buffer.alloc(1023).toString('base64'))], [{ ...slot(), extra: true }], [{ bits: slot().bits }]]) {
     assert.deepEqual(readPaidDecks(raw, NOW), { ok: false, reason: 'invalid_state' });
     assert.throws(() => markPaidTickets(raw, [t(0)], ctx), e => e.code === 'invalid_state');
   }

@@ -1,0 +1,175 @@
+{
+  "source": "Actual shared kernel, ECO-03 stage 6 step 2; not a scratch candidate",
+  "baseCommit": "a9977f3cda2f4b3cfc1ca913e8da1584463f4ef1",
+  "sourceSha256": {
+    "deckKernelV1.ts": "4ff84495a777bf8fc0878eb51eadb50d64efced55c15b79f55d1002d69149bfd",
+    "deckRollV1.ts": "e46b07768359dac43668a34a2e4b4fce854c87d8e95085efd9565939838504ee",
+    "deckRoll.ts": "16eebe07ff0c5f09f85aac5e6fa3d3655072367f0124a84c0af3da67445ff7ca",
+    "deckRollV2.ts": "3c89e43f907a683d6a8326f82be064636732ccfa21aef2a7992efddc501e3704"
+  },
+  "publicFakeKey": "planning-only-not-a-live-deck-secret-20261030",
+  "samplesPerRow": 100000,
+  "totalRolls": 1000000,
+  "rows": [
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "weak-near",
+      "castAt": 1793336400000,
+      "n": 100000,
+      "counts": {
+        "common": 77864,
+        "rare": 18130,
+        "epic": 3948,
+        "legend": 55,
+        "god": 3
+      },
+      "sellableLegend": 31,
+      "nonSellable": 14030
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "normal-near",
+      "castAt": 1793336400000,
+      "n": 100000,
+      "counts": {
+        "common": 62349,
+        "rare": 26932,
+        "epic": 10362,
+        "legend": 280,
+        "god": 77
+      },
+      "sellableLegend": 160,
+      "nonSellable": 15248
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "normal-mid",
+      "castAt": 1793336400000,
+      "n": 100000,
+      "counts": {
+        "common": 61939,
+        "rare": 26782,
+        "epic": 10302,
+        "legend": 900,
+        "god": 77
+      },
+      "sellableLegend": 725,
+      "nonSellable": 7764
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "normal-far",
+      "castAt": 1793336400000,
+      "n": 100000,
+      "counts": {
+        "common": 61780,
+        "rare": 26722,
+        "epic": 10280,
+        "legend": 911,
+        "god": 307
+      },
+      "sellableLegend": 846,
+      "nonSellable": 22345
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "Nice-far",
+      "castAt": 1793336400000,
+      "n": 100000,
+      "counts": {
+        "common": 49671,
+        "rare": 32522,
+        "epic": 15548,
+        "legend": 1641,
+        "god": 618
+      },
+      "sellableLegend": 1516,
+      "nonSellable": 18839
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "weak-near",
+      "castAt": 1793372400000,
+      "n": 100000,
+      "counts": {
+        "common": 77826,
+        "rare": 18111,
+        "epic": 4014,
+        "legend": 46,
+        "god": 3
+      },
+      "sellableLegend": 31,
+      "nonSellable": 14106
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "normal-near",
+      "castAt": 1793372400000,
+      "n": 100000,
+      "counts": {
+        "common": 62395,
+        "rare": 26805,
+        "epic": 10450,
+        "legend": 285,
+        "god": 65
+      },
+      "sellableLegend": 200,
+      "nonSellable": 15184
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "normal-mid",
+      "castAt": 1793372400000,
+      "n": 100000,
+      "counts": {
+        "common": 61984,
+        "rare": 26666,
+        "epic": 10325,
+        "legend": 961,
+        "god": 64
+      },
+      "sellableLegend": 844,
+      "nonSellable": 7791
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "normal-far",
+      "castAt": 1793372400000,
+      "n": 100000,
+      "counts": {
+        "common": 61849,
+        "rare": 26603,
+        "epic": 10321,
+        "legend": 936,
+        "god": 291
+      },
+      "sellableLegend": 889,
+      "nonSellable": 22255
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "Nice-far",
+      "castAt": 1793372400000,
+      "n": 100000,
+      "counts": {
+        "common": 49914,
+        "rare": 32214,
+        "epic": 15547,
+        "legend": 1681,
+        "god": 644
+      },
+      "sellableLegend": 1593,
+      "nonSellable": 18636
+    }
+  ]
+}

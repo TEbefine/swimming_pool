@@ -9,5 +9,5 @@ export function resetDevFishing(root = new URL('../', import.meta.url)) {
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   resetDevFishing();
-  console.log('Local fishing policy and dev saves/logs reset together. Restart npm run dev and reload the game. Your Player ID vault is untouched.');
+  console.log('Local fishing policy and dev saves/logs reset together. Restart npm run dev to issue the current deck version, then reload every game tab. Your Player ID vault is untouched.');
 }

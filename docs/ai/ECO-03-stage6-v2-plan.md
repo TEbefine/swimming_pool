@@ -1,6 +1,6 @@
 # ECO-03 stage 6 — approved simplified plan
 
-2026-10-30 · Teera approved stage 6 with the corrections below. Base: dev-test-id **40e96cb**. Step 1 only is authorized this turn; stop after its checks/commit/push. [Final verification packet](ECO-03-final-verification.md) covers the prior application.
+2026-10-30 · Teera approved stage 6 with the corrections below. Base: dev-test-id **40e96cb**. Step 1 is approved (a9977f3; Claude independently reran285 tests). Step 2 is authorized this turn; stop after its checks/commit/push. [Final verification packet](ECO-03-final-verification.md) covers the prior application.
 
 ## Approved decisions
 
@@ -135,12 +135,12 @@ Use a causal controller (visible state only, no future RNG) across difficulties 
 
 | Step | Scope/files | Validation and stop |
 | --- | --- | --- |
-| **1. Independent saved balance (build now)** | `economyConfig.ts`: replace balanceCapDays with absolute `maxBalance: 2_000_000`; `server/saves/rules.ts`: normalize/read and strict write guard use it. Update affected test fixtures; add reduced-cap balance regressions through real handlers and emulator. Docs/context. | With dailyCap temporarily 3,000, preserve 1,500,000 and exact 2,000,000; clamp bad reads but refuse invalid/overflow writes; load writes nothing; buy/ice/story/sale and Retry preserve savings/payment atomicity. **Daily cap remains 5,000; v1/reset/odds/gameplay untouched in this step.** |
+| **1. Independent saved balance (approved a9977f3)** | `economyConfig.ts`: replace balanceCapDays with absolute `maxBalance: 2_000_000`; `server/saves/rules.ts`: normalize/read and strict write guard use it. Update affected test fixtures; add reduced-cap balance regressions through real handlers and emulator. Docs/context. | With dailyCap temporarily 3,000, preserve 1,500,000 and exact 2,000,000; clamp bad reads but refuse invalid/overflow writes; load writes nothing; buy/ice/story/sale and Retry preserve savings/payment atomicity. **Daily cap remains 5,000; v1/reset/odds/gameplay untouched in this step.** |
 | **2. V2 odds, version dispatch, local reset and 3,000 cap** | New `deckRollV2.ts`; small dispatcher in `deckRoll.ts`; `deckConfig.ts`, issuance/ticket/cache/current-version readers; coherent dev policy/reset tests; shared `economyConfig.ts` cap. Update frozen-v1 tests to call v1 explicitly; no live cutover code. | Coherent reset clears local policy/saves/logs and corresponding game caches; new issued version 2, v1 kernel/vectors unchanged; actual v2 100,000-roll table per state/day/night, browser/server parity and Nice edges. Verified Gen sale/paid bits/Book, duplicate devices, current/previous v2, tier/coin cap races, exact Retry. No automatic dev reset or shared DB operation. |
 | **3. Small free-only pacing profile** | New free tuning data; explicit opt-in state/profile in `story/fishing.ts` and `fishingSession.ts`; free fallback uses the approved active table. Avoid UI/rendering changes unless needed to carry the profile. | Controller sweeps at 60/30/20 fps + 150-ms latency; bounded velocity/acceleration/target holds; difficulty/big/star cases; exact story/default parity; real session timing and practice/ice/Bag regressions. No formal proof machinery. Teera tests iPhone after review. |
 | **4. Short-session model + final packet** | Offline model/results, tests/review/technical docs and AI_CONTEXT. Use actual v2 kernel and controller-derived durations; report assumptions for human skill/travel. | Focus 10/20/30-minute gross coins, P50/P95, cap clipping and Gen trips; retain one-hour/large-cooler sensitivity. Full unit/type/build/emulator run and catch → Gen → Book/Retry checks. Record Teera's iPhone result separately; no cutover rehearsal or release/main merge. |
 
-After each step: `npm test`, `npx tsc -b`, `npm run build`; `npm run test:rules` for changed server/save/reset/version/cap behavior (required steps 1, 2, 4; step 3 if it changes server semantics). Commit/push dev-test-id, then **STOP for review**. Scope now: step 1 only. No actual dev save reset this turn. No new runtime deps, archive/migration, cards/rewards, town or ECO-04 deployment work.
+After each step: `npm test`, `npx tsc -b`, `npm run build`; `npm run test:rules` for changed server/save/reset/version/cap behavior (required steps 1, 2, 4; step 3 if it changes server semantics). Commit/push dev-test-id, then **STOP for review**. Current scope: step2 only; actual reset/CLI smoke is confined to the isolated review checkout. Teera must run the reset on each local dev machine after pulling this version. No new runtime deps, archive/migration, cards/rewards, town or ECO-04 deployment work.
 
 ## Deferred/rejected work
 
@@ -156,7 +156,7 @@ node docs/ai/analysis/ECO-03-v2-model.mjs
 
 Outputs `analysis/ECO-03-v2-model-results.json` with seed, source SHA, exact counts, analytic probabilities, assumptions, percentiles, sensitivity and cap clipping. It needs no network, identity secret, emulator or player database and performs no game/server write. It imports the real frozen v1 and price functions; v2 remains a scratch candidate kernel. This is deliberately separate from production tests/runtime. The completed step-4 packet contains the fresh application test results; these model runs are not added to the 283-test count.
 
-Status: approved with the simplifications recorded above. Step 1 begins with the independent balance maximum; wait for review before step 2. The active daily cap stays 5,000 until step 2, then becomes the approved 3,000.
+Status: step1 approved; step2 built for review. Issued/current version2 and the approved3,000 cap are implemented; live-transition machinery and pacing remain excluded. Full step2 evidence/reset instructions: [ECO-03-stage6-step2-review.md](ECO-03-stage6-step2-review.md). Wait for review before step3.
 
 ## Step 1 review result — 2026-10-30
 
@@ -172,6 +172,12 @@ Added emulator test `absolute balance limit: reduced daily cap preserves real sa
 Validation: **285 unit/integration tests pass, 0 failed/cancelled/skipped** (283 + 2); `npx tsc -b` and `npm run build` pass, including four compiled Vercel API smoke checks. **10/10 emulator tests pass**, command exit 0 (9 + 1), demo-lumen-bay only. The older Firebase CLI uses the previously isolated XDG_CONFIG_HOME with update checks disabled; no global config or production credentials required. `git diff --check` passes.
 
 No actual dev save reset, v2 issuance/odds/profile/dispatch/cutover implementation, wire/rules permission change, UI, story, Book, cap activation, main merge or shared-database write. No physical iPhone test was performed; that remains the pacing review in step 3. Commit/push dev-test-id, then stop for review.
+
+## Step 2 review result — 2026-10-30
+
+V2/current issuance, legend weight0.9, independent HMAC/PRNG domains and explicit version dispatch are built. V1 data/vectors and algorithm remain unchanged, with the old kernel extracted and its8192 bound pinned. Shared daily cap is3,000; maxBalance remains2,000,000. Reset-local dev policy requires a coherent reset for v1/unversioned/orphaned saves; both middleware plugins use it, and real compiled client reset handling clears game caches/pending state without touching identity. No cutover pin/coexisting versions/migration/rehearsal or pacing/story/UI change.
+
+**293 unit/integration tests** (285+8), TypeScript, production/four-API build and **10 emulator tests** pass, zero failures/skips. Browser/server parity15,360 cases; actual kernel matches all ten100,000-roll planning rows. Nice legends1.641% day/1.681% night. Actual isolated-checkout reset CLI/dev startup/deck/load/verified sale/Book/exact Retry smoke passes with one sold increment/log; physical iPhone is not claimed. See [step2 review](ECO-03-stage6-step2-review.md) for exact tests, actual table/source hashes and required local reset instructions. Commit/push dev-test-id then STOP; step3 not started.
 
 ## Post-launch version-change blueprint — deferred, DO NOT BUILD NOW
 

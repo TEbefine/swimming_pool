@@ -47,6 +47,25 @@ test('documented dev reset removes policy, saves and logs together; vault files 
   }
 });
 
+test('v1 or orphaned dev saves require the coherent reset; policy and saves are never silently rewritten', async () => {
+  const { mkdir } = await import('node:fs/promises');
+  const root = await mkdtemp(join(tmpdir(), 'lumen-v1-policy-'));
+  try {
+    await mkdir(join(root, '.dev'));
+    const policy = JSON.stringify({ version: 1, redeemFromDeckId: 0, resetId: 'old-v1' });
+    const saves = JSON.stringify({ players: { [ADDRESS]: { coins: 99, paidDecks: [{ version: 1 }] } }, logs: { old: true } });
+    await writeFile(join(root, '.dev/fishing-policy.json'), policy);
+    await writeFile(join(root, '.dev/saves.json'), saves);
+    assert.throws(() => devFishingPolicy(root, NOON), /npm run dev:reset-fishing/);
+    assert.equal(await readFile(join(root, '.dev/fishing-policy.json'), 'utf8'), policy);
+    assert.equal(await readFile(join(root, '.dev/saves.json'), 'utf8'), saves);
+    await rm(join(root, '.dev/fishing-policy.json'));
+    assert.throws(() => devFishingPolicy(root, NOON), /reset them together/);
+    await assert.rejects(readFile(join(root, '.dev/fishing-policy.json')), e => e.code === 'ENOENT');
+    assert.equal(await readFile(join(root, '.dev/saves.json'), 'utf8'), saves);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('fresh real Vite dev middleware issues and sells in the current window with zero env setup; exact Retry pays once', async () => {
   const { createServer } = await import('vite');
   const { symlink } = await import('node:fs/promises');
@@ -57,11 +76,25 @@ test('fresh real Vite dev middleware issues and sells in the current window with
   const { rollDeckCatch } = await import('../src/game/fishing/deckRoll.ts');
   const root = await mkdtemp(join(tmpdir(), 'lumen-fresh-dev-')), repo = fileURLToPath(new URL('../', import.meta.url));
   await symlink(join(repo, 'server'), join(root, 'server'), 'dir'); await symlink(join(repo, 'src'), join(root, 'src'), 'dir');
+  // Simulate Teera's old local dataset, then execute the documented reset function before Vite starts.
+  const { mkdir } = await import('node:fs/promises');
+  const { pathToFileURL } = await import('node:url');
+  const { resetDevFishing } = await import('../scripts/dev-reset-fishing.mjs');
+  await mkdir(join(root, '.dev'));
+  await writeFile(join(root, '.dev/fishing-policy.json'), JSON.stringify({ version: 1, redeemFromDeckId: 0, resetId: 'old-v1' }));
+  await writeFile(join(root, '.dev/saves.json'), JSON.stringify({ players: { [DEV_TEST_ADDRESS]: { coins: 999, fishBook: { sardine: { best: 22, sold: 25 } } } }, logs: { old: true } }));
+  assert.throws(() => devFishingPolicy(root), /npm run dev:reset-fishing/);
+  resetDevFishing(pathToFileURL(root + '/'));
   const server = await createServer({ configFile: false, root, appType: 'custom', logLevel: 'silent', plugins: [devSaves(), devDeck()], server: { host: '127.0.0.1', port: 0, fs: { allow: [repo, root] } } });
   try {
     await server.listen(); const base = `http://127.0.0.1:${server.httpServer.address().port}`;
     const post = async (path, body) => { const r = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${DEV_TEST_TOKEN}` }, body: JSON.stringify(body) }); return { status: r.status, body: await r.json() }; };
     const deckResponse = await post('/api/fishing-deck', {}); assert.equal(deckResponse.status, 200); const deck = deckResponse.body;
+    assert.equal(deck.version, 2);
+    const fresh = await post('/api/items', { op: 'load' });
+    assert.equal(fresh.status, 200); assert.equal(fresh.body.coins, 0); assert.deepEqual(fresh.body.fishBook, {});
+    const policy = JSON.parse(await readFile(join(root, '.dev/fishing-policy.json'), 'utf8'));
+    assert.equal(policy.version, 2); assert.notEqual(policy.resetId, 'old-v1');
     const castInfo = { distance: .85, nice: true }, castAt = deck.serverNow; let c;
     for (let castIndex = 0; castIndex < deck.casts; castIndex++) {
       const roll = rollDeckCatch({ ...deck, castIndex, castInfo, castAt });

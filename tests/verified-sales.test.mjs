@@ -31,7 +31,7 @@ test('entire sale refuses wrong species/size, missing ticket, owner/secret misma
   const variants = [
     { ...c, fish: 'invented' }, { ...c, sizeCm: c.sizeCm + 1 }, { fish: c.fish, sizeCm: c.sizeCm, caughtAt: c.caughtAt },
     fixtureCatch('0x' + 'ef'.repeat(20), c.caughtAt), fixtureCatch(ADDRESS, c.caughtAt, { secret: TEST_SECRET + 'wrong' }),
-    ...[{ castIndex: -1 }, { castIndex: C.casts }, { version: 2 }, { deckId: c.ticket.deckId + 1 },
+    ...[{ castIndex: -1 }, { castIndex: C.casts }, { version: 1 }, { deckId: c.ticket.deckId + 1 },
       { castInfo: { distance: .8, nice: false } }, { castInfo: { distance: 1.1, nice: false } },
       { castAt: c.caughtAt + 1 }, { castAt: c.caughtAt - C.maxCastDurationMs - 1 },
       { castAt: (c.ticket.deckId + 1) * C.windowMs }, { deckId: c.ticket.deckId - 2 }].map(t => ({ ...c, ticket: { ...c.ticket, ...t } })),

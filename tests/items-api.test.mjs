@@ -222,7 +222,7 @@ test('malformed economy values, oversized bags and duplicate goods cannot inflat
   assert.deepEqual(view.goods.map(g => g.uid), ['nori-1', 'food']);
   assert.deepEqual(view.econ.soldToday, { sardine: 3 });
   assert.deepEqual(view.econ.boughtToday, { nori: 2, ice_block: 400 });
-  assert.equal(view.econ.earnedToday, 5000);
+  assert.equal(view.econ.earnedToday, 3000);
   for (const value of [NaN, '999']) {
     assert.equal(normalizePlayer({ ...raw, coins: value }, NOON).coins, 0);
   }
