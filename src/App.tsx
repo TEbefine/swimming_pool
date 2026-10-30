@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { GameEngine } from './game/Engine';
 import type { PlayerState, FloatColor, ChatMessage, ContextActionId, RoomDefinition } from './game/types';
-import { getRoomForToday } from './game/rooms';
+import { getRoomForToday, rememberRoom } from './game/rooms';
 import { HeaderBar } from './components/HeaderBar';
 import { ActionBar } from './components/ActionBar';
 import { ChatBar } from './components/ChatBar';
@@ -588,6 +588,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     startupPresentation.current = startupGate;
 
     const engine = new GameEngine(canvasRef.current, currentRoom, playerName, floatColor);
+    rememberRoom(currentRoom.roomId); // even if the player never walks anywhere, "now" counts as a visit
     engineRef.current = engine;
     engine.setPause(identityPaused ? 'identity' : 'input');
     setLocalPlayerId(engine.localPlayer.id);
@@ -623,6 +624,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     engine.onRoomAssetsReady = () => { if (!cancelled) setTransitionReady(true); };
     engine.onRoomChanged = (newRoom) => {
       setCurrentRoom(newRoom);
+      rememberRoom(newRoom.roomId); // a reload soon after starts here again
       setPlayerCountByRoom(engine.getPlayerCountByRoom());
       music.playForRoom(newRoom.roomId);
     };
@@ -974,6 +976,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     if (fishingOpen) setFishBookOpen(false);
   }, [fishingOpen]);
   useEffect(() => { setFishBookOpen(false); }, [currentRoom.roomId]);
+  // Resume-last-room: refresh "last seen here" when the page is hidden or closed (long stays in one map).
+  useEffect(() => {
+    const save = () => rememberRoom(currentRoom.roomId);
+    const onHide = () => { if (document.hidden) save(); };
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', onHide);
+    return () => { window.removeEventListener('pagehide', save); document.removeEventListener('visibilitychange', onHide); };
+  }, [currentRoom.roomId]);
 
   // Close the bag when fishing starts; stop fishing if we leave the story room
   useEffect(() => {
