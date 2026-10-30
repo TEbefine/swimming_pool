@@ -1,0 +1,1114 @@
+{
+  "sourceCommit": "b87ba82c3c61b1c145c6a39b54da7c4f7c229e5c",
+  "seed": "planning-only-not-a-live-deck-secret-20261030",
+  "parity": 100000,
+  "odds": [
+    {
+      "version": 1,
+      "context": "day",
+      "mode": "weak-near",
+      "n": 100000,
+      "counts": {
+        "common": 77588,
+        "rare": 18231,
+        "epic": 3983,
+        "legend": 193,
+        "god": 5
+      },
+      "sellableLegend": 101,
+      "nonSellable": 13933,
+      "analytic": {
+        "god": 0.000037345483063823435,
+        "legend": 0.0020913470515741125,
+        "epic": 0.039835181934744994,
+        "rare": 0.18125007780308972,
+        "common": 0.7767860477275275
+      }
+    },
+    {
+      "version": 1,
+      "context": "day",
+      "mode": "normal-near",
+      "n": 100000,
+      "counts": {
+        "common": 61616,
+        "rare": 26903,
+        "epic": 10357,
+        "legend": 1045,
+        "god": 79
+      },
+      "sellableLegend": 547,
+      "nonSellable": 15341,
+      "analytic": {
+        "god": 0.0007722007722007722,
+        "legend": 0.010810810810810811,
+        "epic": 0.10296010296010295,
+        "rare": 0.2676962676962677,
+        "common": 0.6177606177606177
+      }
+    },
+    {
+      "version": 1,
+      "context": "day",
+      "mode": "normal-mid",
+      "n": 100000,
+      "counts": {
+        "common": 60033,
+        "rare": 26275,
+        "epic": 10066,
+        "legend": 3549,
+        "god": 77
+      },
+      "sellableLegend": 2893,
+      "nonSellable": 8028,
+      "analytic": {
+        "god": 0.0007532011046949536,
+        "legend": 0.035149384885764495,
+        "epic": 0.10042681395932714,
+        "rare": 0.26110971629425056,
+        "common": 0.6025608837559628
+      }
+    },
+    {
+      "version": 1,
+      "context": "day",
+      "mode": "normal-far",
+      "n": 100000,
+      "counts": {
+        "common": 59899,
+        "rare": 26213,
+        "epic": 10054,
+        "legend": 3549,
+        "god": 285
+      },
+      "sellableLegend": 3306,
+      "nonSellable": 21772,
+      "analytic": {
+        "god": 0.003006012024048096,
+        "legend": 0.03507014028056112,
+        "epic": 0.10020040080160321,
+        "rare": 0.2605210420841683,
+        "common": 0.6012024048096193
+      }
+    },
+    {
+      "version": 1,
+      "context": "day",
+      "mode": "Nice-far",
+      "n": 100000,
+      "counts": {
+        "common": 47289,
+        "rare": 30965,
+        "epic": 14887,
+        "legend": 6259,
+        "god": 600
+      },
+      "sellableLegend": 5840,
+      "nonSellable": 18070,
+      "analytic": {
+        "god": 0.005934718100890208,
+        "legend": 0.06231454005934718,
+        "epic": 0.1483679525222552,
+        "rare": 0.3086053412462908,
+        "common": 0.47477744807121663
+      }
+    },
+    {
+      "version": 1,
+      "context": "night",
+      "mode": "weak-near",
+      "n": 100000,
+      "counts": {
+        "common": 77816,
+        "rare": 17989,
+        "epic": 4001,
+        "legend": 190,
+        "god": 4
+      },
+      "sellableLegend": 122,
+      "nonSellable": 13964,
+      "analytic": {
+        "god": 0.000037345483063823435,
+        "legend": 0.0020913470515741125,
+        "epic": 0.039835181934744994,
+        "rare": 0.18125007780308972,
+        "common": 0.7767860477275275
+      }
+    },
+    {
+      "version": 1,
+      "context": "night",
+      "mode": "normal-near",
+      "n": 100000,
+      "counts": {
+        "common": 62068,
+        "rare": 26639,
+        "epic": 10208,
+        "legend": 1015,
+        "god": 70
+      },
+      "sellableLegend": 657,
+      "nonSellable": 15235,
+      "analytic": {
+        "god": 0.0007722007722007722,
+        "legend": 0.010810810810810811,
+        "epic": 0.10296010296010295,
+        "rare": 0.2676962676962677,
+        "common": 0.6177606177606177
+      }
+    },
+    {
+      "version": 1,
+      "context": "night",
+      "mode": "normal-mid",
+      "n": 100000,
+      "counts": {
+        "common": 60579,
+        "rare": 25913,
+        "epic": 9965,
+        "legend": 3476,
+        "god": 67
+      },
+      "sellableLegend": 3110,
+      "nonSellable": 7705,
+      "analytic": {
+        "god": 0.0007532011046949536,
+        "legend": 0.035149384885764495,
+        "epic": 0.10042681395932714,
+        "rare": 0.26110971629425056,
+        "common": 0.6025608837559628
+      }
+    },
+    {
+      "version": 1,
+      "context": "night",
+      "mode": "normal-far",
+      "n": 100000,
+      "counts": {
+        "common": 60434,
+        "rare": 25857,
+        "epic": 9926,
+        "legend": 3502,
+        "god": 281
+      },
+      "sellableLegend": 3364,
+      "nonSellable": 21732,
+      "analytic": {
+        "god": 0.003006012024048096,
+        "legend": 0.03507014028056112,
+        "epic": 0.10020040080160321,
+        "rare": 0.2605210420841683,
+        "common": 0.6012024048096193
+      }
+    },
+    {
+      "version": 1,
+      "context": "night",
+      "mode": "Nice-far",
+      "n": 100000,
+      "counts": {
+        "common": 48008,
+        "rare": 30500,
+        "epic": 14751,
+        "legend": 6185,
+        "god": 556
+      },
+      "sellableLegend": 5931,
+      "nonSellable": 17981,
+      "analytic": {
+        "god": 0.005934718100890208,
+        "legend": 0.06231454005934718,
+        "epic": 0.1483679525222552,
+        "rare": 0.3086053412462908,
+        "common": 0.47477744807121663
+      }
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "weak-near",
+      "n": 100000,
+      "counts": {
+        "common": 77864,
+        "rare": 18130,
+        "epic": 3948,
+        "legend": 55,
+        "god": 3
+      },
+      "sellableLegend": 31,
+      "nonSellable": 14030,
+      "analytic": {
+        "god": 0.000037403592240998824,
+        "legend": 0.0005386117282703832,
+        "epic": 0.03989716505706541,
+        "rare": 0.18153210100964762,
+        "common": 0.7779947186127756
+      }
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "normal-near",
+      "n": 100000,
+      "counts": {
+        "common": 62349,
+        "rare": 26932,
+        "epic": 10362,
+        "legend": 280,
+        "god": 77
+      },
+      "sellableLegend": 160,
+      "nonSellable": 15248,
+      "analytic": {
+        "god": 0.0007784524365561264,
+        "legend": 0.0028024287716020553,
+        "epic": 0.10379365820748353,
+        "rare": 0.2698635113394572,
+        "common": 0.6227619492449011
+      }
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "normal-mid",
+      "n": 100000,
+      "counts": {
+        "common": 61939,
+        "rare": 26782,
+        "epic": 10302,
+        "legend": 900,
+        "god": 77
+      },
+      "sellableLegend": 725,
+      "nonSellable": 7764,
+      "analytic": {
+        "god": 0.0007733952049497294,
+        "legend": 0.009280742459396753,
+        "epic": 0.10311936065996391,
+        "rare": 0.2681103377159062,
+        "common": 0.6187161639597835
+      }
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "normal-far",
+      "n": 100000,
+      "counts": {
+        "common": 61780,
+        "rare": 26722,
+        "epic": 10280,
+        "legend": 911,
+        "god": 307
+      },
+      "sellableLegend": 846,
+      "nonSellable": 22345,
+      "analytic": {
+        "god": 0.0030864197530864196,
+        "legend": 0.009259259259259259,
+        "epic": 0.102880658436214,
+        "rare": 0.2674897119341564,
+        "common": 0.6172839506172839
+      }
+    },
+    {
+      "version": 2,
+      "context": "day",
+      "mode": "Nice-far",
+      "n": 100000,
+      "counts": {
+        "common": 49671,
+        "rare": 32522,
+        "epic": 15548,
+        "legend": 1641,
+        "god": 618
+      },
+      "sellableLegend": 1516,
+      "nonSellable": 18839,
+      "analytic": {
+        "god": 0.006222775357809583,
+        "legend": 0.016801493466085875,
+        "epic": 0.1555693839452396,
+        "rare": 0.3235843186060983,
+        "common": 0.49782202862476665
+      }
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "weak-near",
+      "n": 100000,
+      "counts": {
+        "common": 77826,
+        "rare": 18111,
+        "epic": 4014,
+        "legend": 46,
+        "god": 3
+      },
+      "sellableLegend": 31,
+      "nonSellable": 14106,
+      "analytic": {
+        "god": 0.000037403592240998824,
+        "legend": 0.0005386117282703832,
+        "epic": 0.03989716505706541,
+        "rare": 0.18153210100964762,
+        "common": 0.7779947186127756
+      }
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "normal-near",
+      "n": 100000,
+      "counts": {
+        "common": 62395,
+        "rare": 26805,
+        "epic": 10450,
+        "legend": 285,
+        "god": 65
+      },
+      "sellableLegend": 200,
+      "nonSellable": 15184,
+      "analytic": {
+        "god": 0.0007784524365561264,
+        "legend": 0.0028024287716020553,
+        "epic": 0.10379365820748353,
+        "rare": 0.2698635113394572,
+        "common": 0.6227619492449011
+      }
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "normal-mid",
+      "n": 100000,
+      "counts": {
+        "common": 61984,
+        "rare": 26666,
+        "epic": 10325,
+        "legend": 961,
+        "god": 64
+      },
+      "sellableLegend": 844,
+      "nonSellable": 7791,
+      "analytic": {
+        "god": 0.0007733952049497294,
+        "legend": 0.009280742459396753,
+        "epic": 0.10311936065996391,
+        "rare": 0.2681103377159062,
+        "common": 0.6187161639597835
+      }
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "normal-far",
+      "n": 100000,
+      "counts": {
+        "common": 61849,
+        "rare": 26603,
+        "epic": 10321,
+        "legend": 936,
+        "god": 291
+      },
+      "sellableLegend": 889,
+      "nonSellable": 22255,
+      "analytic": {
+        "god": 0.0030864197530864196,
+        "legend": 0.009259259259259259,
+        "epic": 0.102880658436214,
+        "rare": 0.2674897119341564,
+        "common": 0.6172839506172839
+      }
+    },
+    {
+      "version": 2,
+      "context": "night",
+      "mode": "Nice-far",
+      "n": 100000,
+      "counts": {
+        "common": 49914,
+        "rare": 32214,
+        "epic": 15547,
+        "legend": 1681,
+        "god": 644
+      },
+      "sellableLegend": 1593,
+      "nonSellable": 18636,
+      "analytic": {
+        "god": 0.006222775357809583,
+        "legend": 0.016801493466085875,
+        "epic": 0.1555693839452396,
+        "rare": 0.3235843186060983,
+        "common": 0.49782202862476665
+      }
+    }
+  ],
+  "profiles": {
+    "casual": {
+      "quality": [
+        0.05,
+        0.2,
+        0.25,
+        0.35,
+        0.15
+      ],
+      "success": [
+        0.96,
+        0.9,
+        0.8,
+        0.65,
+        0.5
+      ],
+      "inNet": 0.65,
+      "readSeconds": 4,
+      "extraSeconds": 3,
+      "travelSeconds": 100,
+      "activeMinutes": 30
+    },
+    "regular": {
+      "quality": [
+        0.02,
+        0.13,
+        0.2,
+        0.3,
+        0.35
+      ],
+      "success": [
+        0.99,
+        0.96,
+        0.9,
+        0.82,
+        0.72
+      ],
+      "inNet": 0.75,
+      "readSeconds": 2.5,
+      "extraSeconds": 1.5,
+      "travelSeconds": 75,
+      "activeMinutes": 30
+    },
+    "skilled": {
+      "quality": [
+        0,
+        0.08,
+        0.12,
+        0.2,
+        0.6
+      ],
+      "success": [
+        0.995,
+        0.99,
+        0.97,
+        0.93,
+        0.88
+      ],
+      "inNet": 0.85,
+      "readSeconds": 1.5,
+      "extraSeconds": 0.8,
+      "travelSeconds": 50,
+      "activeMinutes": 30
+    }
+  },
+  "economic": [
+    {
+      "version": 1,
+      "profile": "casual",
+      "minutes": 30,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 964.59,
+      "p10": 632,
+      "p50": 947,
+      "p90": 1303,
+      "p95": 1400,
+      "p99": 1554,
+      "attemptsMean": 74.331,
+      "paidMean": 45.017,
+      "opsMean": 4.512,
+      "spoiledMean": 0
+    },
+    {
+      "version": 1,
+      "profile": "casual",
+      "minutes": 60,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 1733.446,
+      "p10": 1378,
+      "p50": 1764,
+      "p90": 2008,
+      "p95": 2050,
+      "p99": 2111,
+      "attemptsMean": 146.462,
+      "paidMean": 92.347,
+      "opsMean": 9.376,
+      "spoiledMean": 0
+    },
+    {
+      "version": 1,
+      "profile": "regular",
+      "minutes": 30,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 1588.743,
+      "p10": 1265,
+      "p50": 1621,
+      "p90": 1850,
+      "p95": 1890,
+      "p99": 1950,
+      "attemptsMean": 96.862,
+      "paidMean": 65.949,
+      "opsMean": 6.725,
+      "spoiledMean": 0
+    },
+    {
+      "version": 1,
+      "profile": "regular",
+      "minutes": 60,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 2256.839,
+      "p10": 2126,
+      "p50": 2262,
+      "p90": 2388,
+      "p95": 2430,
+      "p99": 2521,
+      "attemptsMean": 191.8,
+      "paidMean": 126.999,
+      "opsMean": 13.709,
+      "spoiledMean": 0
+    },
+    {
+      "version": 1,
+      "profile": "skilled",
+      "minutes": 30,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 2000.425,
+      "p10": 1851,
+      "p50": 2007,
+      "p90": 2137,
+      "p95": 2189,
+      "p99": 2255,
+      "attemptsMean": 126.381,
+      "paidMean": 86.768,
+      "opsMean": 9.378,
+      "spoiledMean": 0
+    },
+    {
+      "version": 1,
+      "profile": "skilled",
+      "minutes": 60,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 2632.645,
+      "p10": 2497,
+      "p50": 2627,
+      "p90": 2787,
+      "p95": 2844,
+      "p99": 2948,
+      "attemptsMean": 250.499,
+      "paidMean": 165.488,
+      "opsMean": 19.186,
+      "spoiledMean": 0
+    },
+    {
+      "version": 2,
+      "profile": "casual",
+      "minutes": 30,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 843.157,
+      "p10": 601,
+      "p50": 821,
+      "p90": 1098,
+      "p95": 1193,
+      "p99": 1390,
+      "attemptsMean": 77.285,
+      "paidMean": 48.005,
+      "opsMean": 4.802,
+      "spoiledMean": 0
+    },
+    {
+      "version": 2,
+      "profile": "casual",
+      "minutes": 60,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 1533.277,
+      "p10": 1285,
+      "p50": 1494,
+      "p90": 1836,
+      "p95": 1946,
+      "p99": 2090,
+      "attemptsMean": 152.553,
+      "paidMean": 97.6,
+      "opsMean": 9.877,
+      "spoiledMean": 0
+    },
+    {
+      "version": 2,
+      "profile": "regular",
+      "minutes": 30,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 1375.378,
+      "p10": 1074,
+      "p50": 1333,
+      "p90": 1725,
+      "p95": 1835,
+      "p99": 1939,
+      "attemptsMean": 100.898,
+      "paidMean": 69.275,
+      "opsMean": 6.999,
+      "spoiledMean": 0
+    },
+    {
+      "version": 2,
+      "profile": "regular",
+      "minutes": 60,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 2104.219,
+      "p10": 1765,
+      "p50": 2117,
+      "p90": 2399,
+      "p95": 2446,
+      "p99": 2518,
+      "attemptsMean": 199.482,
+      "paidMean": 134.576,
+      "opsMean": 14.299,
+      "spoiledMean": 0
+    },
+    {
+      "version": 2,
+      "profile": "skilled",
+      "minutes": 30,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 1836.756,
+      "p10": 1501,
+      "p50": 1840,
+      "p90": 2135,
+      "p95": 2182,
+      "p99": 2253,
+      "attemptsMean": 131.362,
+      "paidMean": 92.887,
+      "opsMean": 9.852,
+      "spoiledMean": 0
+    },
+    {
+      "version": 2,
+      "profile": "skilled",
+      "minutes": 60,
+      "capacity": 10,
+      "n": 1000,
+      "mean": 2651.214,
+      "p10": 2394,
+      "p50": 2680,
+      "p90": 2862,
+      "p95": 2918,
+      "p99": 3053,
+      "attemptsMean": 260.774,
+      "paidMean": 177.857,
+      "opsMean": 19.991,
+      "spoiledMean": 0
+    }
+  ],
+  "sensitivities": [
+    {
+      "profile": "regular",
+      "minutes": 60,
+      "capacity": 20,
+      "version": 2,
+      "mean": 2254.374,
+      "p50": 2291,
+      "p95": 2586,
+      "p99": 2691,
+      "opsMean": 8.167
+    },
+    {
+      "profile": "regular",
+      "minutes": 60,
+      "tripMultiplier": 0.5,
+      "version": 2,
+      "mean": 2296.817,
+      "p50": 2340,
+      "p95": 2613,
+      "p99": 2706,
+      "opsMean": 16.912
+    },
+    {
+      "profile": "regular",
+      "minutes": 60,
+      "tripMultiplier": 2,
+      "version": 2,
+      "mean": 1829.096,
+      "p50": 1828,
+      "p95": 2202,
+      "p99": 2270,
+      "opsMean": 10.974
+    },
+    {
+      "profile": "skilled",
+      "minutes": 60,
+      "capacity": 20,
+      "version": 2,
+      "mean": 2852.372,
+      "p50": 2871,
+      "p95": 3137,
+      "p99": 3250,
+      "opsMean": 11.423
+    },
+    {
+      "profile": "regular",
+      "minutes": 60,
+      "perfectCatch": true,
+      "version": 2,
+      "mean": 2260.72,
+      "p50": 2300,
+      "p95": 2556,
+      "p99": 2620,
+      "opsMean": 15.469
+    },
+    {
+      "profile": "skilled",
+      "minutes": 60,
+      "allNice": true,
+      "perfectCatch": true,
+      "version": 2,
+      "mean": 2828.456,
+      "p50": 2832,
+      "p95": 3102,
+      "p99": 3308,
+      "opsMean": 21.216
+    },
+    {
+      "profile": "regular",
+      "minutes": 120,
+      "version": 2,
+      "mean": 3108.526,
+      "p50": 3140,
+      "p95": 3383,
+      "p99": 3498,
+      "opsMean": 28.986
+    },
+    {
+      "profile": "skilled",
+      "minutes": 120,
+      "version": 2,
+      "mean": 3922.852,
+      "p50": 3906,
+      "p95": 4227,
+      "p99": 4443,
+      "opsMean": 39.876
+    },
+    {
+      "profile": "casual",
+      "minutes": 30,
+      "tripMultiplier": 2,
+      "version": 2,
+      "mean": 685.013,
+      "p50": 666,
+      "p95": 1005,
+      "p99": 1150,
+      "opsMean": 3.829
+    }
+  ],
+  "capAnalysis": [
+    {
+      "cap": 1000,
+      "profile": "casual",
+      "minutes": 30,
+      "hitPercent": 20.1,
+      "mean": 812.164,
+      "uncappedMean": 843.157
+    },
+    {
+      "cap": 1000,
+      "profile": "casual",
+      "minutes": 60,
+      "hitPercent": 99.6,
+      "mean": 999.152,
+      "uncappedMean": 1533.277
+    },
+    {
+      "cap": 1000,
+      "profile": "regular",
+      "minutes": 30,
+      "hitPercent": 95.9,
+      "mean": 994.822,
+      "uncappedMean": 1375.378
+    },
+    {
+      "cap": 1000,
+      "profile": "regular",
+      "minutes": 60,
+      "hitPercent": 100,
+      "mean": 999.451,
+      "uncappedMean": 2104.219
+    },
+    {
+      "cap": 1000,
+      "profile": "skilled",
+      "minutes": 30,
+      "hitPercent": 100,
+      "mean": 999.234,
+      "uncappedMean": 1836.756
+    },
+    {
+      "cap": 1000,
+      "profile": "skilled",
+      "minutes": 60,
+      "hitPercent": 100,
+      "mean": 999.388,
+      "uncappedMean": 2651.214
+    },
+    {
+      "cap": 1500,
+      "profile": "casual",
+      "minutes": 30,
+      "hitPercent": 0.4,
+      "mean": 842.828,
+      "uncappedMean": 843.157
+    },
+    {
+      "cap": 1500,
+      "profile": "casual",
+      "minutes": 60,
+      "hitPercent": 48.9,
+      "mean": 1426.731,
+      "uncappedMean": 1533.277
+    },
+    {
+      "cap": 1500,
+      "profile": "regular",
+      "minutes": 30,
+      "hitPercent": 31.2,
+      "mean": 1313.493,
+      "uncappedMean": 1375.378
+    },
+    {
+      "cap": 1500,
+      "profile": "regular",
+      "minutes": 60,
+      "hitPercent": 100,
+      "mean": 1499.39,
+      "uncappedMean": 2104.219
+    },
+    {
+      "cap": 1500,
+      "profile": "skilled",
+      "minutes": 30,
+      "hitPercent": 90.2,
+      "mean": 1489.8,
+      "uncappedMean": 1836.756
+    },
+    {
+      "cap": 1500,
+      "profile": "skilled",
+      "minutes": 60,
+      "hitPercent": 100,
+      "mean": 1499.487,
+      "uncappedMean": 2651.214
+    },
+    {
+      "cap": 1800,
+      "profile": "casual",
+      "minutes": 30,
+      "hitPercent": 0,
+      "mean": 843.157,
+      "uncappedMean": 843.157
+    },
+    {
+      "cap": 1800,
+      "profile": "casual",
+      "minutes": 60,
+      "hitPercent": 13,
+      "mean": 1513.521,
+      "uncappedMean": 1533.277
+    },
+    {
+      "cap": 1800,
+      "profile": "regular",
+      "minutes": 30,
+      "hitPercent": 6.4,
+      "mean": 1367.937,
+      "uncappedMean": 1375.378
+    },
+    {
+      "cap": 1800,
+      "profile": "regular",
+      "minutes": 60,
+      "hitPercent": 85.1,
+      "mean": 1785.851,
+      "uncappedMean": 2104.219
+    },
+    {
+      "cap": 1800,
+      "profile": "skilled",
+      "minutes": 30,
+      "hitPercent": 57.1,
+      "mean": 1708.964,
+      "uncappedMean": 1836.756
+    },
+    {
+      "cap": 1800,
+      "profile": "skilled",
+      "minutes": 60,
+      "hitPercent": 100,
+      "mean": 1799.5,
+      "uncappedMean": 2651.214
+    },
+    {
+      "cap": 2000,
+      "profile": "casual",
+      "minutes": 30,
+      "hitPercent": 0,
+      "mean": 843.157,
+      "uncappedMean": 843.157
+    },
+    {
+      "cap": 2000,
+      "profile": "casual",
+      "minutes": 60,
+      "hitPercent": 3.5,
+      "mean": 1529.626,
+      "uncappedMean": 1533.277
+    },
+    {
+      "cap": 2000,
+      "profile": "regular",
+      "minutes": 30,
+      "hitPercent": 0.3,
+      "mean": 1374.982,
+      "uncappedMean": 1375.378
+    },
+    {
+      "cap": 2000,
+      "profile": "regular",
+      "minutes": 60,
+      "hitPercent": 68,
+      "mean": 1934.893,
+      "uncappedMean": 2104.219
+    },
+    {
+      "cap": 2000,
+      "profile": "skilled",
+      "minutes": 30,
+      "hitPercent": 30.8,
+      "mean": 1795.912,
+      "uncappedMean": 1836.756
+    },
+    {
+      "cap": 2000,
+      "profile": "skilled",
+      "minutes": 60,
+      "hitPercent": 99.5,
+      "mean": 1999.217,
+      "uncappedMean": 2651.214
+    },
+    {
+      "cap": 2500,
+      "profile": "casual",
+      "minutes": 30,
+      "hitPercent": 0,
+      "mean": 843.157,
+      "uncappedMean": 843.157
+    },
+    {
+      "cap": 2500,
+      "profile": "casual",
+      "minutes": 60,
+      "hitPercent": 0,
+      "mean": 1533.277,
+      "uncappedMean": 1533.277
+    },
+    {
+      "cap": 2500,
+      "profile": "regular",
+      "minutes": 30,
+      "hitPercent": 0,
+      "mean": 1375.378,
+      "uncappedMean": 1375.378
+    },
+    {
+      "cap": 2500,
+      "profile": "regular",
+      "minutes": 60,
+      "hitPercent": 1.6,
+      "mean": 2103.166,
+      "uncappedMean": 2104.219
+    },
+    {
+      "cap": 2500,
+      "profile": "skilled",
+      "minutes": 30,
+      "hitPercent": 0,
+      "mean": 1836.756,
+      "uncappedMean": 1836.756
+    },
+    {
+      "cap": 2500,
+      "profile": "skilled",
+      "minutes": 60,
+      "hitPercent": 81.5,
+      "mean": 2465.309,
+      "uncappedMean": 2651.214
+    },
+    {
+      "cap": 3000,
+      "profile": "casual",
+      "minutes": 30,
+      "hitPercent": 0,
+      "mean": 843.157,
+      "uncappedMean": 843.157
+    },
+    {
+      "cap": 3000,
+      "profile": "casual",
+      "minutes": 60,
+      "hitPercent": 0,
+      "mean": 1533.277,
+      "uncappedMean": 1533.277
+    },
+    {
+      "cap": 3000,
+      "profile": "regular",
+      "minutes": 30,
+      "hitPercent": 0,
+      "mean": 1375.378,
+      "uncappedMean": 1375.378
+    },
+    {
+      "cap": 3000,
+      "profile": "regular",
+      "minutes": 60,
+      "hitPercent": 0,
+      "mean": 2104.219,
+      "uncappedMean": 2104.219
+    },
+    {
+      "cap": 3000,
+      "profile": "skilled",
+      "minutes": 30,
+      "hitPercent": 0,
+      "mean": 1836.756,
+      "uncappedMean": 1836.756
+    },
+    {
+      "cap": 3000,
+      "profile": "skilled",
+      "minutes": 60,
+      "hitPercent": 1.5,
+      "mean": 2649.792,
+      "uncappedMean": 2651.214
+    }
+  ],
+  "notes": {
+    "model": "Planning estimates, not observed player telemetry. No travel/time/skill distribution is claimed measured. v2 odds/kernel is a scratch candidate, not shipped.",
+    "ice": "No ice; actual age bands included. Trips <10m normally keep fish fresh.",
+    "caps": "Epic10/day, legend2/day, god never sold, 40 accepted writes/day; coin cap removed for uncapped estimates.",
+    "discard": "Tier-capped fish released after a refused/kept sale. No targeted seed/index look-ahead."
+  }
+}
