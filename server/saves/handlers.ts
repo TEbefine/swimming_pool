@@ -101,7 +101,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         onlyFields(body, ['op']);
         const raw = await services.readPlayer(address);
         const t = now();
-        reply(res, 200, { ...playerView(raw ? normalizePlayer(raw, t) : emptyPlayer(t)), serverNow: t });
+        reply(res, 200, { ...playerView(raw ? normalizePlayer(raw, t) : emptyPlayer(t), t), serverNow: t, redeemFromDeckId: cutoffView(env), ...devResetView(env) });
         return;
       }
 
@@ -115,14 +115,14 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
           const t = now();
           const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
-          if (rawLog) return replay(doc, rawLog, hash);
+          if (rawLog) return replay(doc, rawLog, hash, t);
           const budget = countOperation(doc, t);
           const { fields, changes } = purchase
             ? applyBuy(doc, purchase.cart, purchase.vendor, purchase.expectedTotal, t)
             : applyIce(doc, uid!, t);
           return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
         });
-        reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours
+        reply(res, 200, { ...(result as object), serverNow: now(), redeemFromDeckId: cutoffView(env), ...devResetView(env) }); // the phone keeps its catch clock in step with ours
         return;
       }
 
@@ -136,12 +136,12 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
           const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
           // Time, catalogue and player-state checks follow replay lookup: the original receipt
           // remains valid after spoilage, config changes, a later sale or Bangkok midnight.
-          if (rawLog) return replay(doc, rawLog, hash);
+          if (rawLog) return replay(doc, rawLog, hash, t);
           const budget = countOperation(doc, t);
           const { fields, changes } = applySale(doc, catches, { now: t, address, secret: fishingDeckSecret(env), redeemFromDeckId: fishingRedemptionCutoff(env) });
           return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
         });
-        reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours
+        reply(res, 200, { ...(result as object), serverNow: now(), redeemFromDeckId: cutoffView(env), ...devResetView(env) }); // the phone keeps its catch clock in step with ours
         return;
       }
 
@@ -156,7 +156,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
           const t = now();
           const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
-          if (rawLog) return replay(doc, rawLog, hash);
+          if (rawLog) return replay(doc, rawLog, hash, t);
           const budget = countOperation(doc, t);
           const prev = doc.storyWorlds.dalbit;
           if ((prev?.revision ?? null) !== base) throw new SaveError(409, 'Your story changed on another device. Reload to continue.');
@@ -165,7 +165,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
           const changes = { world: 'dalbit', day: state.day, storyRevision: save.revision, coins: state.coins };
           return commit(doc, { storyWorlds: { ...doc.storyWorlds, dalbit: save }, ...budget }, op, hash, changes, t);
         });
-        reply(res, 200, { ...(result as object), serverNow: now() }); // the phone keeps its catch clock in step with ours
+        reply(res, 200, { ...(result as object), serverNow: now(), redeemFromDeckId: cutoffView(env), ...devResetView(env) }); // the phone keeps its catch clock in step with ours
         return;
       }
 
@@ -174,16 +174,16 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
   };
 }
 
-function replay(doc: PlayerDoc, rawLog: unknown, hash: string): TxResult<unknown> {
+function replay(doc: PlayerDoc, rawLog: unknown, hash: string, now: number): TxResult<unknown> {
   const log = rawLog as Partial<LogEntry>;
   if (log.requestHash !== hash) throw new SaveError(409, 'This save was already used for something else.');
-  return { write: null, response: { ...playerView(doc), result: log.changes ?? {}, replayed: true } };
+  return { write: null, response: { ...playerView(doc, now), result: log.changes ?? {}, replayed: true } };
 }
 
 function commit(doc: PlayerDoc, fields: Partial<PlayerDoc>, op: string, hash: string, changes: Record<string, unknown>, t: number): TxResult<unknown> {
   const player: PlayerDoc = { ...doc, ...fields, revision: doc.revision + 1, updatedAt: t };
   const log: LogEntry = { at: t, op, requestHash: hash, changes, prevRevision: doc.revision, newRevision: player.revision };
-  return { write: { player, log }, response: { ...playerView(player), result: changes } };
+  return { write: { player, log }, response: { ...playerView(player, t), result: changes } };
 }
 
 function failSave(res: Response, err: unknown) {
@@ -191,4 +191,13 @@ function failSave(res: Response, err: unknown) {
   if (err instanceof SaveError) reply(res, err.status, { error: err.message, ...err.details });
   else if (err instanceof LoginError) reply(res, err.status, { error: err.message });
   else reply(res, 503, { error: 'Saving is temporarily unavailable. Your progress is kept on this device; please retry.' });
+}
+
+/** Loads stay available when redemption is deliberately unconfigured. */
+function cutoffView(env: NodeJS.ProcessEnv): number | null {
+  try { return fishingRedemptionCutoff(env); } catch { return null; }
+}
+
+function devResetView(env: NodeJS.ProcessEnv) {
+  return env.VERCEL !== '1' && env.DEV_FISHING_RESET_ID ? { devFishingResetId: env.DEV_FISHING_RESET_ID } : {};
 }

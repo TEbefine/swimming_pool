@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useStory } from '../../game/story/storyStore';
 import { ITEMS, POCKETS, itemIcon } from '../../game/story/items';
 import { ACTION_HINT, carriedIn } from '../../game/story/bagActions';
-import { useFishBook, getPendingCatches, freeIcon } from '../../game/fishing/freeFish';
+import { useFishBook, freeIcon } from '../../game/fishing/freeFish';
 import { FREE_FISH, TIERS } from '../../game/fishing/freeFishCatalog';
 import type { MenuInput, MenuState } from '../gameMenu/menuModel';
 import { DescriptionBox } from '../gameMenu/DescriptionBox';
@@ -52,7 +52,6 @@ export const BagScreen: React.FC<BagScreenProps> = ({
   playerName,
   compact,
   isStoryRoom = false,
-  hasPlayerId = false,
   onPress,
   onPoint,
   onPocket,
@@ -110,26 +109,10 @@ export const BagScreen: React.FC<BagScreenProps> = ({
       };
     });
 
-    const pendingCatches = getPendingCatches();
-    const freeFish: RowItem[] = FREE_FISH.filter((f) => (book.entries[f.id]?.count ?? 0) > 0).map((f) => {
-      const entry = book.entries[f.id];
-      const count = entry?.count ?? 0;
-      const best = entry?.best;
-      const pendingCountForFish = pendingCatches.filter((c) => c.fish === f.id).length;
-      const bits: string[] = [`${TIERS[f.tier].label} tier`];
-      if (best) bits.push(`Best: ${best} cm`);
-      if (hasPlayerId && pendingCountForFish > 0) {
-        bits.push(`${pendingCountForFish} waiting for Nami/Kai`);
-      }
-      return {
-        id: f.id,
-        name: f.name,
-        count,
-        icon: freeIcon(f.id),
-        note: f.note,
-        meta: bits.join(' · '),
-      };
-    });
+    const freeFish: RowItem[] = FREE_FISH.filter(f => book.entries[f.id]).map(f => ({
+      id: f.id, name: f.name, count: 1, right: book.entries[f.id].starred ? '★' : '', icon: freeIcon(f.id),
+      note: f.note, meta: `${TIERS[f.tier].label} tier · Best: ${book.entries[f.id].best} cm`,
+    }));
 
     rows = [...storyFish, ...freeFish];
   } else {

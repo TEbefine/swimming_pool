@@ -11,6 +11,7 @@ import { ICE, BAG, COOLER, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/econo
 import { SHOP_BY_ID, SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
 import { bkkDay } from '../../src/game/economy/market.js';
 import { LIMITS } from './limits.js';
+import { readPaidDecks } from './deckRedemptions.js';
 import { verifiedFishBookView } from './fishBook.js';
 
 export interface PlayerGoods {
@@ -64,7 +65,7 @@ export interface PlayerDoc {
   coolerLevel: number;
   goods: PlayerGoods[];
   econ: PlayerEconomy;
-  /** Internal redemption markers; independent of the Fish Book and Bangkok-day reset. */
+  /** Redemption markers, independent of the Book/day reset; exposed read-only for client filtering. */
   paidDecks?: unknown;
   schemaVersion: 1;
   createdAt: number;
@@ -125,8 +126,10 @@ function num(v: unknown, fallback: number) { return typeof v === 'number' && Num
 
 /** What the player's own device may see (everything but internal operation counters).
  * Call with an already-normalized document so expired goods never enter an API response. */
-export function playerView(doc: PlayerDoc) {
+export function playerView(doc: PlayerDoc, now = doc.updatedAt) {
+  const paid = readPaidDecks(doc.paidDecks, now);
   return {
+    paidDecks: paid.ok ? paid.windows : null,
     revision: doc.revision, ...verifiedFishBookView(doc.fishBook),
     story: { dalbit: doc.storyWorlds.dalbit ?? null },
     coins: doc.coins, coolerLevel: doc.coolerLevel, goods: doc.goods, econ: doc.econ, iceUsedAt: doc.iceUsedAt,

@@ -2,8 +2,6 @@
 import { ECONOMY_SAVE } from '../../src/game/economy/economyConfig.js';
 
 export const LIMITS = {
-  /** Obsolete client pending-list spacing; removed with the guide flow in step 3. Not a sale rule. */
-  minCatchGapMs: 3_000,
   /** Maximum verified fish sold per Bangkok day. */
   catchesPerDay: 2_000,
   /** Save operations per player per minute (the IP limiter is per server instance only). */

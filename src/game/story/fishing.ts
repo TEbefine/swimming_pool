@@ -1,3 +1,4 @@
+import { FISH_BOOK } from '../fishing/fishBookConfig.js';
 // Fishing minigame logic — no drawing, no React. FishingGame.tsx draws it and feeds it input.
 //
 //   ready ──◯──▶ waiting (fake nibbles) ──▶ bite (float goes under) ──◯ in time──▶ reel ──▶ caught
@@ -114,6 +115,8 @@ export type FishingPhase = 'ready' | 'waiting' | 'bite' | 'reel' | 'caught' | 's
 
 export interface FishingState {
   phase: FishingPhase;
+  /** Species star, snapshotted for a free cast. Never part of a ticket or roll. */
+  strikeMultiplier: number;
   /** What is on the hook (chosen at the cast, hidden until the end). */
   fish: string | null;
   /** Its difficulty before the size bonus. */
@@ -146,7 +149,7 @@ export type Rng = () => number;
 
 export function newFishing(): FishingState {
   return {
-    phase: 'ready', fish: null, baseDiff: 1, t: 0, biteAt: 0, nibbles: [], floatDown: false,
+    phase: 'ready', strikeMultiplier: 1, fish: null, baseDiff: 1, t: 0, biteAt: 0, nibbles: [], floatDown: false,
     netY: 0, netV: 0, fishY: 0.5, fishTarget: 0.5, fishTurnIn: 0, progress: 0, inNet: false, easy: false,
     sizeCm: null, big: false,
   };
@@ -213,6 +216,8 @@ export function difficultyOf(s: Pick<FishingState, 'easy' | 'baseDiff'> & Partia
 }
 
 export interface CastOptions {
+  /** Free-only modifier, applied after fish selection. */
+  starred?: (fish: string) => boolean;
   /** Free fishing only: a shared deck roll replaces fish/size, leaving timing and physics below intact. */
   rolled?: { fish: string; sizeCm: number | null; baseDiff: number; big: boolean };
   info?: CastInfo;
@@ -247,7 +252,8 @@ export function cast(rng: Rng, opts: CastOptions = {}): FishingState {
   const nibbles: number[] = [];
   for (let i = 0; i < count; i++) nibbles.push(0.8 + rng() * Math.max(0.1, biteAt - 1.4));
   nibbles.sort((a, b) => a - b);
-  return { ...newFishing(), phase: 'waiting', fish: sp.id, baseDiff, biteAt, nibbles, easy: firstCatch, sizeCm, big };
+  const strikeMultiplier = !isStory && opts.starred?.(sp.id) ? FISH_BOOK.strikeWindowMultiplier : 1;
+  return { ...newFishing(), strikeMultiplier, phase: 'waiting', fish: sp.id, baseDiff, biteAt, nibbles, easy: firstCatch, sizeCm, big };
 }
 
 /** ◯ pressed (any phase). Returns the new state. */
@@ -280,7 +286,7 @@ export function step(s: FishingState, dt: number, rng: Rng, held = false): Fishi
   }
 
   if (s.phase === 'bite') {
-    if (t >= TUNING.biteWindow(d)) return { ...s, phase: 'stolen', t: 0, floatDown: false };
+    if (t >= TUNING.biteWindow(d) * s.strikeMultiplier) return { ...s, phase: 'stolen', t: 0, floatDown: false };
     return { ...s, t };
   }
 

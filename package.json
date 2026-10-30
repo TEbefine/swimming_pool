@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:reset-fishing": "node scripts/dev-reset-fishing.mjs",
     "server": "node server/wsServer.js",
     "process-assets": ".venv/bin/python scripts/process_assets.py",
     "build": "tsc -b && npm run test:api && vite build",

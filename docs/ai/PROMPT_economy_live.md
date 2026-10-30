@@ -54,6 +54,9 @@ coffee, money), without deleting anyone's account. Build it as a single number.
 
 ## Before you remove the gate, check these
 
+- **Fishing activation:** set the server-only `FISHING_DECK_REDEEM_FROM_DECK_ID` to the approved new full six-hour UTC deck window (`Math.floor(activationAt / 21_600_000)`), alongside a stable production `FISHING_DECK_SECRET` (at least 32 bytes). Missing/invalid cutoff or secret must fail closed for new sales; original committed receipts must still replay. Never use a `VITE_` variable for the secret.
+- Retire/disable every old complete-document writer before activation/reset: an old writer could erase paid bits. Keep `ECONOMY_API` off until the coherent reset/cutoff is ready. Do not clear paid bits while continuing to redeem old outstanding tickets. Pin the release cutoff once; do not advance it on each deploy. Local dev's current-window policy and `npm run dev:reset-fishing` are **local only** and must never be used for production.
+
 - A brand-new player with no save: the shop works, the wallet starts at zero, nothing crashes.
 - A player with an old test wallet: their fake coins are gone, their cooler survives, no error.
 - Two devices on one Player ID: sell on the phone, then open the laptop. The laptop shows the right

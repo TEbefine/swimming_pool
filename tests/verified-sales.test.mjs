@@ -170,3 +170,18 @@ test('accepted writes retain the per-minute operation limit after retiring the r
   const before = h.snapshot(); assert.equal((await buy()).statusCode, 429); assert.deepEqual(h.snapshot(), before);
   h.clock += 60000; assert.equal((await buy()).statusCode, 200);
 });
+
+test('applySale skips unknown soldToday ids instead of crashing; indexed rejection identifies only the refused fish', async () => {
+  const { applySale } = await import('../server/saves/sales.ts');
+  const { TEST_SECRET } = await import('./fishing-fixtures.mjs');
+  const doc = emptyPlayer(NOON); doc.econ.soldToday = { invented: 5 };
+  const c = fixtureCatch(ADDRESS, NOON - 1000), d = next(c);
+  const result = applySale(doc, [c], { now: NOON, address: ADDRESS, secret: TEST_SECRET, redeemFromDeckId: 0 });
+  assert.equal(result.fields.fishBook.sardine.sold, 1);
+  const h = saleHarness(); assert.equal((await h.sell([c])).statusCode, 200);
+  const before = h.snapshot(), paid = await h.sell([d, c]); assert.equal(paid.statusCode, 409);
+  assert.deepEqual(paid.body.rejectedCatches.map(l => ({ index: l.index, reason: l.reason })), [{ index: 1, reason: 'already_paid' }]);
+  assert.deepEqual(h.snapshot(), before);
+  const invalid = await h.sell([d, { ...c, sizeCm: 999 }]); assert.equal(invalid.statusCode, 422);
+  assert.deepEqual(invalid.body.rejectedCatches.map(l => l.index), [1]); assert.deepEqual(h.snapshot(), before);
+});

@@ -80,7 +80,7 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
         }
         if (pocket === 'fish' && !isStory.current) {
           const book = getFishBook();
-          const free = FREE_FISH.filter((f) => (book.entries[f.id]?.count ?? 0) > 0).map((f) => f.id);
+          const free = FREE_FISH.filter((f) => !!book.entries[f.id]).map((f) => f.id);
           const storyFish = carriedIn(getStory().bag, 'fish');
           return [...storyFish, ...free];
         }

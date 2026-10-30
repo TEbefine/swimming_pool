@@ -8,7 +8,8 @@ export interface RedemptionContext { now: number; redeemFromDeckId: number | nul
 export type PaidDeckRead = { ok: true; windows: PaidDeck[] } | { ok: false; reason: 'invalid_state' };
 export class DeckRedemptionError extends Error {
   code: 'invalid_state' | 'inactive' | 'invalid_ticket' | 'before_activation' | 'outside_window' | 'already_paid' | 'duplicate';
-  constructor(code: DeckRedemptionError['code']) { super(`Fishing redemption: ${code}.`); this.code = code; }
+  index?: number;
+  constructor(code: DeckRedemptionError['code'], index?: number) { super(`Fishing redemption: ${code}.`); this.code = code; this.index = index; }
 }
 const integer = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0;
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -61,14 +62,14 @@ export function markPaidTickets(raw: unknown, tickets: readonly PaidTicket[], co
   const current = currentWindow(context.now), seen = new Set<string>();
   const windows = (current > 0 ? [current - 1, current] : [current]).map((id) => parsed.windows.find((slot) => slot.deckId === id) ?? emptySlot(id));
   const bytes = new Map(windows.map((slot) => [slot.deckId, Buffer.from(slot.bits, 'base64')]));
-  for (const ticket of tickets) {
+  for (const [index, ticket] of tickets.entries()) {
     checkRedemptionWindow(ticket, context);
     const key = `${ticket.version}:${ticket.deckId}:${ticket.castIndex}`;
-    if (seen.has(key)) throw new DeckRedemptionError('duplicate');
+    if (seen.has(key)) throw new DeckRedemptionError('duplicate', index);
     seen.add(key);
     const bitmap = bytes.get(ticket.deckId)!;
     const byte = Math.floor(ticket.castIndex / 8), mask = 1 << (ticket.castIndex % 8);
-    if (bitmap[byte] & mask) throw new DeckRedemptionError('already_paid');
+    if (bitmap[byte] & mask) throw new DeckRedemptionError('already_paid', index);
     bitmap[byte] |= mask;
   }
   return windows.map((slot) => ({ ...slot, bits: bytes.get(slot.deckId)!.toString('base64') }));

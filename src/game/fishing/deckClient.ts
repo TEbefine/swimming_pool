@@ -34,3 +34,5 @@ if (ECONOMY_ON && !ECONOMY_SANDBOX && typeof window !== 'undefined') {
     if (document.hidden) clearTimeout(timer); else void refreshFishingDeck();
   });
 }
+
+export function resetFishingDeck() { store.reset(); void refreshFishingDeck(); }

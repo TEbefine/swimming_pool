@@ -95,11 +95,11 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
               <span>{info.name}!</span>
               {v.sizeCm !== null && <span className="opacity-80">{v.sizeCm} cm</span>}
               {v.mode === 'story' && <span className="text-[#6E9E5A]">+1 Bag</span>}
-              {info.isNew && <span className="text-[#6E9E5A]">NEW!</span>}
               {info.cooler && <span className={info.cooler.full ? 'text-[#9C4A3E]' : 'text-[#2D458B]'}>→ {info.cooler.text}</span>}
               {v.perfect && <span className="text-[#B8860B]">Perfect!</span>}
               {v.record && <span className="text-[#9C4A3E]">New record!</span>}
             </span>
+            {info.bookMessage && <span className="leading-snug" style={{ fontSize: compact ? 11 : 14 }}>{info.bookMessage}</span>}
             <span className="opacity-75 leading-snug truncate" style={{ fontFamily: 'var(--font-pixel)', fontSize: compact ? 11 : 15 }}>
               {info.note}
             </span>

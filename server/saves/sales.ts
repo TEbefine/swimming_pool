@@ -29,15 +29,15 @@ export function parseSaleCatches(raw: unknown): SaleCatch[] {
   // v1 wire bound stays fixed even if a later cooler policy shrinks; replay comes before capacity.
   const wireMax = 20;
   if (!Array.isArray(raw) || !raw.length || raw.length > wireMax) throw new SaveError(400, 'Invalid catch list.');
-  return raw.map(c => {
+  return raw.map((c, index) => {
     if (!object(c) || !keys(c, Object.hasOwn(c, 'ticket') ? ['fish', 'sizeCm', 'caughtAt', 'ticket'] : ['fish', 'sizeCm', 'caughtAt'])
       || typeof c.fish !== 'string' || c.fish.length > 40 || !(c.sizeCm === null || typeof c.sizeCm === 'number' && Number.isFinite(c.sizeCm))
-      || !Number.isSafeInteger(c.caughtAt)) throw new SaveError(400, 'Invalid catch.');
+      || !Number.isSafeInteger(c.caughtAt)) throw new SaveError(400, 'Invalid catch.', { rejectedCatches: [{ index, reason: 'invalid', message: "I can’t take that catch." }] });
     const t = c.ticket;
     if (t !== undefined && (!object(t) || !keys(t, ['version', 'deckId', 'castIndex', 'castInfo', 'castAt'])
       || !['version', 'deckId', 'castIndex', 'castAt'].every(k => Number.isSafeInteger(t[k]))
       || !object(t.castInfo) || !keys(t.castInfo, ['distance', 'nice'])
-      || typeof t.castInfo.distance !== 'number' || !Number.isFinite(t.castInfo.distance) || typeof t.castInfo.nice !== 'boolean')) throw new SaveError(400, 'Invalid catch ticket.');
+      || typeof t.castInfo.distance !== 'number' || !Number.isFinite(t.castInfo.distance) || typeof t.castInfo.nice !== 'boolean')) throw new SaveError(400, 'Invalid catch ticket.', { rejectedCatches: [{ index, reason: 'invalid', message: "I can’t take that fishing ticket." }] });
     return { fish: c.fish, sizeCm: c.sizeCm as number | null, caughtAt: c.caughtAt as number,
       ...(t === undefined ? {} : { ticket: structuredClone(t) as unknown as CatchTicket }) };
   });
@@ -75,13 +75,29 @@ export function applySale(doc: PlayerDoc, catches: SaleCatch[], context: SaleCon
   const { now } = context;
   const capacity = COOLER.baseSlots + COOLER.upgradeSlots * doc.coolerLevel;
   if (catches.length > capacity) throw new SaveError(422, "That's more fish than your cooler holds.");
-  const ordered = catches.map((c, index) => ({ c: validateSaleCatch(c, { ...context, iceUsedAt: doc.iceUsedAt }), index }))
+  const ordered = catches.map((c, index) => {
+    try { return { c: validateSaleCatch(c, { ...context, iceUsedAt: doc.iceUsedAt }), index }; }
+    catch (error) {
+      if (error instanceof SaveError && error.status === 422) error.details = { rejectedCatches: [{ index, reason: 'invalid', message: error.message }] };
+      throw error;
+    }
+  })
     .sort((a, b) => a.c.caughtAt - b.c.caughtAt);
   // Pure dry run validates ALL identities, even kept lines. Never persist this provisional bitmap.
-  try { markPaidTickets(doc.paidDecks, ordered.map(({ c }) => c.ticket), context); } catch (error) { redemptionError(error); }
+  try { markPaidTickets(doc.paidDecks, ordered.map(({ c }) => c.ticket), context); } catch (error) {
+    try { redemptionError(error); } catch (refusal) {
+      if (refusal instanceof SaveError && error instanceof DeckRedemptionError && error.index !== undefined) {
+        refusal.details = { rejectedCatches: [{ index: ordered[error.index].index, reason: error.code === 'already_paid' ? 'already_paid' : 'invalid', message: refusal.message }] };
+      }
+      throw refusal;
+    }
+  }
   const market = marketOf(now), soldToday = { ...doc.econ.soldToday };
   const tierSold = { common: 0, rare: 0, epic: 0, legend: 0, god: 0 };
-  for (const [id, count] of Object.entries(soldToday)) tierSold[FREE_BY_ID[id].tier] += count;
+  for (const [id, count] of Object.entries(soldToday)) {
+    if (!Object.hasOwn(FREE_BY_ID, id)) continue;
+    tierSold[FREE_BY_ID[id].tier] += count;
+  }
   let soldCount = Object.values(soldToday).reduce((sum, n) => sum + n, 0), earned = 0;
   const sold: SoldSaleLine[] = [], keptLines: KeptSaleLine[] = [];
   const paidTickets: CatchTicket[] = [];

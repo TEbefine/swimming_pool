@@ -1,11 +1,8 @@
 // ID-01 (c) — the game side of Player ID saves. Talks only to POST /api/items (server/saves/).
 // - attachPlayer(address): load the server save → Fish Book + Dalbit story switch to this Player ID.
-// - recordPendingCatches(): a Fishing Guide (Nami / Kai) writes this device's pending catches.
 // - The Dalbit story saves itself when a day ends (step "d<N>_end").
 // Guests (no Player ID, ?test=... pages) never call the server; their saves stay in this browser.
 import { useSyncExternalStore } from 'react';
-import { attachFishBook, getPendingCatches, pendingOperation, settlePendingCatches } from '../fishing/freeFish';
-import type { FishBookEntry, PendingCatch } from '../fishing/freeFish';
 import { attachStory, getDraftMeta, getStory, setDraftMeta, storyForSave, subscribeStory } from '../story/storyStore';
 import type { StoryState } from '../story/storyStore';
 import { DEV_TEST_ADDRESS, DEV_TEST_TOKEN } from '../../identity/devTestIdentity';
@@ -16,11 +13,7 @@ import { FISHING_DECK } from '../fishing/deckConfig';
 interface StorySave { day: number; step: string; revision: number; savedAt: number; state: StoryState }
 interface ServerView {
   revision: number;
-  fishBook: Record<string, FishBookEntry & { last?: number }>;
-  fishTotal: number;
-  lastCatchAt: number | null;
   story: { dalbit: StorySave | null };
-  result?: { recorded?: number; newKinds?: string[]; rejected?: { index: number; reason: string }[] };
   replayed?: boolean;
 }
 export type CloudStatus = 'guest' | 'loading' | 'ready' | 'offline';
@@ -34,14 +27,10 @@ class SaveRequestError extends Error {
 }
 
 const IS_TEST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('test');
-const CHUNK = 40; // = LIMITS.catchesPerRequest on the server
-const MAX_AGE_MS = 7 * 24 * 3600_000;
-const MIN_GAP_MS = 3_000; // = LIMITS.minCatchGapMs
 
 let address: string | null = null;
 let status: CloudStatus = 'guest';
 let storyStatus: StorySaveStatus = 'idle';
-let lastCatchAt: number | null = null;
 let attachTicket = 0;
 const listeners = new Set<() => void>();
 let snapshot: { address: string | null; status: CloudStatus; storyStatus: StorySaveStatus } = { address, status, storyStatus };
@@ -96,11 +85,6 @@ function newOperationId(): string {
   return `op-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
-function applyView(view: ServerView) {
-  lastCatchAt = view.lastCatchAt;
-  return { entries: view.fishBook, total: view.fishTotal };
-}
-
 // ---- attach / detach -----------------------------------------------------------------------------
 /** Called by the App whenever the verified Player ID changes (null = guest / signed out). */
 export async function attachPlayer(next: string | null): Promise<void> {
@@ -109,8 +93,7 @@ export async function attachPlayer(next: string | null): Promise<void> {
   address = next;
   attachFishingDeck(next); // background fetch/cache only, never on the cast path
   if (!next) {
-    status = 'guest'; storyStatus = 'idle'; lastCatchAt = null;
-    attachFishBook(null);
+    status = 'guest'; storyStatus = 'idle';
     attachStory(null, null);
     attachWallet(null);
     emit();
@@ -122,70 +105,16 @@ export async function attachPlayer(next: string | null): Promise<void> {
   try {
     const view = await call({ op: 'load' });
     if (ticket !== attachTicket) return;
-    attachFishBook(next, applyView(view));
     attachStory(next, view.story.dalbit);
     status = 'ready';
   } catch {
     if (ticket !== attachTicket) return;
-    // Offline: play on with this device's draft and pending catches; they are sent later.
-    attachFishBook(next);
+    // Offline: keep this account’s read-only Book cache and story draft.
     attachStory(next, null);
     status = 'offline';
   }
   emit();
   void maybeSaveStoryDay();
-}
-
-// ---- Fish Book: the Fishing Guide records pending catches -----------------------------------------
-export interface RecordResult { recorded: number; newKinds: string[]; dropped: number; error?: string }
-
-export async function recordPendingCatches(): Promise<RecordResult> {
-  const out: RecordResult = { recorded: 0, newKinds: [], dropped: 0 };
-  const who = address;
-  if (!who) return out;
-  if (status === 'offline') {
-    try {
-      const view = await call({ op: 'load' });
-      if (who !== address) return out;
-      settlePendingCatches([], applyView(view), who);
-      status = 'ready'; emit();
-    } catch (err) {
-      return { ...out, error: err instanceof Error ? err.message : 'Saving is unavailable right now.' };
-    }
-  }
-  const now = Date.now();
-  let list = getPendingCatches();
-  // The server refuses catches older than a week or not after the newest one it already has (e.g.
-  // recorded first on another device). Drop those here instead of sending them.
-  const stale = list.filter((c) => now - c.caughtAt > MAX_AGE_MS || (lastCatchAt !== null && c.caughtAt - lastCatchAt < MIN_GAP_MS));
-  if (stale.length) { settlePendingCatches(stale, undefined, who); out.dropped += stale.length; list = getPendingCatches(); }
-  while (list.length && who === address) {
-    const chunk: PendingCatch[] = list.slice(0, CHUNK);
-    const catches = chunk.map(({ fish, sizeCm, caughtAt }) => ({ fish, sizeCm, caughtAt }));
-    const opId = pendingOperation(who, JSON.stringify(catches), newOperationId);
-    try {
-      const view = await call({ op: 'fishbook.record', operationId: opId, catches });
-      if (who !== address) return out; // switched Player ID meanwhile: this answer is not for the current book
-      settlePendingCatches(chunk, applyView(view), who);
-      const rejected = view.result?.rejected ?? [];
-      out.recorded += view.result?.recorded ?? chunk.length - rejected.length;
-      out.newKinds.push(...(view.result?.newKinds ?? []));
-      if (rejected.length) { out.dropped += rejected.length; out.error = rejected[0].reason; }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Saving is unavailable right now.';
-      if (who !== address) return out;
-      if (err instanceof SaveRequestError && (err.status === 422 || err.status === 400)) {
-        // None of these will ever be accepted (bad clock, rules, malformed) — drop them so the rest can be saved.
-        settlePendingCatches(chunk, undefined, who);
-        out.dropped += chunk.length;
-        out.error = message;
-      } else {
-        return { ...out, error: message }; // network / unlock / rate: keep them for next time
-      }
-    }
-    list = getPendingCatches();
-  }
-  return out;
 }
 
 // ---- Dalbit story: save at the end of each day ----------------------------------------------------

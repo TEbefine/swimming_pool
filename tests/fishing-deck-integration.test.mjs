@@ -10,7 +10,7 @@ registerHooks({ resolve(s, c, next) {
   }
   return next(s, c);
 } });
-const { prepareFreeCast, finishFreeCast, BOOK_ONLY_CATCH } = await import('../src/game/fishing/freeCast.ts');
+const { prepareFreeCast, finishFreeCast, PRACTICE_CATCH } = await import('../src/game/fishing/freeCast.ts');
 const { FishingDeckStore } = await import('../src/game/fishing/deckStore.ts');
 const { EconomyStore } = await import('../src/game/economy/economyStore.ts');
 const { issueFishingDeck } = await import('../server/fishing/deck.ts');
@@ -19,12 +19,12 @@ const { cast, TUNING, step } = await import('../src/game/story/fishing.ts');
 const { FREE_FISH } = await import('../src/game/fishing/freeFishCatalog.ts');
 const { parseWallet } = await import('../src/game/economy/wallet.ts');
 const { FISHING_DECK } = await import('../src/game/fishing/deckConfig.ts');
-const { LIMITS } = await import('../server/saves/rules.ts');
+const { emptyPlayer, playerView } = await import('../server/saves/rules.ts');
 const A = '0x' + 'ab'.repeat(20), B = '0x' + 'cd'.repeat(20);
 const NOW = Date.UTC(2026, 9, 29, 5), SECRET = 'integration-deck-secret-at-least-32-bytes';
 function storage() { const m = new Map(); return { get: k => m.get(k) ?? null, set: (k, v) => m.set(k, v), remove: k => m.delete(k), m }; }
 function card(at = NOW, castIndex = 20) { return { deck: issueFishingDeck(A, at, SECRET), castIndex }; }
-function economy(s, clock) { const e = new EconomyStore({ sandbox: false, storage: s, clock, online: () => true, newOperationId: () => 'op-stage4-000000001' }); e.attach(A); return e; }
+function economy(s, clock) { const e = new EconomyStore({ sandbox: false, storage: s, clock, online: () => true, newOperationId: () => 'op-stage4-000000001' }); e.attach(A); e.receiveView(A, { ...playerView(emptyPlayer(clock()), clock()), redeemFromDeckId: 0 }); return e; }
 
 test('reservation and both stamps use the economy clock across an edge, despite a different deck offset', async () => {
   const edge = Math.ceil(NOW / FISHING_DECK.windowMs) * FISHING_DECK.windowMs;
@@ -136,7 +136,7 @@ async function sessionRig({ withDeck = true } = {}) {
   const mem = storage();
   const math = Object.create(Math); math.random = () => .5;
   class ClockDate extends Date { constructor(...args) { super(...(args.length ? args : [w.time])); } static now() { return w.time; } }
-  const context = createContext({ Math: math, Date: ClockDate, structuredClone, URLSearchParams,
+  const context = createContext({ atob, btoa, Math: math, Date: ClockDate, structuredClone, URLSearchParams,
     performance: { now: () => w.perf }, location: { search: '' }, navigator: { onLine: true },
     localStorage: { getItem: k => { if (w.failStorage) throw Error('blocked'); return mem.get(k); }, setItem: (k, v) => { if (w.failStorage) throw Error('quota'); mem.set(k, v); }, removeItem: k => mem.remove(k) },
     crypto: { getRandomValues: a => a.fill(7) }, document: { hidden: false, addEventListener() {} }, window: { location: { search: '' }, addEventListener() {}, setTimeout() {} },
@@ -144,6 +144,7 @@ async function sessionRig({ withDeck = true } = {}) {
   });
   new Script(bundle).runInContext(context); const api = context.Session;
   api.attachWallet(A); api.attachFishBook(A); api.attachFishingDeck(A);
+  api.receiveServerView(A, { ...playerView(emptyPlayer(w.time), w.time), redeemFromDeckId: 0, serverNow: w.time });
   api.registerDeckTransport(async () => { w.calls++; if (!withDeck) throw Error('offline'); return issueFishingDeck(A, w.time, SECRET); });
   await api.refreshFishingDeck();
   const engine = { localPlayer: { x: 452, y: 222, facing: 1, currentAction: 'idle' }, getRoom: () => ({ outfit: 'test-stage4' }),
@@ -190,74 +191,67 @@ test('real minigame casts at Nice edges and neighbours always produce valid cano
   assert.equal(outputs.length, 16); assert.equal(w.calls, 1, 'casting never requests a deck');
 });
 
-test('actual session carries a deck catch to both Book and Bag cooler using the same stamp', async () => {
+test('actual session catches a ticketed fish without awarding a local Book entry; Gen message is explicit', async () => {
   const w = await sessionRig(); w.throwAt(.85);
   const v = w.land(); assert.equal(v.phase, 'caught');
-  const pending = w.api.getPendingCatches()[0];
-  const fish = w.api.getWallet().cooler[0];
-  assert.ok(fish, JSON.stringify(v)); assert.deepEqual(fish.ticket, pending.ticket); assert.equal(fish.caughtAt, pending.caughtAt);
+  const fish = w.api.getWallet().cooler[0]; assert.ok(fish, JSON.stringify(v));
   const expected = rollDeckCatch({ ...fish.ticket, seed: w.api.getFishingDeck().seed });
   assert.equal(fish.fishId, expected.fish); assert.equal(fish.sizeCm, expected.sizeCm);
+  assert.equal(Object.keys(w.api.getFishBook().entries).length, 0);
+  assert.equal(v.info.bookMessage, 'New! Sell it to Gen to add it to your Fish Book.');
   assert.match(v.info.cooler.text, /^Cooler /); assert.equal(w.calls, 1);
 });
 
-test('Fish Book adjusts stamps below the shared minimum gap, drops tickets and preserves exact-gap stamps', async () => {
-  for (const delta of [-2000, 0, LIMITS.minCatchGapMs - 1]) {
-    const w = await sessionRig();
-    const p = prepareFreeCast({ distance: .8, nice: true }, NOW, () => card());
-    const first = finishFreeCast(p, NOW + LIMITS.minCatchGapMs, A);
-    assert.equal(w.api.addToFishBook('sardine', 15, first).stamp, first, 'unchanged stamps are shared');
-    const second = finishFreeCast(p, first.caughtAt + delta, A);
-    assert.ok(second.ticket, 'the input is ticketed before the Book adjusts it');
-    const original = structuredClone(second);
-    const adjusted = w.api.addToFishBook('sardine', 16, second).stamp;
-    assert.equal(adjusted.caughtAt, first.caughtAt + LIMITS.minCatchGapMs);
-    assert.equal(adjusted.ticket, undefined);
-    assert.deepEqual(second, original, 'caller stamp/ticket is not mutated');
-    const later = finishFreeCast(p, adjusted.caughtAt + LIMITS.minCatchGapMs, A);
-    assert.equal(w.api.addToFishBook('sardine', 17, later).stamp, later);
-    const pending = w.api.getPendingCatches();
-    assert.equal(pending.length, 3);
-    assert.equal(pending[1].caughtAt, adjusted.caughtAt); assert.equal(pending[1].ticket, undefined);
-    assert.deepEqual(pending[2].ticket, later.ticket);
-    assert.equal(w.api.getFishBook().total, 3);
-  }
-});
-
-test('real catches after a backwards gameNow correction stay Book-only at the shared gap without a cooler entry', async () => {
-  const w = await sessionRig(); w.throwAt(.85);
-  assert.equal(w.land().phase, 'caught');
-  const first = w.api.getPendingCatches()[0];
-  assert.ok(first.ticket); assert.equal(w.api.getWallet().cooler.length, 1);
+test('backwards game clock never re-stamps catches for an obsolete Book gap; only the cast’s own ordering matters', async () => {
+  const w = await sessionRig(); w.throwAt(.85); const first = w.land(); assert.equal(first.phase, 'caught');
+  const original = w.api.getWallet().cooler[0];
   w.api.stopFishing(); await w.api.startFishing(w.engine, 'free');
-  w.api.receiveServerView(A, { serverNow: w.api.gameNow() - 60_000 });
-  assert.ok(w.api.gameNow() < first.caughtAt);
-  w.throwAt(.85); const view = w.land(); assert.equal(view.phase, 'caught');
-  assert.ok(w.api.gameNow() < first.caughtAt, 'second catch clock is still earlier than the first');
-  const pending = w.api.getPendingCatches();
-  assert.equal(pending.length, 2, 'both catches remain in the Book pending list');
-  assert.equal(pending[1].caughtAt, first.caughtAt + LIMITS.minCatchGapMs); assert.equal(pending[1].ticket, undefined);
-  assert.equal(w.api.getFishBook().total, 2);
-  assert.equal(w.api.getWallet().cooler.length, 1, 'the adjusted catch cannot enter the cooler');
-  assert.equal(w.api.getWallet().cooler[0].caughtAt, first.caughtAt);
-  assert.deepEqual(w.api.getWallet().cooler[0].ticket, first.ticket);
-  assert.equal(view.info.cooler.text, BOOK_ONLY_CATCH);
-  const savedPending = JSON.parse(w.mem.get(`free_fishing_pending_v1_${A}`));
-  assert.equal(savedPending[1].caughtAt, first.caughtAt + LIMITS.minCatchGapMs); assert.equal(savedPending[1].ticket, undefined);
-  assert.equal(JSON.parse(w.mem.get(`sp_cooler_v2_${A}`)).length, 1);
-
+  w.api.receiveServerView(A, { serverNow: w.api.gameNow() - 60000 });
+  w.throwAt(.85); const second = w.land(); assert.equal(second.phase, 'caught');
+  const fish = w.api.getWallet().cooler[1]; assert.ok(fish.ticket); assert.ok(fish.caughtAt < original.caughtAt);
+  assert.ok(fish.ticket.castAt <= fish.caughtAt); assert.equal(Object.keys(w.api.getFishBook().entries).length, 0);
 });
 
-test('actual no-deck and storage-failure casts still land with a plain Book-only catch card and no cooler fish', async () => {
+test('actual no-deck and storage-failure casts still land as practice, with no cooler or Book award', async () => {
   for (const reason of ['offline', 'storage', 'exhausted']) {
     const w = await sessionRig({ withDeck: reason !== 'offline' });
     if (reason === 'storage') w.failStorage = true;
     if (reason === 'exhausted') for (let i = 0; i < FISHING_DECK.casts; i++) assert.ok(w.api.reserveFishingCast(w.api.gameNow()));
     w.throwAt(.85); const v = w.land(); assert.equal(v.phase, 'caught', reason);
-    const legacy = cast(() => .5, { table: w.api.freeTableNow(), info: { distance: .85, nice: true }, hour: 12 });
-    assert.equal(v.caught, legacy.fish); assert.equal(v.sizeCm, legacy.sizeCm, 'fallback uses the original local roll');
-    assert.equal(v.info.cooler.text, BOOK_ONLY_CATCH); assert.equal(w.api.getWallet().cooler.length, 0);
-    assert.equal(w.api.getPendingCatches().length, 1); assert.equal(w.api.getPendingCatches()[0].ticket, undefined);
-    assert.equal(w.calls, 1);
+    assert.equal(v.info.bookMessage, PRACTICE_CATCH); assert.equal(w.api.getWallet().cooler.length, 0);
+    assert.equal(Object.keys(w.api.getFishBook().entries).length, 0); assert.equal(w.calls, 1);
   }
+});
+
+test('whole loop: real minigame catch → verified Gen sale → Book update; lost answer/Retry and second device never invent entries', async () => {
+  const { saleHarness } = await import('./sale-harness.mjs');
+  const w = await sessionRig(), h = saleHarness({ address: A, start: w.time, env: { FISHING_DECK_SECRET: SECRET } });
+  w.api.registerEconomyTransport(async body => {
+    h.clock = w.time; const res = await h.call(body);
+    if (res.statusCode !== 200) throw Object.assign(new Error(res.body.error), { status: res.statusCode, data: res.body });
+    w.api.receiveServerView(A, res.body); return res.body;
+  });
+  // Give the real store varying IDs; the deterministic VM crypto fixture otherwise repeats one ID.
+  let byte = 0; w.context.crypto.getRandomValues = a => a.fill(++byte);
+  w.throwAt(.85); assert.equal(w.land().phase, 'caught');
+  const fish = w.api.getWallet().cooler[0]; assert.ok(fish.ticket); assert.equal(Object.keys(w.api.getFishBook().entries).length, 0);
+  const sale = await w.api.sellToGen([fish.uid]); assert.equal(sale.ok, true, JSON.stringify(sale));
+  assert.equal(sale.receipt.vendor, 'gen'); assert.equal(w.api.getWallet().cooler.length, 0);
+  assert.equal(w.api.getFishBook().entries[fish.fishId].best, fish.sizeCm); assert.equal(h.players.get(A).fishBook[fish.fishId].sold, 1);
+  const second = await sessionRig(); assert.equal(Object.keys(second.api.getFishBook().entries).length, 0);
+  second.api.receiveServerView(A, (await h.call({ op: 'load' })).body);
+  assert.equal(second.api.getFishBook().entries[fish.fishId].best, fish.sizeCm);
+  // A lost answer commits on the server but does not speculatively update the local Book.
+  w.api.stopFishing(); await w.api.startFishing(w.engine, 'free'); w.throwAt(.85); assert.equal(w.land().phase, 'caught');
+  const next = w.api.getWallet().cooler[0], before = JSON.stringify(w.api.getFishBook()), sent = []; let lose = true;
+  w.api.registerEconomyTransport(async body => {
+    sent.push(JSON.parse(JSON.stringify(body))); h.clock = w.time; const res = await h.call(body);
+    if (res.statusCode !== 200) throw Object.assign(new Error(res.body.error), { status: res.statusCode, data: res.body });
+    if (lose) { lose = false; throw Error('lost'); }
+    w.api.receiveServerView(A, res.body); return res.body;
+  });
+  assert.equal((await w.api.sellToGen([next.uid])).kind, 'uncertain'); assert.equal(JSON.stringify(w.api.getFishBook()), before);
+  assert.equal((await w.api.retryTrade()).ok, true); assert.deepEqual(sent[1], sent[0]);
+  assert.equal(h.logs.size, 2); assert.equal(Object.values(h.players.get(A).fishBook).reduce((n, e) => n + e.sold, 0), 2);
+  assert.equal(w.api.getWallet().cooler.length, 0);
 });

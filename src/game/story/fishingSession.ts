@@ -17,11 +17,12 @@ import type { GameEngine } from '../Engine';
 import { cast, difficultyOf, isOver, newFishing, press as pressRule, step, TUNING, type CastInfo, type FishingPhase, type FishingState } from './fishing';
 import { ITEMS, itemIcon, withArticle, type ItemId } from './items';
 import { addItem, addLedger, getStory, recordSize, setEnergy, setFlag } from './storyStore';
-import { BOTTLE_NOTES, FREE_BY_ID, FREE_TABLE, TIERS, addToFishBook, freeIcon, freeTableNow } from '../fishing/freeFish';
-import { catchToCooler, ECONOMY_ON, gameNow } from '../economy/walletStore';
+import { BOTTLE_NOTES, FREE_BY_ID, FREE_TABLE, TIERS, getFishBook, freeIcon, freeTableNow } from '../fishing/freeFish';
+import { catchToCooler, ECONOMY_ON, gameNow, saleProblemNow } from '../economy/walletStore';
 import { getFishingDeckAddress, reserveFishingCast } from '../fishing/deckClient';
-import { BOOK_ONLY_CATCH, finishFreeCast, prepareFreeCast } from '../fishing/freeCast';
+import { PRACTICE_CATCH, finishFreeCast, prepareFreeCast } from '../fishing/freeCast';
 import type { FreeCast } from '../fishing/freeCast';
+import { FISH_BOOK_BY_ID } from '../fishing/fishBookConfig';
 import { coolerSlots } from '../economy/wallet';
 import { bangkokHour } from '../world/cityView';
 
@@ -37,9 +38,8 @@ export interface CatchInfo {
   /** Rarity label + colour (Free Fishing tiers; story shows its own rarity). */
   tier: string;
   tierColor: string;
-  /** First time ever (Free Fishing). */
-  isNew: boolean;
   /** ECO-01 (dev/sandbox only): where the fish went. null = not a fish Gen buys, or the economy is off. */
+  bookMessage?: string;
   cooler?: { text: string; full: boolean } | null;
 }
 
@@ -47,13 +47,13 @@ function catchInfo(id: string): CatchInfo {
   if (mode === 'free') {
     const f = FREE_BY_ID[id];
     const t = TIERS[f.tier];
-    // protected animals are logged, then let go (the note says so)
+    // Protected animals are released; only verified paid fish enter the Book.
     const note = id === 'bottle_message' ? `"${BOTTLE_NOTES[Math.floor(Math.random() * BOTTLE_NOTES.length)]}"` : f.note;
-    return { name: f.name, note, icon: freeIcon(id), tier: t.label, tierColor: t.color, isNew: false };
+    return { name: f.name, note, icon: freeIcon(id), tier: t.label, tierColor: t.color };
   }
   const it = ITEMS[id as ItemId];
   const rare = it.catch?.rarity === 'rare';
-  return { name: it.name, note: it.note, icon: itemIcon(id as ItemId), tier: rare ? 'Rare' : '', tierColor: rare ? '#E0A526' : '#9AA3A8', isNew: false };
+  return { name: it.name, note: it.note, icon: itemIcon(id as ItemId), tier: rare ? 'Rare' : '', tierColor: rare ? '#E0A526' : '#9AA3A8' };
 }
 
 /** Sentence name: "an eel" / "a Jade Moon Koi". */
@@ -333,7 +333,7 @@ function throwLine(info: CastInfo) {
   freeCast = mode === 'free' && ECONOMY_ON
     ? prepareFreeCast(info, gameNow(), testHooks.forceFish ? () => null : reserveFishingCast) : null;
   fs = mode === 'free'
-    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), info, rolled: freeCast?.rolled, forceFish: testHooks.forceFish, hour: bangkokHour() })
+    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), info, rolled: freeCast?.rolled, starred: fish => !!getFishBook().entries[fish]?.starred, forceFish: testHooks.forceFish, hour: bangkokHour() })
     : cast(Math.random, { firstCatch: !st.flags.first_catch, forceFish: testHooks.forceFish, info });
   testHooks.onCast?.(info);
   sound.playEmoteSound('jump'); // the swing whoosh
@@ -382,16 +382,20 @@ function finish(now: number) {
   if (fs.phase === 'caught' && fish) {
     info = catchInfo(fish);
     if (mode === 'free') {
-      const stamp = freeCast ? finishFreeCast(freeCast, gameNow(), getFishingDeckAddress()) : undefined;
-      const r = addToFishBook(fish, fs.sizeCm, stamp);
-      record = r.record;
-      info.isNew = r.isNew;
-      // ECO-01: fish you can sell go in the cooler (off in the live game → returns null)
-      const bookOnly = ECONOMY_ON && !r.stamp.ticket;
-      const c = bookOnly ? null : catchToCooler(fish, fs.sizeCm, r.stamp);
-      if (bookOnly) info.cooler = { text: BOOK_ONLY_CATCH, full: false };
-      if (c?.ok) info.cooler = { text: `Cooler ${c.wallet.cooler.length}/${coolerSlots(c.wallet)}`, full: c.wallet.cooler.length >= coolerSlots(c.wallet) };
-      else if (c && c.reason === 'cooler_full') info.cooler = { text: 'Cooler full!', full: true };
+      const stamp = freeCast ? finishFreeCast(freeCast, gameNow(), getFishingDeckAddress()) : { caughtAt: gameNow() };
+      const practice = !stamp.ticket;
+      const c = practice ? null : catchToCooler(fish, fs.sizeCm, stamp);
+      if (practice) info.bookMessage = PRACTICE_CATCH;
+      if (c?.ok) {
+        info.cooler = { text: `Cooler ${c.wallet.cooler.length}/${coolerSlots(c.wallet)}`, full: c.wallet.cooler.length >= coolerSlots(c.wallet) };
+        const problem = saleProblemNow(c.fish);
+        if (problem) info.bookMessage = problem;
+        else if (!getFishBook().entries[fish]) info.bookMessage = 'New! Sell it to Gen to add it to your Fish Book.';
+      } else if (c?.reason === 'cooler_full') {
+        info.cooler = { text: 'Cooler full!', full: true };
+        info.bookMessage = 'Cooler full — this catch can’t be sold or added to your Fish Book.';
+      } else if (Object.hasOwn(FISH_BOOK_BY_ID, fish) && !info.bookMessage) info.bookMessage = PRACTICE_CATCH;
+      if (!Object.hasOwn(FISH_BOOK_BY_ID, fish)) info.bookMessage = 'This find can’t be sold or added to your Fish Book.';
       // tell everyone in the room about the big ones (chat bubble over your head)
       const f = FREE_BY_ID[fish];
       if (TIERS[f.tier].announce) {

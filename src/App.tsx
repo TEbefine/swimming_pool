@@ -34,9 +34,7 @@ import { music } from './game/audio/music';
 import { sound } from './game/audio';
 import { preloadBootIntro, showBootOnce } from './boot/bootSound';
 import { getStartupPlan, recordActiveSession, type StartupPlan } from './boot/bootSession';
-import { attachPlayer, getCloudAddress, recordPendingCatches } from './game/saves/cloud';
-import { FISHING_GUIDES, guideScript, withRecordResult } from './game/saves/guideRecord';
-import { getPendingCatches } from './game/fishing/freeFish';
+import { attachPlayer } from './game/saves/cloud';
 import { CafeOrder, type CafeInput } from './components/cafe/CafeOrder';
 import type { OrderLine } from './game/cafe/cafeMenu';
 import { orderCancelled, orderReadBack } from './game/cafe/cafeBarista';
@@ -666,11 +664,6 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         void startFishing(engine, 'free');
         return;
       }
-      // Fishing Guides record this Player ID's pending catches (ID-01 c)
-      if (actionId === 'talk' && FISHING_GUIDES.has(targetId) && dialogues[targetId]) {
-        openDialog(targetId, guideScript(dialogues[targetId], getPendingCatches().length, getCloudAddress() !== null));
-        return;
-      }
       // Harbour Fish Shop (ECO-01): Gen / Minato talk about today's market and your cooler
       if (actionId === 'talk' && SHOP_NPCS.has(targetId)) {
         openDialog(targetId, targetId === 'gen' ? genScript() : minatoScript());
@@ -1012,9 +1005,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         if (dialogNpcId === 'barista' && nodeId === 'order') cafeOrderPending.current = true;
         const shopTab = SHOP_NODE_OPENS[dialogNpcId]?.[nodeId];
         if (shopTab) shopPending.current = { vendor: dialogNpcId as Vendor, tab: shopTab };
-        if (FISHING_GUIDES.has(dialogNpcId) && nodeId === 'record') {
-          void recordPendingCatches().then((r) => setDialogScript((cur) => (cur ? withRecordResult(cur, r) : cur)));
-        }
+
       }}
       onClose={closeDialog}
       directionNudge={dialogDpadNudge}
