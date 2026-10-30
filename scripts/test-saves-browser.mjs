@@ -65,7 +65,9 @@ try {
   assert.deepEqual(before.entries, {}, 'catching never awards the Book');
   const sale = await page.evaluate(() => window.__shop.sellAll()); assert.equal(sale.ok, true, JSON.stringify(sale)); assert.equal(sale.receipt.vendor, 'gen');
   assert.equal(players.get(ADDRESS).fishBook[fish.fishId].sold, 1); assert.equal(logs.size, 1);
-  await page.getByRole('button', { name: /Fish Book 1\/27/ }).click();
+  // No map chip any more: open the Book from START, like a player (field 0 = Fish Book)
+  assert.equal(await page.getByRole('button', { name: /^Fish Book \d/ }).count(), 0, 'no Fish Book chip on the map');
+  await page.keyboard.press('m'); await page.waitForTimeout(300); await page.keyboard.press('Enter');
   await page.getByRole('button', { name: fish.name, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Fish Book' }); await dialog.getByText(`best ${fish.sizeCm} cm`, { exact: false }).first().waitFor();
   assert.doesNotMatch(await dialog.innerText(), /waiting|\d+ caught|×\d+/);

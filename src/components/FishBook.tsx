@@ -17,7 +17,7 @@ const BOOK_FISH = FISH_BOOK_KINDS.map(f => FREE_BY_ID[f.id]);
 // The Fish Book (Free Fishing): the wooden storage box from public/ui/fishbook_window.webp,
 // Harvest Moon style. Two icon sheets per page (16 kinds each = the 32 slots).
 // Verified kinds show their icon + star; unknown kinds are dark shadows.
-// Tap / click a slot to read about it. Opens with the "Fish Book" chip or key B.
+// Tap / click a slot to read about it. Opens from the START menu; ✕ or Escape closes it.
 
 // Positions measured on the cropped window art (1352 × 953 px, served at half size).
 const W = 1352;
@@ -85,15 +85,7 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[6]" style={{ fontFamily: 'var(--font-pixel)', containerType: 'size' }}>
-      {/* the chip that opens it */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`pointer-events-auto absolute ${compact ? 'right-1 top-1 text-[10px] px-1.5 py-0.5' : 'right-3 top-16 text-[13px] px-2 py-1'} rounded-md border-2 border-[#4A2E1A] bg-[#F4D98B] text-[#4A2E1A] shadow-[0_2px_0_#4A2E1A] active:translate-y-[1px]`}
-      >
-        Fish Book {caughtKinds}/{BOOK_FISH.length}{compact ? '' : ' [B]'}
-      </button>
-
+      {/* No chip on the map: the Fish Book opens from the START menu; ✕ (Game Boy / its own button) or Escape closes it. */}
       {open && (
         <div
           className="pointer-events-auto absolute left-1/2"
