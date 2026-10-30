@@ -193,3 +193,7 @@ The original transition design follows for future reference only. It is unnecess
 6. V1 last window ends E = D×6h. New v1 redemptions end before E+65m10s; its paid bits retire at E+6h, with **294m50s margin**. Retain v1 code/vectors rather than eagerly deleting them; saved receipts replay indefinitely. Coins/day, tier caps and lifetime Book counters span both versions. No migration, new Book version, archival fields or reset of paid bits.
 
 Firestore stored shapes and permissions stay the same: `{version,deckId,bits}` slots, `{kind:{best,sold}}`, existing coins/econ/log documents; a version value of 2 is newly supported. Server-only policy may add a non-secret v2FromDeckId response field; the sale intent's ticket shape does not change. Owner-read/client-write-denied rules stay unchanged. Still player+log, 2 reads + 2 writes before retries.
+
+## Step 3 review result — 2026-10-30
+
+Free-only profile and v2 practice table built after pulling4db5f42, preserving Claude Book/shell UI.297 tests, TypeScript/build/four APIs and10 emulator tests pass;1,920 delayed-input controller runs and38,400-frame frozen story parity. No reset or shared DB. Physical iPhone feel review pending; no universal catchability proof claimed. Full evidence: [step3 review](ECO-03-stage6-step3-review.md). Stop after commit/push; step4 remains unstarted.

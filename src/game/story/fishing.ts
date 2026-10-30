@@ -1,3 +1,4 @@
+import { FREE_FISHING_TUNING } from '../fishing/freeFishingTuning.js';
 import { FISH_BOOK } from '../fishing/fishBookConfig.js';
 // Fishing minigame logic — no drawing, no React. FishingGame.tsx draws it and feeds it input.
 //
@@ -114,6 +115,8 @@ function storyTiers(): TierDef[] {
 export type FishingPhase = 'ready' | 'waiting' | 'bite' | 'reel' | 'caught' | 'scared' | 'stolen' | 'escaped';
 
 export interface FishingState {
+  freeTuning?: typeof FREE_FISHING_TUNING;
+  fishV?: number;
   phase: FishingPhase;
   /** Species star, snapshotted for a free cast. Never part of a ticket or roll. */
   strikeMultiplier: number;
@@ -216,6 +219,8 @@ export function difficultyOf(s: Pick<FishingState, 'easy' | 'baseDiff'> & Partia
 }
 
 export interface CastOptions {
+  /** Explicit free-session opt-in; story ignores it. */
+  freePacing?: boolean;
   /** Free-only modifier, applied after fish selection. */
   starred?: (fish: string) => boolean;
   /** Free fishing only: a shared deck roll replaces fish/size, leaving timing and physics below intact. */
@@ -246,14 +251,15 @@ export function cast(rng: Rng, opts: CastOptions = {}): FishingState {
   const big = rolled ? rolled.big : !firstCatch && !!sp.size && sizeCm !== null && sizeCm >= sp.size[0] + (sp.size[1] - sp.size[0]) * TUNING.bigShare;
   const baseDiff = rolled ? rolled.baseDiff : sp.difficulty;
   const d = firstCatch ? 1 : difficultyOf({ easy: false, baseDiff, big });
-  const wait = (TUNING.waitMin + rng() * TUNING.waitSpread) * (info.nice ? TUNING.niceWait : 1);
+  const freeTuning = !isStory && opts.freePacing ? FREE_FISHING_TUNING : undefined;
+  const wait = ((freeTuning?.waitMin ?? TUNING.waitMin) + rng() * (freeTuning?.waitSpread ?? TUNING.waitSpread)) * (info.nice ? TUNING.niceWait : 1);
   const biteAt = Math.max(1.4, wait);
   const count = firstCatch ? 1 : Math.min(TUNING.maxNibbles, Math.floor(rng() * (1 + Math.ceil(d / 2))) );
   const nibbles: number[] = [];
   for (let i = 0; i < count; i++) nibbles.push(0.8 + rng() * Math.max(0.1, biteAt - 1.4));
   nibbles.sort((a, b) => a - b);
   const strikeMultiplier = !isStory && opts.starred?.(sp.id) ? FISH_BOOK.strikeWindowMultiplier : 1;
-  return { ...newFishing(), strikeMultiplier, phase: 'waiting', fish: sp.id, baseDiff, biteAt, nibbles, easy: firstCatch, sizeCm, big };
+  return { ...newFishing(), ...(freeTuning ? { freeTuning, fishV: 0 } : {}), strikeMultiplier, phase: 'waiting', fish: sp.id, baseDiff, biteAt, nibbles, easy: firstCatch, sizeCm, big };
 }
 
 /** ◯ pressed (any phase). Returns the new state. */
@@ -265,7 +271,7 @@ export function press(s: FishingState): FishingState {
     case 'bite':
       return {
         ...s, phase: 'reel', t: 0, floatDown: false,
-        netY: 0.1, netV: 0, fishY: 0.35, fishTarget: 0.5, fishTurnIn: 0.4, progress: TUNING.progressStart,
+        netY: 0.1, netV: 0, fishY: 0.35, fishTarget: 0.5, fishTurnIn: s.freeTuning ? s.freeTuning.minTargetHold : 0.4, progress: TUNING.progressStart,
       };
     case 'reel':
       return { ...s, netV: Math.min(TUNING.maxSpeed, s.netV + TUNING.tapLift) };
@@ -304,17 +310,27 @@ export function step(s: FishingState, dt: number, rng: Rng, held = false): Fishi
     fishTurnIn -= dt;
     if (fishTurnIn <= 0) {
       fishTarget = 0.05 + rng() * 0.9;
-      fishTurnIn = TUNING.fishTurnEvery(d) * (0.6 + rng() * 0.8);
+      fishTurnIn = Math.max(s.freeTuning?.minTargetHold ?? 0, TUNING.fishTurnEvery(d) * (0.6 + rng() * 0.8));
     }
     const speed = TUNING.fishSpeed(d);
     const diff = fishTarget - s.fishY;
-    const fishY = s.fishY + Math.sign(diff) * Math.min(Math.abs(diff), speed * dt);
+    let fishV = s.fishV ?? 0;
+    let fishY = s.fishY + Math.sign(diff) * Math.min(Math.abs(diff), speed * dt);
+    if (s.freeTuning) {
+      const a = s.freeTuning.fishAcceleration;
+      const desired = Math.sign(diff) * Math.min(speed, s.freeTuning.maxFishSpeed, Math.sqrt(2 * a * Math.abs(diff)));
+      fishV += Math.max(-a * dt, Math.min(a * dt, desired - fishV));
+      fishY = s.fishY + fishV * dt;
+      // Targets are inside these rails; approaching them brakes before a reversal.
+      if (fishY < 0 || fishY > 1) { fishY = Math.max(0, Math.min(1, fishY)); fishV = 0; }
+    }
+    const movement = s.freeTuning ? { fishV } : {};
 
     const inNet = fishY >= netY && fishY <= netY + TUNING.netSize;
-    const progress = Math.max(0, Math.min(1, s.progress + (inNet ? TUNING.fillRate : -TUNING.drainRate) * dt));
-    if (progress >= 1) return { ...s, phase: 'caught', t: 0, progress, netY, fishY, inNet };
-    if (progress <= 0) return { ...s, phase: 'escaped', t: 0, progress, netY, fishY, inNet };
-    return { ...s, t, netY, netV, fishY, fishTarget, fishTurnIn, progress, inNet };
+    const progress = Math.max(0, Math.min(1, s.progress + (inNet ? (s.freeTuning?.fillRate ?? TUNING.fillRate) : -TUNING.drainRate) * dt));
+    if (progress >= 1) return { ...s, phase: 'caught', t: 0, progress, netY, fishY, inNet, ...movement };
+    if (progress <= 0) return { ...s, phase: 'escaped', t: 0, progress, netY, fishY, inNet, ...movement };
+    return { ...s, t, netY, netV, fishY, fishTarget, fishTurnIn, progress, inNet, ...movement };
   }
 
   return { ...s, t };

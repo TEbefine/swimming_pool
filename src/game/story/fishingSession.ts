@@ -333,7 +333,7 @@ function throwLine(info: CastInfo) {
   freeCast = mode === 'free' && ECONOMY_ON
     ? prepareFreeCast(info, gameNow(), testHooks.forceFish ? () => null : reserveFishingCast) : null;
   fs = mode === 'free'
-    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), info, rolled: freeCast?.rolled, starred: fish => !!getFishBook().entries[fish]?.starred, forceFish: testHooks.forceFish, hour: bangkokHour() })
+    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), freePacing: true, info, rolled: freeCast?.rolled, starred: fish => !!getFishBook().entries[fish]?.starred, forceFish: testHooks.forceFish, hour: bangkokHour() })
     : cast(Math.random, { firstCatch: !st.flags.first_catch, forceFish: testHooks.forceFish, info });
   testHooks.onCast?.(info);
   sound.playEmoteSound('jump'); // the swing whoosh

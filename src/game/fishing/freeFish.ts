@@ -5,12 +5,13 @@ import { useSyncExternalStore } from 'react';
 import { FishBookStore } from './fishBookState';
 export type { FishBook, FishBookEntry } from './fishBookState';
 import type { FishTable } from '../story/fishing';
-import { FREE_FISH, TIERS, thaiSeasonAt } from './freeFishCatalog';
-import type { FreeTier, Season } from './freeFishCatalog';
+import { DECK_TIERS_V2 } from './deckRollV2';
+import { FREE_FISH, thaiSeasonAt } from './freeFishCatalog';
+import type { Season } from './freeFishCatalog';
 
 export * from './freeFishCatalog';
 
-const FREE_TIERS = (['god', 'legend', 'epic', 'rare', 'common'] as FreeTier[]).map((t) => ({ id: t, weight: TIERS[t].weight, nice: TIERS[t].nice, weak: TIERS[t].weak }));
+const FREE_TIERS = DECK_TIERS_V2.map(t => ({ ...t }));
 
 /** The table for every season at once (test forcing, simulations). */
 export const FREE_TABLE: FishTable = {
