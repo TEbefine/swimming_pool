@@ -128,13 +128,13 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
     const built = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.ECONOMY_PREVIEW': 'true', 'import.meta.env.DEV': JSON.stringify(dev) },
       plugins: [{ name: 'session-test-entry', enforce: 'pre', resolveId(id) { if (id === root + 'stage4-test-entry.ts' || id === 'react') return id === 'react' ? '\0react' : '\0session-test'; },
         load(id) { if (id === '\0react') return 'export const useSyncExternalStore = (_, get) => get();';
-          if (id === '\0session-test') return `export * from '${root}game/story/fishingSession.ts'; export * from '${root}game/fishing/deckClient.ts'; export * from '${root}game/economy/walletStore.ts'; export * from '${root}game/fishing/freeFish.ts';`; } }],
+          if (id === '\0session-test') return `export * from '${root}game/story/fishingSession.ts'; export * from '${root}game/fishing/deckClient.ts'; export * from '${root}game/economy/walletStore.ts'; export * from '${root}game/fishing/freeFish.ts'; export {sound} from '${root}game/audio.ts';`; } }],
       build: { minify: false, write: false, lib: { entry: root + 'stage4-test-entry.ts', name: 'Session', formats: ['iife'] } } });
     bundle = (Array.isArray(built) ? built : [built]).flatMap(b => b.output).find(c => c.type === 'chunk' && c.isEntry).code;
     bundles.set(dev, bundle);
   }
   const { createContext, Script } = await import('node:vm');
-  const w = { time: NOW, perf: 1000, failStorage: false, calls: 0, net: .1 };
+  const w = { time: NOW, perf: 1000, timers: [], audio: [], failStorage: false, calls: 0, net: .1 };
   const mem = storage();
   for (const [key, value] of Object.entries(seedStorage)) mem.set(key, value);
   const math = Object.create(Math); math.random = () => .5;
@@ -143,7 +143,7 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
     performance: { now: () => w.perf, timeOrigin: 1_700_000_000_000 }, location: { search: '' }, navigator: { onLine: true },
     localStorage: { getItem: k => { if (w.failStorage) throw Error('blocked'); return mem.get(k); }, setItem: (k, v) => { if (w.failStorage) throw Error('quota'); mem.set(k, v); }, removeItem: k => mem.remove(k) },
     crypto: { getRandomValues: a => a.fill(4) }, document: { hidden: false, addEventListener() {} }, window: { location: { search: '' }, addEventListener() {}, setTimeout() {} },
-    setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {}, fetch: async () => ({ json: async () => ({}) }), Image: class { complete = false; },
+    setTimeout: (fn, delay) => { w.timers.push({fn,delay,at:w.perf+delay}); return w.timers.length; }, clearTimeout(id) { if(w.timers[id-1])w.timers[id-1].cancelled=true; }, setInterval: () => 1, clearInterval() {}, fetch: async () => ({ json: async () => ({}) }), Image: class { complete = false; },
   });
   new Script(bundle).runInContext(context); const api = context.Session;
   api.attachWallet(A); api.attachFishBook(A); api.attachFishingDeck(A);
@@ -154,6 +154,7 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
     walkPlayerTo: async () => {}, setDialogFrozen() {}, setPlayerPose() {}, triggerEmote() {}, sendChat() {} };
   const ctx = new Proxy({ fillRect(x, y, width, height) { if ((this.fillStyle === '#C9A56B' || this.fillStyle === '#DDBB78') && width === 22 && height === 48) w.net = (176 - y) / 160 - .3; } }, { get: (obj, k) => k in obj ? obj[k] : () => {} });
   await api.startFishing(engine, 'free');
+  api.sound.playEmoteSound = action => w.audio.push({action,at:w.perf});
   w.api = api; w.mem = mem; w.context = context; w.engine = engine;
   w.throwAt = (distance, sweep = 0) => { w.perf = Math.ceil(w.perf) + 1000; api.fishingPress(); api.fishingHold(true); w.perf += (sweep ? 2 - distance : distance) * TUNING.chargeSweepMs; api.fishingHold(false); };
   w.land = () => {
@@ -166,6 +167,7 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
         api.fishingHold(w.net + velocity * .25 < .34);
       }
       w.perf += 20; w.time += 20;
+      w.beforeDraw?.();
       api.drawFishing(ctx, 'world', w.perf); api.drawReelBar(ctx, w.perf, true);
       const v = api.useFishingView(); if (['caught', 'escaped', 'stolen', 'scared'].includes(v.phase)) return v;
     }
@@ -307,7 +309,27 @@ test('real free session judges a delayed press by event time rather than frame t
   const interval=60000/[72,80,88,96,104][d-1];
   w.perf=epoch+interval+350;
   w.api.fishingPress(epoch+interval);
-  w.api.drawFishing(ctx,'top',w.perf);
-  assert.ok(text.some(t=>String(t).includes('Perfect! ×1')),JSON.stringify({d,text}));
+  w.api.drawReelBar(ctx,w.perf,true);
+  assert.ok(text.some(t=>String(t).includes('Perfect ×1')),JSON.stringify({d,text}));
   w.api.stopFishing();
+});
+
+
+test('free cast whoosh is synchronous and bite deadline fires without any draw frame; stop cancels it',async()=>{
+ const w=await sessionRig();w.throwAt(.85);
+ assert.equal(w.audio.at(-1).action,'jump');assert.equal(w.audio.at(-1).at,w.perf);
+ const wake=w.timers.at(-1);assert.ok(wake.delay>0);
+ w.perf=wake.at;wake.fn();
+ assert.equal(w.api.useFishingView().phase,'bite');
+ assert.equal(w.audio.at(-1).action,'surprise');assert.equal(w.audio.at(-1).at,wake.at);
+ const count=w.audio.length;wake.fn();assert.equal(w.audio.length,count,'one bite cue');
+ w.api.stopFishing();assert.ok(wake.cancelled);
+});
+
+
+test('input-time advance that lands a fish awards exactly one catch before the next draw',async()=>{
+ const baseline=await sessionRig();baseline.throwAt(.85);assert.equal(baseline.land().phase,'caught');const finishAt=baseline.perf;
+ const w=await sessionRig();w.throwAt(.85);let fired=false;
+ w.beforeDraw=()=>{if(w.perf===finishAt){fired=true;w.api.fishingPress(w.perf);assert.equal(w.api.useFishingView().phase,'caught');}};
+ assert.equal(w.land().phase,'caught');assert.ok(fired);assert.equal(w.api.getWallet().cooler.length,1);
 });

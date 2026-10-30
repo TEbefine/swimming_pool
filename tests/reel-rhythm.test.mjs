@@ -74,12 +74,12 @@ test('causal tracking with timed rescue taps lands all difficulties at 60/30/20f
    let y=s.netY,v=s.netV;
    for(const h of queue){v=Math.max(-1.1,Math.min(1.1,v+(-1.6+(h?3:0))*dt));y+=v*dt;if(y<0){y=0;v=Math.max(0,v)*.3;}if(y>.7){y=.7;v=Math.min(0,v);}}
    const hold=y+.15+v*.35<Math.max(.15,Math.min(.85,s.fishY+vel*.15));queue.push(hold);
-   // The beat is predictable from the ring; input is timestamped on the next frame near its deadline.
+   // The beat is predictable from the tug; input is timestamped on the next frame near its deadline.
    const beat=Math.round(ms/rhythm.interval);
    if(beat>rhythm.lastBeat&&Math.abs(ms-beat*rhythm.interval)<=dt*1000/2&&s.netV<-.5&&s.netY+.3<s.fishY){
-    const judged=R.rhythmPress(rhythm,ms);rhythm=judged.state;
+    const judged=R.rhythmPress(rhythm,ms,0,s.fishY>=s.netY&&s.fishY<=s.netY+.3);rhythm=judged.state;
     // Lift is optional: a player tracking a descending fish may leave this beat alone.
-    if(judged.perfect)s={...s,netV:Math.min(1.1,s.netV+.65)};
+    s=F.press(s);if(judged.perfect&&rhythm.streak>=2)s={...s,netV:Math.min(1.1,Math.max(s.netV,0)+.65)};
    }
    s=F.step(s,dt,rng,queue.shift(),{elapsedMs:ms,intervalMs:rhythm.interval,fillMultiplier:R.rhythmFill(rhythm,ms)});
   }
@@ -125,4 +125,53 @@ test('Web Audio clicks use output-clock mapping, and mute/visibility/cancel own 
   sound.rhythmClick(1200);assert.equal(started.length,1);
   sound.setMuted(false);globalThis.document.hidden=true;sound.rhythmClick(1300);assert.equal(started.length,1);
  }finally{globalThis.document=oldDoc;}
+});
+
+
+test('free taps cancel falling speed; story taps retain the original falling-speed sum',()=>{
+ const s=free(1),story={...F.cast(()=>.5,{firstCatch:true}),phase:'reel'};
+ for(const v of [-1.1,-.55,0,.4,1.1]){
+  const tapped=F.press({...s,netV:v,netY:.3});
+  assert.equal(tapped.netV,Math.min(1.1,Math.max(v,0)+.55));
+  assert.ok(F.step(tapped,1/20,()=>.5).netY>.3);
+  assert.equal(F.press({...s,netV:v},.65).netV,Math.min(1.1,Math.max(v,0)+.65));
+  assert.equal(F.press({...story,netV:v},.65).netV,Math.min(1.1,v+.55));
+ }
+});
+test('Perfect requires the pre-tap yellow zone, and a single Perfect has no fill bonus',()=>{
+ let s=R.newRhythm(1);const i=s.interval;
+ s=R.rhythmPress(s,i,0,true).state;assert.equal(s.streak,1);assert.equal(R.rhythmFill(s,i),1);
+ const out=R.rhythmPress(s,2*i,0,false);assert.equal(out.perfect,false);assert.equal(out.state.streak,0);assert.equal(out.state.perfects,1);assert.equal(R.rhythmFill(out.state,2*i),1);
+ s=R.rhythmPress(s,2*i,0,true).state;assert.equal(s.streak,2);assert.equal(R.rhythmFill(s,2*i),1.1);
+});
+test('late input uses historical fish/net overlap instead of its later frame position',()=>{
+ const samples=[{at:100,fishY:.3,netY:.2},{at:200,fishY:.7,netY:.2}];
+ assert.equal(R.inNetAt(samples,100,.3),true);assert.equal(R.inNetAt(samples,200,.3),false);
+ assert.equal(R.inNetAt(samples,125,.3),true);assert.equal(R.inNetAt(samples,175,.3),false);
+ assert.equal(R.inNetAt(samples,99,.3),false);assert.equal(R.inNetAt(samples,201,.3),false);
+ assert.equal(R.rhythmPress(R.newRhythm(1),60000/72,0,R.inNetAt(samples,200,.3)).perfect,false);
+});
+test('first three free reels show teaching hint, persisted per device with safe blocked-storage fallback',()=>{
+ const map=new Map(),storage={getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v)};
+ for(const show of [true,true,true,false])assert.equal(R.nextReelHint(storage,0).show,show);
+ const broken={getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}};let count=0;
+ for(const show of [true,true,true,false]){const h=R.nextReelHint(broken,count);count=h.count;assert.equal(h.show,show);}
+});
+test('audio latency diagnostic reports milliseconds and unsupported values without inventing measurements',async()=>{
+ const {SoundManager}=await import('../src/game/audio.ts');const s=new SoundManager();
+ assert.deepEqual(s.latencyInfo(),{state:'uninitialized',baseLatencyMs:null,outputLatencyMs:null});
+ s.ctx={state:'running',baseLatency:.012,outputLatency:.034};assert.deepEqual(s.latencyInfo(),{state:'running',baseLatencyMs:12,outputLatencyMs:34});
+});
+
+
+test('free cast gesture primes audio synchronously; muted/failed audio never blocks casting',async t=>{
+ const {SoundManager}=await import('../src/game/audio.ts');const old=globalThis.document;globalThis.document={hidden:false};
+ t.mock.method(globalThis,'setTimeout',()=>1);
+ try{
+  const sound=new SoundManager();let calls=0;t.mock.method(sound,'initCtx',()=>{calls++;});
+  sound.prepareFishingAudio();assert.equal(calls,1);
+  sound.muted=true;sound.prepareFishingAudio();assert.equal(calls,1);
+  const unavailable=new SoundManager();t.mock.method(unavailable,'initCtx',()=>{throw Error('audio unavailable');});
+  assert.doesNotThrow(()=>unavailable.prepareFishingAudio());
+ }finally{globalThis.document=old;}
 });

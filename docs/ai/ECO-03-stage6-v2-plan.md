@@ -201,3 +201,7 @@ Free-only profile and v2 practice table built after pulling4db5f42, preserving C
 ## Step 4 revised by Teera — free reel rhythm (2026-10-30)
 
 Step3 approved; iPhone “middle-easy.” Approved rhythm adds scaled ±min(140ms,18% interval), event-time judging, shared beat/audio/ring deadlines with latencyOffset0, tempos72–104, normal hold playable, .24 free drain, combo10/20/30% and .65 Perfect lift. Social peak>=6 or full-perfect, merged with rare catches. Implemented after pulling e96b8ad; 311 tests and10 emulator tests, TypeScript/build/four APIs pass. Short-session model is explicitly an occupancy estimate, not measured human rhythm performance. [Step4 final review packet](ECO-03-stage6-step4-review.md). iPhone rhythm review pending; stop after push.
+
+## iPhone rhythm follow-up
+
+Teera requested falling-tap cancellation, yellow-zone-only Perfects, bonuses from×2, fish/net beat cue instead of ring, first3 hints, bar-side pop and event-time audio diagnostics. Implemented on dev-test-id after4f9fd27; see [phone review](ECO-03-rhythm-phone-review.md). No roll/ticket/price/Book or Dalbit changes; stop after push for review.

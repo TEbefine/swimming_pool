@@ -6,6 +6,7 @@ export class SoundManager {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private resumePending: Promise<void> | null = null;
   private listening = false;
+  private gestureWarmUntil = 0;
 
   constructor() {
     try {
@@ -49,7 +50,7 @@ export class SoundManager {
       const resume = ctx.resume();
       this.resumePending = resume;
       void resume.then(() => {
-        if (ctx === this.ctx && (this.muted || document.hidden || (this.sources.size === 0 && !this.isMusicPlaying?.()))) {
+        if (ctx === this.ctx && (this.muted || document.hidden || (this.sources.size === 0 && performance.now() >= this.gestureWarmUntil && !this.isMusicPlaying?.()))) {
           return ctx.suspend();
         }
       }).catch(() => {
@@ -129,6 +130,24 @@ export class SoundManager {
   public toggleMute(): boolean {
     this.setMuted(!this.muted);
     return this.muted;
+  }
+
+  /** Called on the free cast gesture, before release: removes cold-context resume from the whoosh path. */
+  public prepareFishingAudio() {
+    if (!this.canPlay()) return;
+    try {
+      this.gestureWarmUntil = performance.now() + 1500;
+      this.initCtx();
+      this.idleTimer = setTimeout(() => {
+        if (this.sources.size === 0) this.suspend();
+      }, 1500);
+    } catch { /* Audio is optional; an unavailable device must never block a cast. */ }
+  }
+
+  public latencyInfo() {
+    return { state: this.ctx?.state ?? 'uninitialized',
+      baseLatencyMs: typeof this.ctx?.baseLatency === 'number' ? this.ctx.baseLatency * 1000 : null,
+      outputLatencyMs: typeof this.ctx?.outputLatency === 'number' ? this.ctx.outputLatency * 1000 : null };
   }
 
   public rhythmClick(performanceMs: number, perfect = false): () => void {

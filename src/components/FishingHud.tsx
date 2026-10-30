@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { drawReelBar, REEL_BAR_H, REEL_BAR_W, useFishingView } from '../game/story/fishingSession';
+import { drawReelBar, REEL_BAR_H, REEL_BAR_W, REEL_BAR_BASE_W, useFishingView } from '../game/story/fishingSession';
 import type { FishingView } from '../game/story/fishingSession';
 import { startVisibleAnimation } from '../ui/visibleAnimation';
 
@@ -9,7 +9,7 @@ import { startVisibleAnimation } from '../ui/visibleAnimation';
 // by game/story/fishingSession.ts. Buttons are the real controller: ◯ / E and ✕ / Esc.
 
 /** The big reel bar on the right side of the screen (Stardew-style). */
-const ReelBar: React.FC<{ compact: boolean; phase: FishingView['phase']; aiming: boolean }> = ({ compact, phase, aiming }) => {
+const ReelBar: React.FC<{ compact: boolean; phase: FishingView['phase']; aiming: boolean; mode: FishingView['mode'] }> = ({ compact, phase, aiming, mode }) => {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
@@ -32,13 +32,14 @@ const ReelBar: React.FC<{ compact: boolean; phase: FishingView['phase']; aiming:
     };
   }, [compact, phase, aiming]);
   const scale = compact ? 1.5 : 2;
+  const width = mode === 'free' ? REEL_BAR_W : REEL_BAR_BASE_W;
   return (
     <canvas
       ref={ref}
-      width={REEL_BAR_W}
+      width={width}
       height={REEL_BAR_H}
       className={`absolute ${compact ? 'right-1' : 'right-6'} top-[54%] -translate-y-1/2 drop-shadow-[0_3px_0_rgba(0,0,0,0.35)]`}
-      style={{ height: `min(${REEL_BAR_H * scale}px, 78%)`, aspectRatio: `${REEL_BAR_W} / ${REEL_BAR_H}`, imageRendering: 'pixelated' }}
+      style={{ height: `min(${REEL_BAR_H * scale}px, 78%)`, aspectRatio: `${width} / ${REEL_BAR_H}`, imageRendering: 'pixelated' }}
     />
   );
 };
@@ -61,7 +62,7 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
   else if (v.phase === 'ready') line = `${holdKey} to power up, let go to cast · ${stop} Stop`;
   else if (v.phase === 'waiting') line = v.landed ? 'Wait for it... (not on the nibbles)' : '';
   else if (v.phase === 'bite') line = `It turned! PULL! ${key}`;
-  else if (v.phase === 'reel' && v.mode === 'free') line = `Keep it in the net · Tap ${key} on the beat!`;
+  else if (v.phase === 'reel' && v.mode === 'free') line = v.rhythmHint ? 'Tap ◯ on the tug while the fish is in the yellow zone = Perfect!' : `Tap or hold ${key} to keep the fish in the yellow zone`;
   else if (v.phase === 'reel') line = compact ? `Tap ${key} to keep the fish in the net` : `Tap or hold ${key} to keep the fish in the net`;
   else if (v.phase === 'scared') line = `Too early. Don't pull when it bites... · ${again}`;
   else if (v.phase === 'stolen') line = `Too slow. It stole the bait. · ${again}`;
@@ -74,7 +75,7 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[5]" style={{ fontFamily: 'var(--font-pixel)' }}>
-      {(v.aiming || v.phase === 'reel' || v.phase === 'caught' || v.phase === 'escaped') && <ReelBar compact={compact} phase={v.phase} aiming={v.aiming} />}
+      {(v.aiming || v.phase === 'reel' || v.phase === 'caught' || v.phase === 'escaped') && <ReelBar compact={compact} phase={v.phase} aiming={v.aiming} mode={v.mode} />}
 
       {/* catch card */}
       {info && v.caught && over && (
@@ -110,7 +111,7 @@ export const FishingHud: React.FC<{ compact?: boolean }> = ({ compact = false })
 
       {/* one-line hint */}
       {line && (
-        <div className={`absolute left-1/2 -translate-x-1/2 ${compact ? `${v.front ? 'top-[46px]' : 'bottom-1'} max-w-[96%] px-2 py-0.5` : `${v.front ? 'top-[178px]' : 'bottom-[172px]'} max-w-[80%] px-4 py-1.5`} ${PANEL} rounded-md ${text} text-center whitespace-nowrap overflow-hidden text-ellipsis`}>
+        <div className={`absolute left-1/2 -translate-x-1/2 ${compact ? `${v.front ? 'top-[46px]' : 'bottom-1'} max-w-[96%] px-2 py-0.5` : `${v.front ? 'top-[178px]' : 'bottom-[172px]'} max-w-[80%] px-4 py-1.5`} ${PANEL} rounded-md ${text} text-center whitespace-nowrap overflow-hidden text-ellipsis`} style={v.rhythmHint && v.phase === 'reel' && compact ? { fontSize: 8 } : undefined}>
           {line}
         </div>
       )}

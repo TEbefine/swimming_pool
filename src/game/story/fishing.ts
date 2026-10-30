@@ -264,7 +264,7 @@ export function cast(rng: Rng, opts: CastOptions = {}): FishingState {
 }
 
 /** ◯ pressed (any phase). Returns the new state. */
-export function press(s: FishingState): FishingState {
+export function press(s: FishingState, freeTapLift = TUNING.tapLift): FishingState {
   switch (s.phase) {
     case 'waiting':
       // Pulled on a nibble (or on nothing): too early.
@@ -275,7 +275,7 @@ export function press(s: FishingState): FishingState {
         netY: 0.1, netV: 0, fishY: 0.35, fishTarget: 0.5, fishTurnIn: s.freeTuning ? s.freeTuning.minTargetHold : 0.4, progress: TUNING.progressStart,
       };
     case 'reel':
-      return { ...s, netV: Math.min(TUNING.maxSpeed, s.netV + TUNING.tapLift) };
+      return { ...s, netV: Math.min(TUNING.maxSpeed, (s.freeTuning ? Math.max(s.netV, 0) : s.netV) + (s.freeTuning ? freeTapLift : TUNING.tapLift)) };
     default:
       return s;
   }
