@@ -915,6 +915,18 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     engineRef.current?.setFloatColor(color);
   };
 
+  // START → Options → Float ring asks for a new colour with this event (see optionRows.ts).
+  useEffect(() => {
+    const onFloatSet = (e: Event) => {
+      const color = (e as CustomEvent<FloatColor>).detail;
+      setFloatColor(color);
+      localStorage.setItem('pixel_pool_float_color', color);
+      engineRef.current?.setFloatColor(color);
+    };
+    window.addEventListener('float:set', onFloatSet);
+    return () => window.removeEventListener('float:set', onFloatSet);
+  }, []);
+
   const handleSaveName = (name: string) => {
     setPlayerName(name);
     localStorage.setItem('pixel_pool_player_name', name);
@@ -1140,12 +1152,13 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           playerState={playerState}
           currentAction={currentAction}
           playerName={playerName}
-          floatColor={floatColor}
           playerCount={playerCount}
           chatLog={bootPlaying ? [] : visibleChatLog}
           statusLabel={isShutDownScreen ? 'STANDBY' : currentRoom.name}
           hideStatusBadge={dialogOpen || counterOpen || menu.isOpen || isShutDownScreen}
           isPoweredOff={isShutDownScreen}
+          status={isShutDownScreen ? 'standby' : loading || transitionRoom ? 'loading' : 'ready'}
+          creditScene={fishingOpen ? 'fishing' : 'design'}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
             if (loading || engineRef.current?.isRoomTransitioning()) {
@@ -1180,9 +1193,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           onActionA={loading || bootPlaying || !!transitionRoom ? ignore : handleCrossAction}
           onTriggerEmote={loading || bootPlaying || !!transitionRoom ? ignore : (action) => { if (!identityPaused && !menu.isOpen && !sceneBoxOpen && !counterOpen) handleTriggerEmote(action); }}
           onSendMessage={handleSendMessage}
-          onOpenFloatPicker={bootPlaying ? ignore : () => setFloatModalOpen(true)}
           onOpenNameModal={bootPlaying ? ignore : () => setNameModalOpen(true)}
-          onOpenHelpModal={bootPlaying ? ignore : () => setHelpModalOpen(true)}
           onToggleSceneBox={loading || bootPlaying || !!transitionRoom ? ignore : handleToggleSceneBox}
           onToggleStartMenu={(loading && startupSceneShowing) || bootPlaying || !!transitionRoom ? ignore : handleToggleStartMenu}
           startMenuOpen={menu.isOpen}

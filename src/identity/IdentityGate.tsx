@@ -233,9 +233,9 @@ export function IdentityGate({ children }: { children: (options: { onOpenIdentit
       {children({ onOpenIdentity: () => void refresh(true), identityPaused: stage !== 'closed', playerId })}
     </div>}
     {stage !== 'closed' && <div className="identity-cover">
-      <GameBoyMobile canvasRef={canvasRef} playerState="land" currentAction="idle" playerName="Player ID" floatColor="red" playerCount={0} chatLog={[]}
+      <GameBoyMobile canvasRef={canvasRef} playerState="land" currentAction="idle" playerName="Player ID" playerCount={0} chatLog={[]}
         onDirectionChange={noop} onToggleState={noop} onActionA={noop} onTriggerEmote={noop} onSendMessage={noop}
-        onOpenFloatPicker={noop} onOpenNameModal={noop} onOpenHelpModal={noop} statusLabel="LUMEN BAY · PLAYER ID" hideStatusBadge
+        onOpenNameModal={noop} statusLabel="LUMEN BAY · PLAYER ID" hideStatusBadge
         identityControls={{ disabled: busy || !entryStage, onInput: input => { setError(''); setCombo(previous => previous.length < COMBO_LENGTH ? [...previous, input] : previous); },
           onDelete: () => setCombo(previous => previous.slice(0, -1)), onConfirm: confirmCombo }}
         screenOverlay={<section className="identity-screen" ref={screenRef} aria-label="Player identity" aria-busy={busy}>

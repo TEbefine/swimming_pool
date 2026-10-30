@@ -212,6 +212,18 @@ html, body {
   --gb-speaker: #b2b2a8;
   --gb-speaker-hi: rgba(255, 255, 255, 0.6);
   --gb-speaker-hi-in: rgba(255, 255, 255, 0.4);
+  /* Credit-line heart: dusty rainbow, same in light and dark (Teera picked the quiet "B" palette). */
+  --gb-heart-1: #c49090;
+  --gb-heart-2: #c9a68a;
+  --gb-heart-3: #c8bd90;
+  --gb-heart-4: #94ae92;
+  --gb-heart-5: #8fa6bf;
+  --gb-heart-6: #a295bb;
+  --gb-heart-off: rgba(255, 255, 255, 0.12);
+  --gb-led-green: #86d08f;
+  --gb-led-red: #e2625b;
+  --gb-led-red-dim: #5a3a3a;
+  --gb-led-off: #454a54;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -336,11 +348,11 @@ html, body {
 
 /* Symmetrical circular sockets for D-Pad and Button Cluster */
 .minimal-socket {
-  background: var(--gb-socket);
-  box-shadow: 
-    inset 0 2.5px 5px var(--gb-socket-shadow),
-    0 1px 1px var(--gb-socket-rim);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  /* No drawn well any more (Teera 2026-10-30): the D-pad and buttons sit straight on the plastic.
+     The 108px box stays as the invisible touch area, so thumbs keep the same big target. */
+  background: transparent;
+  box-shadow: none;
+  border: 0;
   user-select: none !important;
   -webkit-user-select: none !important;
   -webkit-touch-callout: none !important;
@@ -530,3 +542,101 @@ html, body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---- Bezel bands (2026-10-30) -------------------------------------------------
+   Top: "SAP Co." + live status word + status light. Bottom: the credit line.
+   Both use the app's own pixel font, never a borrowed logo style. */
+.gb-top-band {
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-pixel);
+  line-height: 1;
+  font-variant-ligatures: none;
+}
+.gb-brand {
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: var(--gb-bezel-logo);
+}
+.gb-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.gb-status-word {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--gb-bezel-ink);
+}
+.gb-led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background-color 0.25s, box-shadow 0.25s;
+}
+.gb-led-ready { background: var(--gb-led-green); box-shadow: 0 0 5px var(--gb-led-green); }
+.gb-led-loading,
+.gb-led-working { background: var(--gb-led-red); box-shadow: 0 0 5px var(--gb-led-red); }
+/* Slow blink = loading. Fast flicker = working (saving / waiting for an AI reply): 0.35 s ≈ 2.9 flashes/s, under the 3/s safety limit. */
+.gb-led-loading { animation: gb-led-blink 1s steps(1) infinite; }
+.gb-led-working { animation: gb-led-blink 0.35s steps(1) infinite; }
+.gb-led-standby { background: var(--gb-led-off); box-shadow: none; }
+@keyframes gb-led-blink {
+  50% { background: var(--gb-led-red-dim); box-shadow: none; }
+}
+
+.gb-credit {
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  /* Pool Pixel Default's "fi" ligature draws as an "A" ("fishing" → "Ashing"), so no ligatures here. */
+  font-variant-ligatures: none;
+}
+.gb-credit-line { display: flex; align-items: center; gap: 6px; }
+.gb-heart { flex-shrink: 0; image-rendering: pixelated; }
+.gb-credit-part { color: var(--gb-bezel-ink); opacity: 0.85; }
+.gb-credit-source { color: var(--gb-bezel-logo); }
+.gb-credit-fade { animation: gb-credit-fade 0.3s ease-out; }
+@keyframes gb-credit-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  /* No blinking: the word still says LOADING / SAVING, the light just stays red. */
+  .gb-led-loading,
+  .gb-led-working { animation: none; }
+}
+
+/* SELECT / START labels: small and quiet (Teera: "users will know it, mini text"). */
+.gb-key-label {
+  height: 8px;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gb-key-label);
+}
+.gameboy-body { --gb-key-label: #6a6f8f; }
+@media (prefers-color-scheme: dark) { .gameboy-body { --gb-key-label: #6b6e78; } }
+
+.gb-speaker-grid {
+  position: absolute;
+  right: 26px;
+  bottom: -2px;
+  display: grid;
+  grid-template-columns: repeat(5, 4px);
+  grid-template-rows: repeat(4, 4px);
+  gap: 4px;
+  pointer-events: none;
+}
+.gb-speaker-grid > span { display: block; width: 4px; height: 4px; border-radius: 50%; border: 0; }
