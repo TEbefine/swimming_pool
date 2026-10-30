@@ -117,7 +117,7 @@ test('missing/invalid cutoff and Vercel dev secret fail closed; pre-cutoff, unsa
     const h = saleHarness({ env }); assert.equal((await h.sell([c])).statusCode, 503); assert.equal(h.writes, 0);
   }
   assert.equal((await saleHarness({ env: { FISHING_DECK_REDEEM_FROM_DECK_ID: String(c.ticket.deckId + 1) } }).sell([c])).statusCode, 422);
-  for (const patch of [{ paidDecks: null }, { fishBook: { sardine: { best: 999, sold: 1 } } }, { coins: SELL.dailyCap * ECONOMY_SAVE.balanceCapDays }]) {
+  for (const patch of [{ paidDecks: null }, { fishBook: { sardine: { best: 999, sold: 1 } } }, { coins: ECONOMY_SAVE.maxBalance }]) {
     const h = saleHarness(); h.players.set(ADDRESS, { ...emptyPlayer(NOON), ...patch }); const before = h.snapshot();
     const r = await h.sell([c]); assert.ok([409, 503].includes(r.statusCode), JSON.stringify(r.body)); assert.deepEqual(h.snapshot(), before);
   }

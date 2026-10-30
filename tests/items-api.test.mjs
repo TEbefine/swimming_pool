@@ -263,7 +263,7 @@ test('new economy fields have an explicit maximum serialized size with the curre
   assert.equal(SHOP_ITEMS.length, 48, 'update documented storage budget when the catalogue grows');
   const now = Number.MAX_SAFE_INTEGER - 1;
   const raw = emptyPlayer(now);
-  raw.coins = SELL.dailyCap * ECONOMY_SAVE.balanceCapDays; raw.coolerLevel = 2;
+  raw.coins = ECONOMY_SAVE.maxBalance; raw.coolerLevel = 2;
   const longestFood = SHOP_ITEMS.filter(i => i.perishMin && !i.soon).sort((a, b) => b.id.length - a.id.length)[0];
   raw.goods = Array.from({ length: BAG.slots }, (_, i) => ({
     uid: String(i).padStart(ECONOMY_SAVE.goodsUidMaxLength, 'a'), id: longestFood.id,
@@ -296,6 +296,66 @@ test('lowering economy configuration clamps counters rather than granting a fres
   } finally { SELL.dailyCap = oldCap; LIMITS.opsPerDay = oldOps; }
 });
 
+test('absolute balance maximum survives a reduced daily earnings cap on reads and strict writes', async () => {
+  const { SELL, ECONOMY_SAVE } = await import('../src/game/economy/economyConfig.ts');
+  const oldCap = SELL.dailyCap;
+  try {
+    SELL.dailyCap = 3000;
+    for (const coins of [1_500_000, 2_000_000]) {
+      const raw = { ...emptyPlayer(NOON), coins };
+      assert.equal(normalizePlayer(raw, NOON).coins, coins, 'lower daily earnings must not shrink savings');
+      assert.equal(checkedCoinBalance(coins), coins);
+      assert.equal(raw.coins, coins);
+    }
+    assert.equal(ECONOMY_SAVE.maxBalance, 2_000_000);
+    assert.equal(normalizePlayer({ coins: 2_000_001 }, NOON).coins, ECONOMY_SAVE.maxBalance);
+    for (const bad of [2_000_001, Infinity, NaN, -1, 1.5]) {
+      assert.throws(() => checkedCoinBalance(bad), /too many coins/);
+    }
+  } finally { SELL.dailyCap = oldCap; }
+});
+
+test('reduced daily cap preserves savings through load, Gen sale, exact Retry, buy, ice and story writes', async () => {
+  const { SELL } = await import('../src/game/economy/economyConfig.ts');
+  const h = harness();
+  h.players.set(address, { ...emptyPlayer(NOON), coins: 1_500_000 });
+  const body = { op: 'shop.sell', operationId: opId(), catches: [fixtureCatch(address, NOON - 1000)] };
+  const first = await h.call(body);
+  assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+  let balance = 1_500_000 + first.body.result.earned;
+  assert.equal(first.body.coins, balance);
+  const oldCap = SELL.dailyCap;
+  try {
+    SELL.dailyCap = 3000;
+    const before = structuredClone(h.players.get(address));
+    const loaded = await h.call({ op: 'load' });
+    assert.equal(loaded.statusCode, 200);
+    assert.equal(loaded.body.coins, balance);
+    assert.deepEqual(h.players.get(address), before, 'load must not rewrite the stored balance');
+    const retry = await h.call(body);
+    assert.equal(retry.statusCode, 200);
+    assert.equal(retry.body.replayed, true);
+    assert.deepEqual(retry.body.result, first.body.result, 'original receipt survives cap changes');
+    assert.equal(retry.body.coins, balance);
+    assert.deepEqual(h.players.get(address), before);
+    assert.equal(h.logs.size, 1, 'Retry creates no second payment/log');
+    const buy = await h.call({ op: 'shop.buy', operationId: opId(), vendor: 'gen', cart: [{ id: 'ice_block', qty: 1 }] });
+    assert.equal(buy.statusCode, 200, JSON.stringify(buy.body));
+    balance -= buy.body.result.spent;
+    assert.equal(buy.body.coins, balance);
+    const ice = await h.call({ op: 'bag.use', operationId: opId(), uid: buy.body.goods[0].uid });
+    assert.equal(ice.statusCode, 200, JSON.stringify(ice.body));
+    assert.equal(ice.body.coins, balance);
+    const story = await saveDay(h, day1(), null);
+    assert.equal(story.statusCode, 200, JSON.stringify(story.body));
+    assert.equal(story.body.coins, balance);
+    assert.equal(h.players.get(address).coins, balance);
+    assert.deepEqual(h.players.get(address).fishBook, before.fishBook);
+    assert.deepEqual(h.players.get(address).paidDecks, before.paidDecks);
+    assert.equal(h.logs.size, 4);
+  } finally { SELL.dailyCap = oldCap; }
+});
+
 test('catalogue perishability changes repair clocks and preserve all units in old stacks', async () => {
   const { SHOP_BY_ID } = await import('../src/game/economy/shopCatalog.ts');
   const item = SHOP_BY_ID.nori;
@@ -314,8 +374,8 @@ test('catalogue perishability changes repair clocks and preserve all units in ol
 });
 
 test('balance reads clamp without throwing; commit guard still refuses invalid balances', async () => {
-  const { SELL, ECONOMY_SAVE } = await import('../src/game/economy/economyConfig.ts');
-  const cap = SELL.dailyCap * ECONOMY_SAVE.balanceCapDays;
+  const { ECONOMY_SAVE } = await import('../src/game/economy/economyConfig.ts');
+  const cap = ECONOMY_SAVE.maxBalance;
   assert.equal(cap, 2_000_000);
   assert.equal(checkedCoinBalance(cap), cap);
   const cases = [[cap + 1, cap], [Number.MAX_SAFE_INTEGER, cap], [Infinity, cap],

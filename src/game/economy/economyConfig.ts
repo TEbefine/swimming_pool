@@ -79,8 +79,8 @@ export const LOG_KEEP = 30;
 export const ECONOMY_SAVE = {
   opsPerDay: 40,
   goodsUidMaxLength: 64,
-  /** Balance ceiling = SELL.dailyCap times this many days. */
-  balanceCapDays: 400,
+  /** Absolute saved-balance ceiling; independent of daily fishing income limits. */
+  maxBalance: 2_000_000,
 } as const;
 
 export const ICE = {

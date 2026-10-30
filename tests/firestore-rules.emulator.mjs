@@ -8,7 +8,7 @@ const { makeSaveServices } = await import('../server/saves/admin.ts');
 const { emptyPlayer } = await import('../server/saves/rules.ts');
 const { FISHING_DECK: C } = await import('../src/game/fishing/deckConfig.ts');
 const { quoteFish, marketOf } = await import('../src/game/economy/market.ts');
-const { SELL } = await import('../src/game/economy/economyConfig.ts');
+const { SELL, ECONOMY_SAVE } = await import('../src/game/economy/economyConfig.ts');
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { initializeApp, deleteApp } from 'firebase-admin/app';
@@ -125,6 +125,40 @@ try {
     try { await run(h); } finally { await db.terminate(); await deleteApp(app); }
   }
   const bit = (saved, c) => !!(Buffer.from(saved.paidDecks.find(s => s.deckId === c.ticket.deckId).bits, 'base64')[c.ticket.castIndex >> 3] & 1 << (c.ticket.castIndex % 8));
+
+  await test('absolute balance limit: reduced daily cap preserves real sale/buy/Retry balances and refuses overflow atomically', async () => {
+    const oldCap = SELL.dailyCap;
+    try {
+      SELL.dailyCap = 3000;
+      await fixture(async h => {
+        await h.ref.set({ ...emptyPlayer(NOON), coins: 1_500_000 });
+        const c = h.catch(), id = operationId();
+        const first = await h.sell([c], id);
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        let balance = 1_500_000 + first.body.result.earned;
+        assert.equal((await h.saved()).coins, balance);
+        const buy = await h.call({ op: 'shop.buy', operationId: operationId(), vendor: 'gen', cart: [{ id: 'ice_block', qty: 1 }] });
+        assert.equal(buy.statusCode, 200, JSON.stringify(buy.body));
+        balance -= buy.body.result.spent;
+        assert.equal((await h.saved()).coins, balance);
+        const before = await h.snapshotOnServer(), retry = await h.sell([c], id);
+        assert.equal(retry.statusCode, 200);
+        assert.equal(retry.body.replayed, true);
+        assert.deepEqual(retry.body.result, first.body.result);
+        assert.equal(retry.body.coins, balance);
+        assert.deepEqual(await h.snapshotOnServer(), before);
+        const edge = h.catch(NOON - 500, { startIndex: c.ticket.castIndex + 1 });
+        const price = quoteFish({ fishId: edge.fish, sizeCm: edge.sizeCm, caughtAt: edge.caughtAt, icedMin: 0 }, NOON, marketOf(NOON), 1).price;
+        await h.ref.update({ coins: ECONOMY_SAVE.maxBalance - price });
+        assert.equal((await h.sell([edge])).statusCode, 200);
+        assert.equal((await h.saved()).coins, 2_000_000);
+        const overflow = h.catch(NOON - 250, { startIndex: edge.ticket.castIndex + 1 });
+        const full = await h.snapshotOnServer();
+        assert.equal((await h.sell([overflow])).statusCode, 409);
+        assert.deepEqual(await h.snapshotOnServer(), full, 'no coins/Book/bits/log write on overflow');
+      });
+    } finally { SELL.dailyCap = oldCap; }
+  });
 
   await test('plan 1: concurrent devices redeeming one index pay once; identical operation IDs replay one commit', async () => {
     await fixture(async h => {
