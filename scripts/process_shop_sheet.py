@@ -1,9 +1,10 @@
-"""Cut a 4x4 FISH SHOP icon sheet (flat magenta background) into one icon per item.
+"""Cut a FISH SHOP icon sheet (4x4 goods or 2x2 rods) (flat magenta background) into one icon per item.
 
 Usage (from the repo root):
     .venv/bin/python scripts/process_shop_sheet.py src/assets/shop_sashimi_sheet.webp sashimi
     .venv/bin/python scripts/process_shop_sheet.py src/assets/shop_meals_sheet.webp meals
     .venv/bin/python scripts/process_shop_sheet.py src/assets/shop_pantry_sheet.webp pantry
+    .venv/bin/python scripts/process_shop_sheet.py src/assets/shop_rods_sheet.webp rods
 Writes public/sprites/shop/<id>.webp (64x64, transparent), like the fish icons.
 The id order MUST match SHOP_ITEMS (sheet + cell) in src/game/economy/shopCatalog.ts.
 Needs numpy, pillow and scipy.
@@ -22,6 +23,7 @@ from PIL import Image
 from scipy import ndimage
 
 SHEETS = {
+    'rods': ['rod_bamboo', 'rod_fiberglass', 'rod_carbon', 'rod_master'],
     'sashimi': [
         'sashimi_tai', 'sashimi_hirame', 'sashimi_grouper', 'sashimi_ika',
         'sashimi_akami', 'sashimi_otoro', 'sashimi_hamachi', 'sashimi_saba',
@@ -62,6 +64,16 @@ def main(sheet_path: str, sheet: str, out_dir: str = 'public/sprites/shop') -> N
     rgb = np.asarray(im)
     keep = key_magenta(rgb)
     rgba = np.dstack([rgb, (keep * 255).astype(np.uint8)])
+    if sheet == 'rods':
+        out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+        for cell, item_id in enumerate(ids):
+            x, y = (cell % 2) * im.width // 2, (cell // 2) * im.height // 2
+            tile = Image.fromarray(rgba[y:y+im.height//2, x:x+im.width//2], 'RGBA')
+            tile = tile.crop(tile.getbbox())
+            tile.thumbnail((60,60), Image.Resampling.LANCZOS)
+            icon = Image.new('RGBA',(64,64)); icon.paste(tile,((64-tile.width)//2,(64-tile.height)//2))
+            icon.save(out / f'{item_id}.webp', lossless=True)
+        return
     h, w = keep.shape
     cw, ch = w / 4, h / 4
     # Items are found as SHAPES, not cut on a fixed grid (ChatGPT items poke over the cell lines).

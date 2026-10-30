@@ -152,7 +152,7 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
   await api.refreshFishingDeck();
   const engine = { localPlayer: { x: 452, y: 222, facing: 1, currentAction: 'idle' }, getRoom: () => ({ outfit: 'test-stage4' }),
     walkPlayerTo: async () => {}, setDialogFrozen() {}, setPlayerPose() {}, triggerEmote() {}, sendChat() {} };
-  const ctx = new Proxy({ fillRect(x, y, width, height) { if ((this.fillStyle === '#C9A56B' || this.fillStyle === '#DDBB78') && width === 22 && height === 48) w.net = (176 - y) / 160 - .3; } }, { get: (obj, k) => k in obj ? obj[k] : () => {} });
+  const ctx = new Proxy({ fillRect(x, y, width, height) { if ((this.fillStyle === '#C9A56B' || this.fillStyle === '#DDBB78') && width === 22 && height === 32) w.net = (176 - y) / 160 - .2; } }, { get: (obj, k) => k in obj ? obj[k] : () => {} });
   await api.startFishing(engine, 'free');
   api.sound.playEmoteSound = action => w.audio.push({action,at:w.perf});
   w.api = api; w.mem = mem; w.context = context; w.engine = engine;
@@ -164,7 +164,7 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
       if (before.phase === 'bite') api.fishingPress();
       if (before.phase === 'reel') {
         const velocity = (w.net - lastNet) / .02; lastNet = w.net;
-        api.fishingHold(w.net + velocity * .25 < .34);
+        api.fishingHold(w.net + velocity * .25 < .40);
       }
       w.perf += 20; w.time += 20;
       w.beforeDraw?.();

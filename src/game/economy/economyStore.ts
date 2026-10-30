@@ -1,3 +1,5 @@
+import { rodOf } from './rodConfig.js';
+import { rodLevelOf } from './rodConfig.js';
 // ECO-02(d) — the phone's side of the money system, as a small store with injected dependencies (testable
 // in plain Node). walletStore.ts makes the one real instance and the React hooks.
 //
@@ -68,6 +70,7 @@ interface ServerEconomy {
   revision: number;
   coins: number;
   coolerLevel: number;
+  rodLevel: number;
   goods: ServerGoods[];
   econ: { day: number; soldToday: Record<string, number>; earnedToday: number; boughtToday: Record<string, number> };
   iceUsedAt: number[];
@@ -104,6 +107,7 @@ export function parseServerEconomy(v: unknown): ServerEconomy | null {
     salePolicy: parseSalePolicy((r.salePolicy ?? r) as Record<string, unknown>),
     revision: r.revision,
     coins: Math.max(0, Math.floor(r.coins)),
+    rodLevel: rodLevelOf(r.rodLevel),
     coolerLevel: isNum(r.coolerLevel) ? Math.max(0, Math.floor(r.coolerLevel)) : 0,
     goods: r.goods.filter((g): g is ServerGoods => !!g && typeof g === 'object' && typeof (g as ServerGoods).uid === 'string'
       && typeof (g as ServerGoods).id === 'string' && isNum((g as ServerGoods).qty) && isNum((g as ServerGoods).at) && !!SHOP_BY_ID[(g as ServerGoods).id])
@@ -187,7 +191,7 @@ export class EconomyStore {
     const w: Wallet = {
       ...base,
       coins: s?.coins ?? 0,
-      coolerLevel: s?.coolerLevel ?? 0,
+      coolerLevel: s?.coolerLevel ?? 0, rodLevel: s?.rodLevel ?? 0,
       cooler: this.cooler,
       goods: (s?.goods ?? []).map(({ uid, id, qty, at, expiresAt }) => ({ uid, id, qty, at, expiresAt })), // the server's food clock
       day: s?.econ.day ?? base.day,
@@ -508,7 +512,8 @@ function sellDone(sold: SellLine[], kept: number | readonly { reason: string }[]
 function buyDone(vendor: Vendor, lines: BuyLine[], spent: number, after: Wallet, at: number): TradeOutcome {
   const n = lines.reduce((s, l) => s + l.qty, 0);
   const upgrade = lines.some((l) => SHOP_BY_ID[l.id]?.use === 'cooler_upgrade');
-  const msg = upgrade ? `Bigger cooler! It now holds ${coolerSlots(after)} fish.` : `−${formatMoney(spent)}. ${n} ${n === 1 ? 'thing' : 'things'} in your bag.`;
+  const rodUpgrade = lines.some(l => SHOP_BY_ID[l.id]?.use === 'rod_upgrade');
+  const msg = rodUpgrade ? `${rodOf(after.rodLevel).name}! Ready for your next cast.` : upgrade ? `Bigger cooler! It now holds ${coolerSlots(after)} fish.` : `−${formatMoney(spent)}. ${n} ${n === 1 ? 'thing' : 'things'} in your bag.`;
   return done(msg, buyReceipt(vendor, lines, after.coins, at), { spent, bought: n });
 }
 

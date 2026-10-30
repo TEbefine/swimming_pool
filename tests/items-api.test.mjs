@@ -69,7 +69,7 @@ test('load returns an empty save for a new Player ID and rejects extra fields', 
   const h = harness();
   const res = await h.call({ op: 'load' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body, { revision: 0, paidDecks: [], redeemFromDeckId: 0, fishBook: {}, totalKinds: 27, story: { dalbit: null }, coins: 0, coolerLevel: 0, goods: [], iceUsedAt: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} }, serverNow: NOON });
+  assert.deepEqual(res.body, { revision: 0, paidDecks: [], redeemFromDeckId: 0, fishBook: {}, totalKinds: 27, story: { dalbit: null }, coins: 0, coolerLevel: 0, rodLevel: 0, goods: [], iceUsedAt: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} }, serverNow: NOON });
   assert.equal(h.players.size, 0, 'load creates no document');
   assert.equal(h.logs.size, 0);
   assert.equal((await h.call({ op: 'load', catches: [] })).statusCode, 400);
@@ -260,10 +260,10 @@ test('new economy fields have an explicit maximum serialized size with the curre
   const { SHOP_ITEMS } = await import('../src/game/economy/shopCatalog.ts');
   const { BAG, ECONOMY_SAVE, SELL, SHOP } = await import('../src/game/economy/economyConfig.ts');
   assert.equal(ALL_FREE_FISH.length, 64, 'update documented storage budget when the catalogue grows');
-  assert.equal(SHOP_ITEMS.length, 48, 'update documented storage budget when the catalogue grows');
+  assert.equal(SHOP_ITEMS.length, 52, 'update documented storage budget when the catalogue grows');
   const now = Number.MAX_SAFE_INTEGER - 1;
   const raw = emptyPlayer(now);
-  raw.coins = ECONOMY_SAVE.maxBalance; raw.coolerLevel = 2;
+  raw.coins = ECONOMY_SAVE.maxBalance; raw.coolerLevel = 2; raw.rodLevel = 3;
   const longestFood = SHOP_ITEMS.filter(i => i.perishMin && !i.soon).sort((a, b) => b.id.length - a.id.length)[0];
   raw.goods = Array.from({ length: BAG.slots }, (_, i) => ({
     uid: String(i).padStart(ECONOMY_SAVE.goodsUidMaxLength, 'a'), id: longestFood.id,
@@ -272,10 +272,10 @@ test('new economy fields have an explicit maximum serialized size with the curre
   raw.econ.soldToday = Object.fromEntries(ALL_FREE_FISH.map(f => [f.id, LIMITS.catchesPerDay]));
   raw.econ.boughtToday = Object.fromEntries(SHOP_ITEMS.map(i => [i.id, LIMITS.opsPerDay * SHOP.maxCart]));
   raw.econ.earnedToday = SELL.dailyCap;
-  const { coins, coolerLevel, goods, econ } = normalizePlayer(raw, now);
-  const size = Buffer.byteLength(JSON.stringify({ coins, coolerLevel, goods, econ }));
+  const { coins, coolerLevel, rodLevel, goods, econ } = normalizePlayer(raw, now);
+  const size = Buffer.byteLength(JSON.stringify({ coins, coolerLevel, rodLevel, goods, econ }));
   assert.equal(goods.length, BAG.slots);
-  assert.equal(size, 5268, 'maximum compact JSON bytes; not Firestore billing/storage bytes');
+  assert.equal(size, 5353, 'maximum compact JSON bytes; not Firestore billing/storage bytes');
 });
 
 test('lowering economy configuration clamps counters rather than granting a fresh allowance', async () => {

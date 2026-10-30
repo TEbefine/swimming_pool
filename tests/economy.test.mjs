@@ -20,18 +20,18 @@ const plainCommon = (now = NOON) => {
 };
 
 test('catalog: 48 goods, one per sheet cell, sane prices, real vendors', () => {
-  assert.equal(SHOP_ITEMS.length, 48);
+  assert.equal(SHOP_ITEMS.length, 52);
   const ids = new Set(); const cells = new Set();
   for (const it of SHOP_ITEMS) {
     assert.ok(!ids.has(it.id), `duplicate id ${it.id}`); ids.add(it.id);
     const key = `${it.sheet}:${it.cell}`;
     assert.ok(!cells.has(key), `two items on ${key}`); cells.add(key);
     assert.ok(it.cell >= 0 && it.cell <= 15, it.id);
-    assert.ok(Number.isInteger(it.price) && it.price > 0, it.id);
+    assert.ok(Number.isInteger(it.price) && (it.price > 0 || it.id === 'rod_bamboo'), it.id);
     assert.ok(it.vendor === 'minato' || it.vendor === 'gen', it.id);
     if (it.perishMin !== undefined) assert.ok(it.perishMin > 0, it.id);
   }
-  assert.equal(cells.size, 48);
+  assert.equal(cells.size, 52);
 });
 
 test('sashimi is only ever cut from real, sellable SALTWATER catches (the liver-fluke rule)', () => {

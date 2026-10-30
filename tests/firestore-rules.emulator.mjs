@@ -280,4 +280,16 @@ try {
       assert.deepEqual(await h.snapshotOnServer(), after); assert.equal((await h.logsOnServer()).length, 2);
     }, edge);
   });
+  await test('rod purchase race: one payment/upgrade, exact Retry and forged ownership denied',async()=>{
+    await fixture(async h=>{
+      await h.ref.set({...emptyPlayer(h.clock),coins:2000});
+      const req=()=>({op:'shop.buy',operationId:operationId(),vendor:'gen',cart:[{id:'rod_fiberglass',qty:1}]});
+      const a=req(),b=req();const answers=await Promise.all([h.call(a),h.call(b)]);
+      assert.equal(answers.filter(x=>x.statusCode===200).length,1);
+      const saved=await h.saved();assert.equal(saved.rodLevel,1);assert.equal(saved.coins,1400);
+      const winner=answers[0].statusCode===200?a:b;assert.equal((await h.call(winner)).statusCode,200);
+      assert.equal((await h.saved()).coins,1400);assert.equal((await h.logsOnServer()).length,1);
+      const owner=env.authenticatedContext(h.address).firestore();await assertFails(setDoc(doc(owner,`players/${h.address}`),{rodLevel:3},{merge:true}));
+    });
+  });
 } finally { await env.cleanup(); }

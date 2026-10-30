@@ -1,0 +1,389 @@
+{
+  "assumptions": "Occupancy approximation, not human telemetry. Width penalty .8 times lost zone height; fill .28, drain .24; no rhythm. Existing success/travel assumptions retained; 1000 fresh-day sessions per row. Two same-day sessions face shared glut/caps; doubling one-session median is only a rough affordability check.",
+  "rows": [
+    {
+      "rodLevel": 0,
+      "profile": "casual",
+      "minutes": 10,
+      "p50": 164,
+      "p95": 362,
+      "mean": 175.389
+    },
+    {
+      "rodLevel": 0,
+      "profile": "casual",
+      "minutes": 20,
+      "p50": 351,
+      "p95": 628,
+      "mean": 365.065
+    },
+    {
+      "rodLevel": 0,
+      "profile": "casual",
+      "minutes": 30,
+      "p50": 534,
+      "p95": 833,
+      "mean": 551.205
+    },
+    {
+      "rodLevel": 0,
+      "profile": "casual",
+      "minutes": 60,
+      "p50": 1089,
+      "p95": 1488,
+      "mean": 1097.338
+    },
+    {
+      "rodLevel": 0,
+      "profile": "regular",
+      "minutes": 10,
+      "p50": 388,
+      "p95": 709,
+      "mean": 405.76
+    },
+    {
+      "rodLevel": 0,
+      "profile": "regular",
+      "minutes": 20,
+      "p50": 781,
+      "p95": 1216,
+      "mean": 808.572
+    },
+    {
+      "rodLevel": 0,
+      "profile": "regular",
+      "minutes": 30,
+      "p50": 1148,
+      "p95": 1613,
+      "mean": 1170.036
+    },
+    {
+      "rodLevel": 0,
+      "profile": "regular",
+      "minutes": 60,
+      "p50": 1894,
+      "p95": 2265,
+      "mean": 1889.766
+    },
+    {
+      "rodLevel": 0,
+      "profile": "skilled",
+      "minutes": 10,
+      "p50": 655,
+      "p95": 1086,
+      "mean": 674.775
+    },
+    {
+      "rodLevel": 0,
+      "profile": "skilled",
+      "minutes": 20,
+      "p50": 1254,
+      "p95": 1766,
+      "mean": 1285.486
+    },
+    {
+      "rodLevel": 0,
+      "profile": "skilled",
+      "minutes": 30,
+      "p50": 1693,
+      "p95": 2063,
+      "mean": 1690.716
+    },
+    {
+      "rodLevel": 0,
+      "profile": "skilled",
+      "minutes": 60,
+      "p50": 2494,
+      "p95": 2724,
+      "mean": 2450.677
+    },
+    {
+      "rodLevel": 1,
+      "profile": "casual",
+      "minutes": 10,
+      "p50": 172,
+      "p95": 382,
+      "mean": 188.802
+    },
+    {
+      "rodLevel": 1,
+      "profile": "casual",
+      "minutes": 20,
+      "p50": 373,
+      "p95": 687,
+      "mean": 401.441
+    },
+    {
+      "rodLevel": 1,
+      "profile": "casual",
+      "minutes": 30,
+      "p50": 622,
+      "p95": 989,
+      "mean": 648.227
+    },
+    {
+      "rodLevel": 1,
+      "profile": "casual",
+      "minutes": 60,
+      "p50": 1244,
+      "p95": 1642,
+      "mean": 1248.455
+    },
+    {
+      "rodLevel": 1,
+      "profile": "regular",
+      "minutes": 10,
+      "p50": 403,
+      "p95": 716,
+      "mean": 430.986
+    },
+    {
+      "rodLevel": 1,
+      "profile": "regular",
+      "minutes": 20,
+      "p50": 823,
+      "p95": 1228,
+      "mean": 841.874
+    },
+    {
+      "rodLevel": 1,
+      "profile": "regular",
+      "minutes": 30,
+      "p50": 1196,
+      "p95": 1642,
+      "mean": 1215.028
+    },
+    {
+      "rodLevel": 1,
+      "profile": "regular",
+      "minutes": 60,
+      "p50": 1938,
+      "p95": 2309,
+      "mean": 1942.758
+    },
+    {
+      "rodLevel": 1,
+      "profile": "skilled",
+      "minutes": 10,
+      "p50": 696,
+      "p95": 1117,
+      "mean": 713.277
+    },
+    {
+      "rodLevel": 1,
+      "profile": "skilled",
+      "minutes": 20,
+      "p50": 1287,
+      "p95": 1782,
+      "mean": 1324.839
+    },
+    {
+      "rodLevel": 1,
+      "profile": "skilled",
+      "minutes": 30,
+      "p50": 1730,
+      "p95": 2086,
+      "mean": 1726.281
+    },
+    {
+      "rodLevel": 1,
+      "profile": "skilled",
+      "minutes": 60,
+      "p50": 2529,
+      "p95": 2763,
+      "mean": 2490.532
+    },
+    {
+      "rodLevel": 2,
+      "profile": "casual",
+      "minutes": 10,
+      "p50": 172,
+      "p95": 382,
+      "mean": 189.729
+    },
+    {
+      "rodLevel": 2,
+      "profile": "casual",
+      "minutes": 20,
+      "p50": 424,
+      "p95": 750,
+      "mean": 452.472
+    },
+    {
+      "rodLevel": 2,
+      "profile": "casual",
+      "minutes": 30,
+      "p50": 674,
+      "p95": 1007,
+      "mean": 696.917
+    },
+    {
+      "rodLevel": 2,
+      "profile": "casual",
+      "minutes": 60,
+      "p50": 1309,
+      "p95": 1697,
+      "mean": 1321.534
+    },
+    {
+      "rodLevel": 2,
+      "profile": "regular",
+      "minutes": 10,
+      "p50": 408,
+      "p95": 726,
+      "mean": 439.948
+    },
+    {
+      "rodLevel": 2,
+      "profile": "regular",
+      "minutes": 20,
+      "p50": 832,
+      "p95": 1244,
+      "mean": 853.893
+    },
+    {
+      "rodLevel": 2,
+      "profile": "regular",
+      "minutes": 30,
+      "p50": 1215,
+      "p95": 1693,
+      "mean": 1239.737
+    },
+    {
+      "rodLevel": 2,
+      "profile": "regular",
+      "minutes": 60,
+      "p50": 1980,
+      "p95": 2339,
+      "mean": 1980.278
+    },
+    {
+      "rodLevel": 2,
+      "profile": "skilled",
+      "minutes": 10,
+      "p50": 708,
+      "p95": 1121,
+      "mean": 728.356
+    },
+    {
+      "rodLevel": 2,
+      "profile": "skilled",
+      "minutes": 20,
+      "p50": 1305,
+      "p95": 1783,
+      "mean": 1347.279
+    },
+    {
+      "rodLevel": 2,
+      "profile": "skilled",
+      "minutes": 30,
+      "p50": 1739,
+      "p95": 2107,
+      "mean": 1743.839
+    },
+    {
+      "rodLevel": 2,
+      "profile": "skilled",
+      "minutes": 60,
+      "p50": 2555,
+      "p95": 2798,
+      "mean": 2518.333
+    },
+    {
+      "rodLevel": 3,
+      "profile": "casual",
+      "minutes": 10,
+      "p50": 172,
+      "p95": 385,
+      "mean": 190.741
+    },
+    {
+      "rodLevel": 3,
+      "profile": "casual",
+      "minutes": 20,
+      "p50": 476,
+      "p95": 792,
+      "mean": 492.162
+    },
+    {
+      "rodLevel": 3,
+      "profile": "casual",
+      "minutes": 30,
+      "p50": 705,
+      "p95": 1037,
+      "mean": 723.917
+    },
+    {
+      "rodLevel": 3,
+      "profile": "casual",
+      "minutes": 60,
+      "p50": 1363,
+      "p95": 1781,
+      "mean": 1379.977
+    },
+    {
+      "rodLevel": 3,
+      "profile": "regular",
+      "minutes": 10,
+      "p50": 414,
+      "p95": 737,
+      "mean": 446.345
+    },
+    {
+      "rodLevel": 3,
+      "profile": "regular",
+      "minutes": 20,
+      "p50": 843,
+      "p95": 1261,
+      "mean": 865.156
+    },
+    {
+      "rodLevel": 3,
+      "profile": "regular",
+      "minutes": 30,
+      "p50": 1241,
+      "p95": 1718,
+      "mean": 1270.362
+    },
+    {
+      "rodLevel": 3,
+      "profile": "regular",
+      "minutes": 60,
+      "p50": 2006,
+      "p95": 2359,
+      "mean": 2004.974
+    },
+    {
+      "rodLevel": 3,
+      "profile": "skilled",
+      "minutes": 10,
+      "p50": 717,
+      "p95": 1129,
+      "mean": 741.912
+    },
+    {
+      "rodLevel": 3,
+      "profile": "skilled",
+      "minutes": 20,
+      "p50": 1319,
+      "p95": 1789,
+      "mean": 1361.078
+    },
+    {
+      "rodLevel": 3,
+      "profile": "skilled",
+      "minutes": 30,
+      "p50": 1754,
+      "p95": 2122,
+      "mean": 1756.622
+    },
+    {
+      "rodLevel": 3,
+      "profile": "skilled",
+      "minutes": 60,
+      "p50": 2576,
+      "p95": 2818,
+      "mean": 2541.883
+    }
+  ]
+}

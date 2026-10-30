@@ -58,9 +58,9 @@ test('combo tiers expire, skipped beats break streak and social threshold is six
  short=R.rhythmPress(short,3.5*i).state;assert.equal(short.streak,0);assert.equal(R.rhythmFill(short,3.5*i),1);
 });
 test('rhythm fill rewards in-net skill only; free drain .24, story ignores all reel effects',()=>{
- const s=free(1),inside={...s,fishY:.5,fishTarget:.5,netY:.35,netV:0,progress:.5};
+ const s=free(1),inside={...s,fishY:.45,fishTarget:.45,netY:.35,netV:0,progress:.5};
  const effects={elapsedMs:200,intervalMs:800,fillMultiplier:1.3};
- assert.equal(F.step(inside,.01,()=>.5,false,effects).progress,.5+.37*1.3*.01);
+ assert.equal(F.step(inside,.01,()=>.5,false,effects).progress,.5+.28*1.3*.01);
  assert.equal(F.step({...inside,netY:0},.01,()=>.5,false,effects).progress,.5-.24*.01);
  const story=F.press({...F.cast(()=>.5,{firstCatch:true}),phase:'bite'});
  assert.deepEqual(F.step(story,.02,()=>.5,true,effects),F.step(story,.02,()=>.5,true));
@@ -174,4 +174,14 @@ test('free cast gesture primes audio synchronously; muted/failed audio never blo
   const unavailable=new SoundManager();t.mock.method(unavailable,'initCtx',()=>{throw Error('audio unavailable');});
   assert.doesNotThrow(()=>unavailable.prepareFishingAudio());
  }finally{globalThis.document=old;}
+});
+
+test('all rod widths are snapshotted per cast, with slower fill; story ignores the rod option',()=>{
+ for(let level=0;level<4;level++){
+  const opts={freePacing:true,rodLevel:level,table:{species:[{id:'fish',difficulty:1,tier:'common',where:'any'}],tiers:[]},rolled:{fish:'fish',sizeCm:null,baseDiff:1,big:false}};
+  const s=F.cast(()=>.5,opts);opts.rodLevel=3-level;
+  assert.equal(F.netSizeOf(s),[.2,.24,.27,.3][level]);assert.equal(s.freeTuning.fillRate,.28);
+  const reel=F.press({...s,phase:'bite'});assert.ok(reel.fishY>=reel.netY&&reel.fishY<=reel.netY+F.netSizeOf(reel));
+ }
+ assert.deepEqual(F.cast(()=>.5,{firstCatch:true,rodLevel:3}),F.cast(()=>.5,{firstCatch:true}));
 });

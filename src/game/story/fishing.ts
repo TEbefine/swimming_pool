@@ -1,3 +1,4 @@
+import { rodOf } from '../economy/rodConfig.js';
 import { beatIntervalMs } from '../fishing/reelRhythm.js';
 import { FREE_FISHING_TUNING } from '../fishing/freeFishingTuning.js';
 import { FISH_BOOK } from '../fishing/fishBookConfig.js';
@@ -118,6 +119,7 @@ export type FishingPhase = 'ready' | 'waiting' | 'bite' | 'reel' | 'caught' | 's
 export interface FishingState {
   freeTuning?: typeof FREE_FISHING_TUNING;
   fishV?: number;
+  rodNetSize?: number;
   phase: FishingPhase;
   /** Species star, snapshotted for a free cast. Never part of a ticket or roll. */
   strikeMultiplier: number;
@@ -222,6 +224,7 @@ export function difficultyOf(s: Pick<FishingState, 'easy' | 'baseDiff'> & Partia
 export interface CastOptions {
   /** Explicit free-session opt-in; story ignores it. */
   freePacing?: boolean;
+  rodLevel?: number;
   /** Free-only modifier, applied after fish selection. */
   starred?: (fish: string) => boolean;
   /** Free fishing only: a shared deck roll replaces fish/size, leaving timing and physics below intact. */
@@ -260,7 +263,7 @@ export function cast(rng: Rng, opts: CastOptions = {}): FishingState {
   for (let i = 0; i < count; i++) nibbles.push(0.8 + rng() * Math.max(0.1, biteAt - 1.4));
   nibbles.sort((a, b) => a - b);
   const strikeMultiplier = !isStory && opts.starred?.(sp.id) ? FISH_BOOK.strikeWindowMultiplier : 1;
-  return { ...newFishing(), ...(freeTuning ? { freeTuning, fishV: 0 } : {}), strikeMultiplier, phase: 'waiting', fish: sp.id, baseDiff, biteAt, nibbles, easy: firstCatch, sizeCm, big };
+  return { ...newFishing(), ...(freeTuning ? { freeTuning, fishV: 0, rodNetSize: rodOf(opts.rodLevel).netSize } : {}), strikeMultiplier, phase: 'waiting', fish: sp.id, baseDiff, biteAt, nibbles, easy: firstCatch, sizeCm, big };
 }
 
 /** ◯ pressed (any phase). Returns the new state. */
@@ -272,7 +275,7 @@ export function press(s: FishingState, freeTapLift = TUNING.tapLift): FishingSta
     case 'bite':
       return {
         ...s, phase: 'reel', t: 0, floatDown: false,
-        netY: 0.1, netV: 0, fishY: 0.35, fishTarget: 0.5, fishTurnIn: s.freeTuning ? s.freeTuning.minTargetHold : 0.4, progress: TUNING.progressStart,
+        netY: s.freeTuning ? .35 - netSizeOf(s)/2 : 0.1, netV: 0, fishY: 0.35, fishTarget: 0.5, fishTurnIn: s.freeTuning ? s.freeTuning.minTargetHold : 0.4, progress: TUNING.progressStart,
       };
     case 'reel':
       return { ...s, netV: Math.min(TUNING.maxSpeed, (s.freeTuning ? Math.max(s.netV, 0) : s.netV) + (s.freeTuning ? freeTapLift : TUNING.tapLift)) };
@@ -302,7 +305,7 @@ export function step(s: FishingState, dt: number, rng: Rng, held = false, reel?:
     let netV = s.netV - TUNING.gravity * dt + (held ? TUNING.holdLift * dt : 0);
     netV = Math.max(-TUNING.maxSpeed, Math.min(TUNING.maxSpeed, netV));
     let netY = s.netY + netV * dt;
-    const top = 1 - TUNING.netSize;
+    const top = 1 - netSizeOf(s);
     if (netY < 0) { netY = 0; netV = Math.max(0, netV) * 0.3; }
     if (netY > top) { netY = top; netV = Math.min(0, netV); }
 
@@ -331,7 +334,7 @@ export function step(s: FishingState, dt: number, rng: Rng, held = false, reel?:
     }
     const movement = s.freeTuning ? { fishV } : {};
 
-    const inNet = fishY >= netY && fishY <= netY + TUNING.netSize;
+    const inNet = fishY >= netY && fishY <= netY + netSizeOf(s);
     const progress = Math.max(0, Math.min(1, s.progress + (inNet ? (s.freeTuning?.fillRate ?? TUNING.fillRate) * (s.freeTuning ? reel?.fillMultiplier ?? 1 : 1) : -(s.freeTuning?.drainRate ?? TUNING.drainRate)) * dt));
     if (progress >= 1) return { ...s, phase: 'caught', t: 0, progress, netY, fishY, inNet, ...movement };
     if (progress <= 0) return { ...s, phase: 'escaped', t: 0, progress, netY, fishY, inNet, ...movement };
@@ -358,3 +361,5 @@ export function hint(s: FishingState): string {
 export function isOver(s: FishingState): boolean {
   return s.phase === 'caught' || s.phase === 'scared' || s.phase === 'stolen' || s.phase === 'escaped';
 }
+
+export const netSizeOf = (s: FishingState) => s.freeTuning ? s.rodNetSize ?? .20 : TUNING.netSize;

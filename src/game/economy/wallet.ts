@@ -1,3 +1,4 @@
+import { rodLevelOf } from './rodConfig.js';
 // THE WALLET — money, the cooler (fish you carry) and the goods bag, as PURE functions.
 // Every action takes the wallet + `now` and returns a NEW wallet (or the same one + a reason it failed).
 // All-or-nothing: a failed action never half-changes anything. Expiry is checked on read (no timers).
@@ -58,6 +59,7 @@ export interface Wallet {
   coins: number;
   /** 0 = the starter cooler; each upgrade adds COOLER.upgradeSlots. */
   coolerLevel: number;
+  rodLevel: number;
   cooler: CoolerFish[];
   goods: Goods[];
   /** The Bangkok day the daily counters below belong to. */
@@ -80,7 +82,7 @@ export function fishIceMin(w: Pick<Wallet, 'iceUsedAt'>, c: Pick<CoolerFish, 'ca
 export type Reason =
   | 'not_sellable' | 'cooler_full' | 'nothing_selected' | 'spoiled' | 'daily_cap'
   | 'unknown_item' | 'not_for_sale' | 'wrong_vendor' | 'too_many' | 'daily_limit'
-  | 'not_enough_coins' | 'bag_full' | 'cooler_max' | 'nothing_to_cool' | 'cant_use' | 'not_owned';
+  | 'rod_locked' | 'not_enough_coins' | 'bag_full' | 'cooler_max' | 'nothing_to_cool' | 'cant_use' | 'not_owned';
 
 /** Limits speak in a character's voice, never as error pop-ups. The UI may swap in per-NPC lines. */
 export const REASON_LINES: Record<Reason, string> = {
@@ -96,6 +98,7 @@ export const REASON_LINES: Record<Reason, string> = {
   daily_limit: 'Only so many of those a day. The sea decides, not me.',
   not_enough_coins: 'Not enough coins for that yet.',
   bag_full: 'Your bag is full. Make some room first.',
+  rod_locked: "Try the next rod in order. I can’t upgrade that one yet.",
   cooler_max: "That's already the biggest cooler I have.",
   nothing_to_cool: 'Your cooler is empty. Ice is for fish!',
   cant_use: "You can't use that here.",
@@ -127,7 +130,7 @@ function withLog(w: Wallet, entry: TradeLog): Wallet {
 // ---- create, load, settle --------------------------------------------------------------------
 
 export function freshWallet(now: number): Wallet {
-  return { version: 1, coins: 0, coolerLevel: 0, cooler: [], goods: [], day: bkkDay(now), soldToday: {}, earnedToday: 0, boughtToday: {}, iceUsedAt: [], log: [] };
+  return { version: 1, coins: 0, coolerLevel: 0, rodLevel: 0, cooler: [], goods: [], day: bkkDay(now), soldToday: {}, earnedToday: 0, boughtToday: {}, iceUsedAt: [], log: [] };
 }
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -157,6 +160,7 @@ export function parseWallet(raw: unknown, now: number): Wallet {
   return {
     version: 1,
     coins: isNum(r.coins) && r.coins > 0 ? Math.floor(r.coins) : 0,
+    rodLevel: rodLevelOf(r.rodLevel),
     coolerLevel: isNum(r.coolerLevel) ? Math.max(0, Math.min(COOLER.upgradePrices.length, Math.floor(r.coolerLevel))) : 0,
     cooler,
     goods,
@@ -301,7 +305,7 @@ function goodsAfter(goods: Goods[], cart: CartLine[], now: number, uid: () => st
   const out = goods.map((g) => ({ ...g }));
   for (const l of cart) {
     const it = SHOP_BY_ID[l.id];
-    if (it.use === 'cooler_upgrade') continue;
+    if (it.use === 'cooler_upgrade' || it.use === 'rod_upgrade') continue;
     if (it.perishMin !== undefined) {
       for (let i = 0; i < l.qty; i++) out.push({ uid: uid(), id: l.id, qty: 1, at: now });
     } else {
@@ -336,14 +340,15 @@ export function quoteBuySettled(w: Wallet, cart0: CartLine[], vendor: Vendor, no
   const fail = (problem: Reason, problemItem?: string) => ({ wallet: w, quote: { lines, total, problem, problemItem } });
   if (!cart.length) return fail('nothing_selected');
   if (cart.reduce((s, l) => s + l.qty, 0) > SHOP.maxCart) return fail('too_many');
+  if (cart.filter(l => SHOP_BY_ID[l.id]?.use === 'rod_upgrade').reduce((n,l)=>n+l.qty,0)>1) return fail('too_many');
   for (const l of cart) {
     const it = SHOP_BY_ID[l.id];
     if (!it) return fail('unknown_item', l.id);
     if (it.soon) return fail('not_for_sale', l.id);
     if (it.vendor !== vendor) return fail('wrong_vendor', l.id);
     if (it.use === 'cooler_upgrade' && l.qty > 1) return fail('too_many', l.id);
-    const unit = itemPrice(l.id, market, w.coolerLevel, COOLER.upgradePrices);
-    if (unit === null) return fail('cooler_max', l.id);
+    const unit = itemPrice(l.id, market, w.coolerLevel, COOLER.upgradePrices, w.rodLevel);
+    if (unit === null) return fail(it.use === 'rod_upgrade' ? 'rod_locked' : 'cooler_max', l.id);
     if (it.dailyLimit !== undefined && (w.boughtToday[l.id] ?? 0) + l.qty > it.dailyLimit) return fail('daily_limit', l.id);
     lines.push({ id: l.id, qty: l.qty, unit, total: unit * l.qty, special: market.special === l.id });
     total += unit * l.qty;
@@ -366,12 +371,14 @@ export function buySettled(w0: Wallet, cart0: CartLine[], vendor: Vendor, ctx: C
   const goods = goodsAfter(w.goods, cart, ctx.now, ctx.uid ?? defaultUid)!;
   const boughtToday = { ...w.boughtToday };
   let coolerLevel = w.coolerLevel;
+  let rodLevel = w.rodLevel;
   for (const l of cart) {
     boughtToday[l.id] = (boughtToday[l.id] ?? 0) + l.qty;
     if (SHOP_BY_ID[l.id].use === 'cooler_upgrade') coolerLevel += 1;
+    if (SHOP_BY_ID[l.id].use === 'rod_upgrade') rodLevel += 1;
   }
   const what = quote.lines.length === 1 ? `${quote.lines[0].qty > 1 ? `${quote.lines[0].qty}× ` : ''}${itemName(quote.lines[0].id)}` : `${quote.lines.reduce((s, l) => s + l.qty, 0)} things`;
-  const next = withLog({ ...w, coins: w.coins - quote.total, goods, boughtToday, coolerLevel },
+  const next = withLog({ ...w, coins: w.coins - quote.total, goods, boughtToday, coolerLevel, rodLevel },
     { at: ctx.now, kind: 'buy', text: `Bought ${what}`, coins: -quote.total });
   return { ok: true, wallet: next, lines: quote.lines, spent: quote.total };
 }

@@ -39,10 +39,10 @@ test('causal controller lands free fish at 60/30/20 fps with 150ms delayed input
   const queue=Array(Math.ceil(.15/dt)).fill(false);let lastY=s.fishY;
   for(let i=0;i<fps*60&&s.phase==='reel';i++){
    const fishV=(s.fishY-lastY)/dt;lastY=s.fishY;
-   const target=Math.max(.15,Math.min(.85,s.fishY+fishV*.15));
+   const target=Math.max(.10,Math.min(.90,s.fishY+fishV*.15));
    let y=s.netY,v=s.netV;
-   for(const held of queue){v=Math.max(-1.1,Math.min(1.1,v+(-1.6+(held?3:0))*dt));y+=v*dt;if(y<0){y=0;v=Math.max(0,v)*.3;}if(y>.7){y=.7;v=Math.min(0,v);}}
-   const hold=y+.15+v*.35<target;
+   for(const held of queue){v=Math.max(-1.1,Math.min(1.1,v+(-1.6+(held?3:0))*dt));y+=v*dt;if(y<0){y=0;v=Math.max(0,v)*.3;}if(y>.8){y=.8;v=Math.min(0,v);}}
+   const hold=y+.10+v*.35<target;
    queue.push(hold);s=step(s,dt,r,queue.shift());
   }
   assert.equal(s.phase,'caught',JSON.stringify({fps,d,big,star,seed,s}));runs++;

@@ -14,7 +14,7 @@ import { getEmoteItems, type EmoteItem } from '../startMenu/EmoteScreen';
 import { OPTION_ROWS } from '../startMenu/optionRows';
 import { MenuStore, type MenuContext, type MenuHost, type MenuInput, type MenuState, type Sfx } from './menuModel';
 import { DpadAdapter, KeyGate, menuInputFromKey } from './menuInput';
-import { bagUsesEconomy, coolerIds, coolerRows, goodsIds, goodsRows, COOLER_PREFIX, GOODS_PREFIX } from '../bag/economyRows';
+import { bagUsesEconomy, rodRow, coolerIds, coolerRows, goodsIds, goodsRows, COOLER_PREFIX, GOODS_PREFIX } from '../bag/economyRows';
 import { gameNow, getWallet, refreshWallet, useBagItem } from '../../game/economy/walletStore';
 import { SHOP_BY_ID } from '../../game/economy/shopCatalog';
 
@@ -75,6 +75,7 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
       itemsIn: (pocket) => {
         // ECO-02(d): with the money system on, FISH = the cooler you carry, ITEMS = story items + shop goods.
         if (bagUsesEconomy(isStory.current)) {
+          if (pocket === 'key') return [...carriedIn(getStory().bag, 'key'), 'gear:rod'];
           if (pocket === 'fish') return [...carriedIn(getStory().bag, 'fish'), ...coolerIds(getWallet())];
           if (pocket === 'items') return [...carriedIn(getStory().bag, 'items'), ...goodsIds(getWallet())];
         }
@@ -87,6 +88,7 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
         return carriedIn(getStory().bag, pocket);
       },
       actionsFor: (id) => {
+        if (id === 'gear:rod') return ['check'];
         if (id.startsWith(COOLER_PREFIX)) return ['check'];
         if (id.startsWith(GOODS_PREFIX)) {
           const g = getWallet().goods.find((x) => GOODS_PREFIX + x.uid === id);
@@ -112,6 +114,7 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
       },
       changeOption: (index, dir) => OPTION_ROWS[index]?.change(dir),
       runItemAction: (itemId, action) => {
+        if (itemId === 'gear:rod') { const row = rodRow(getWallet()); return `${row.name}: ${row.note}`; }
         if (itemId.startsWith(COOLER_PREFIX)) {
           const row = coolerRows(refreshWallet(), gameNow()).find((r) => r.id === itemId);
           return row ? `${row.name}: ${row.meta}. Sell it to Gen at the Harbour Fish Shop.` : 'That fish is gone.';

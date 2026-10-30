@@ -1,3 +1,4 @@
+import { rodOf } from '../../game/economy/rodConfig';
 // ECO-02(d) Bag: when the money system is on, the Bag shows what you really CARRY.
 // - FISH  = the fish in your cooler right now (sold or spoiled fish are gone). The Fish Book keeps the collection.
 // - ITEMS = story items + things you bought at the shop (ice can be used from here).
@@ -63,3 +64,5 @@ export function goodsRows(w: Wallet, now: number): EconomyRow[] {
     };
   });
 }
+
+export const rodRow = (w: Wallet): EconomyRow => ({id:'gear:rod',name:rodOf(w.rodLevel).name,count:1,icon:shopIcon(rodOf(w.rodLevel).id),note:'Automatically active for free fishing. Upgrade at Gen.',meta:'Permanent · Current rod'});

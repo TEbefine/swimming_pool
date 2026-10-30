@@ -27,11 +27,11 @@ function samplePosition(at: number) {
 
 import { sound } from '../audio';
 import type { GameEngine } from '../Engine';
-import { cast, difficultyOf, isOver, newFishing, press as pressRule, step, TUNING, type CastInfo, type FishingPhase, type FishingState } from './fishing';
+import { cast, netSizeOf, difficultyOf, isOver, newFishing, press as pressRule, step, TUNING, type CastInfo, type FishingPhase, type FishingState } from './fishing';
 import { ITEMS, itemIcon, withArticle, type ItemId } from './items';
 import { addItem, addLedger, getStory, recordSize, setEnergy, setFlag } from './storyStore';
 import { BOTTLE_NOTES, FREE_BY_ID, FREE_TABLE, TIERS, getFishBook, freeIcon, freeTableNow } from '../fishing/freeFish';
-import { catchToCooler, ECONOMY_ON, gameNow, saleProblemNow } from '../economy/walletStore';
+import { catchToCooler, getWallet, ECONOMY_ON, gameNow, saleProblemNow } from '../economy/walletStore';
 import { getFishingDeckAddress, reserveFishingCast } from '../fishing/deckClient';
 import { PRACTICE_CATCH, finishFreeCast, prepareFreeCast } from '../fishing/freeCast';
 import type { FreeCast } from '../fishing/freeCast';
@@ -349,7 +349,7 @@ function throwLine(info: CastInfo) {
   freeCast = mode === 'free' && ECONOMY_ON
     ? prepareFreeCast(info, gameNow(), testHooks.forceFish ? () => null : reserveFishingCast) : null;
   fs = mode === 'free'
-    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), freePacing: true, info, rolled: freeCast?.rolled, starred: fish => !!getFishBook().entries[fish]?.starred, forceFish: testHooks.forceFish, hour: bangkokHour() })
+    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), freePacing: true, rodLevel: getWallet().rodLevel, info, rolled: freeCast?.rolled, starred: fish => !!getFishBook().entries[fish]?.starred, forceFish: testHooks.forceFish, hour: bangkokHour() })
     : cast(Math.random, { firstCatch: !st.flags.first_catch, forceFish: testHooks.forceFish, info });
   testHooks.onCast?.(info);
   // Release is an input event, so the whoosh is immediate, without a draw-frame wait.
@@ -390,7 +390,7 @@ export function fishingPress(eventTimeMs?: number) {
   const wasReel = fs.phase === 'reel';
   let next = pressRule(fs);
   if (mode === 'free' && wasReel && rhythm) {
-    const judged = rhythmPress(rhythm, inputAt - reelStart, REEL_RHYTHM.rhythmLatencyOffsetMs, inNetAt(positions, inputAt, TUNING.netSize));
+    const judged = rhythmPress(rhythm, inputAt - reelStart, REEL_RHYTHM.rhythmLatencyOffsetMs, inNetAt(positions, inputAt, netSizeOf(fs)));
     rhythm = judged.state;
     if (judged.perfect) {
       if (rhythm.streak >= 2) next = pressRule(fs, REEL_RHYTHM.perfectLift);
@@ -1041,8 +1041,8 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedM
   const beatPulse = beatAge >= 0 && performance.now() - reelStart >= (rhythm?.interval ?? Infinity) ? Math.max(0, 1 - beatAge / 140) : 0;
 
   // the net (hemp mesh) — flashes when the fish swims in
-  const ny = Math.round(col.y + col.h - (fs.netY + TUNING.netSize) * col.h);
-  const nh = Math.round(TUNING.netSize * col.h);
+  const ny = Math.round(col.y + col.h - (fs.netY + netSizeOf(fs)) * col.h);
+  const nh = Math.round(netSizeOf(fs) * col.h);
   px(ctx, col.x, ny, col.w, nh, fs.inNet ? C.netHi : C.net);
   if (mode === 'free') {
     ctx.globalAlpha *= .35 + beatPulse * .35;
