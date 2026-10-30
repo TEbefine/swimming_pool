@@ -5,6 +5,7 @@ import { sound } from '../../game/audio';
 import { music, MUSIC_LABELS, type MusicLevel } from '../../game/audio/music';
 import { quality, TIER_LABEL, type QualityMode } from '../../game/quality';
 import { isVibrationEnabled, setVibrationEnabled, triggerHaptic } from '../../game/haptics';
+import type { FloatColor } from '../../game/types';
 
 export interface OptionRow {
   id: string;
@@ -21,6 +22,19 @@ const step = <T,>(list: readonly T[], current: T, dir: 1 | -1): T =>
 
 const MUSIC_ORDER: readonly MusicLevel[] = ['off', 'low', 'normal'];
 const QUALITY_ORDER: readonly QualityMode[] = ['auto', 'beautiful', 'balanced', 'battery'];
+
+const FLOAT_ORDER: readonly FloatColor[] = ['red', 'blue', 'pink', 'yellow', 'black', 'green', 'purple', 'gray'];
+const FLOAT_LABEL: Record<FloatColor, string> = {
+  red: 'Red', blue: 'Blue', pink: 'Pink', yellow: 'Yellow', black: 'Black', green: 'Green', purple: 'Purple', gray: 'Gray',
+};
+const readFloat = (): FloatColor => {
+  try {
+    const saved = localStorage.getItem('pixel_pool_float_color') as FloatColor | null;
+    return saved && FLOAT_ORDER.includes(saved) ? saved : 'red';
+  } catch {
+    return 'red';
+  }
+};
 
 export const OPTION_ROWS: readonly OptionRow[] = [
   {
@@ -46,6 +60,17 @@ export const OPTION_ROWS: readonly OptionRow[] = [
       const next = !isVibrationEnabled();
       setVibrationEnabled(next);
       if (next) triggerHaptic(20);
+    },
+  },
+  {
+    // Moved here from the shell's top ridge (2026-10-30). App owns the colour (engine + network),
+    // so this row reads the saved value and asks App to change it with a 'float:set' event.
+    id: 'float',
+    label: 'Float ring',
+    description: 'The colour of your swim ring in the pool.',
+    value: () => FLOAT_LABEL[readFloat()],
+    change: (dir) => {
+      window.dispatchEvent(new CustomEvent<FloatColor>('float:set', { detail: step(FLOAT_ORDER, readFloat(), dir) }));
     },
   },
   {

@@ -1,9 +1,9 @@
 import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
-import type { PlayerState, FloatColor, ChatMessage } from '../game/types';
-import { Volume2, VolumeX, HelpCircle, X, Send } from 'lucide-react';
-import { sound } from '../game/audio';
+import type { PlayerState, ChatMessage } from '../game/types';
+import { X, Send } from 'lucide-react';
 import { triggerHaptic } from '../game/haptics';
 import { KEY_INPUTS } from '../identity/policy';
+import { ShellTopBand, ShellCreditLine, type ShellStatus, type CreditScene } from './ShellBands';
 import type { ComboInput } from '../identity/policy';
 
 interface GameBoyMobileProps {
@@ -11,7 +11,6 @@ interface GameBoyMobileProps {
   playerState: PlayerState;
   currentAction: string;
   playerName: string;
-  floatColor: FloatColor;
   playerCount: number;
   chatLog: ChatMessage[];
   onDirectionChange: (dx: number, dy: number) => void;
@@ -21,9 +20,7 @@ interface GameBoyMobileProps {
   onActionA: () => void;
   onTriggerEmote: (action: string) => void;
   onSendMessage: (text: string) => void;
-  onOpenFloatPicker: () => void;
   onOpenNameModal: () => void;
-  onOpenHelpModal: () => void;
   screenOverlay?: React.ReactNode;
   dialogOpen?: boolean;
   onToggleSceneBox?: () => void;
@@ -33,6 +30,10 @@ interface GameBoyMobileProps {
   statusLabel?: string;
   hideStatusBadge?: boolean;
   isPoweredOff?: boolean;
+  /** Status light + word in the top band. Defaults to standby when powered off, else ready. */
+  status?: ShellStatus;
+  /** Which borrowed idea the credit line names. */
+  creditScene?: CreditScene;
   identityControls?: {
     onInput: (input: ComboInput) => void;
     onDelete: () => void;
@@ -56,11 +57,14 @@ const IDENTITY_DPAD_ARMS = [
   ['right', 67, 33, 33, 38],
 ] as const;
 
+/** Speaker grille holes: 4 rows × 5 columns with the top-left corner left solid. */
+const SPEAKER_HOLES: ReadonlyArray<readonly [number, number]> = Array.from({ length: 20 }, (_, i) => [Math.floor(i / 5), i % 5] as const)
+  .filter(([r, c]) => r + c >= 2);
+
 export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   canvasRef,
   playerState,
   currentAction: _currentAction,
-  floatColor,
   playerCount,
   chatLog,
   onDirectionChange,
@@ -69,8 +73,6 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   onActionA,
   onTriggerEmote,
   onSendMessage,
-  onOpenFloatPicker,
-  onOpenHelpModal,
   screenOverlay,
   dialogOpen = false,
   onToggleSceneBox,
@@ -80,11 +82,12 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   statusLabel = 'Sunny Poolside',
   hideStatusBadge = false,
   isPoweredOff = false,
+  status,
+  creditScene = 'design',
   identityControls,
 }) => {
   const isWater = playerState === 'water';
   const faceButtonClass = `w-[34px] h-[34px] rounded-full minimal-btn flex items-center justify-center cursor-pointer text-white/90 ${identityControls ? '' : 'hover:text-white active:scale-95'} shadow-md`;
-  const [muted, setMuted] = useState(sound.isMuted());
   const [activeDir, setActiveDir] = useState<{ up: boolean; down: boolean; left: boolean; right: boolean }>({
     up: false,
     down: false,
@@ -167,11 +170,6 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       if (e.detail === 0) fn();
     },
   });
-
-  const handleToggleMute = () => {
-    const isNowMuted = sound.toggleMute();
-    setMuted(isNowMuted);
-  };
 
   // Minimal D-Pad Touch & Drag calculations
   const updateDirectionFromTouch = useCallback((clientX: number, clientY: number) => {
@@ -347,17 +345,6 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     }
   };
 
-  const floatColorMap: Record<FloatColor, string> = {
-    red: '#ef4444',
-    blue: '#3b82f6',
-    pink: '#ec4899',
-    yellow: '#eab308',
-    black: '#374151',
-    green: '#22c55e',
-    purple: '#a855f7',
-    gray: '#9ca3af'
-  };
-
   return (
     <div
       onContextMenu={(e) => e.preventDefault()}
@@ -369,40 +356,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
         userSelect: 'none'
       }}
     >
-      {/* Top Console Ridge with OFF/ON indicator */}
-      <div className="w-full h-5 bg-[var(--gb-ridge)] border-b border-[var(--gb-ridge-line)] flex items-center justify-between px-4 text-[8px] font-mono text-[var(--gb-ridge-text)] uppercase tracking-wider shrink-0">
-        <div className="flex items-center gap-1.5">
-          <span>◀ OFF</span>
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9e9e94] dark:bg-[#e0705c] dark:shadow-[0_0_4px_#e0705c]"></span>
-          <span>ON ▶</span>
-        </div>
-        <div className="flex items-center gap-3" style={identityControls ? { visibility: 'hidden' } : undefined}>
-          <button
-            onClick={handleToggleMute}
-            className="text-[16px] hover:text-[var(--gb-ridge-strong)] transition-colors cursor-pointer"
-            title="Toggle Sound"
-          >
-            {muted ? <VolumeX size={12} className="text-rose-600 dark:text-rose-400 inline" /> : <Volume2 size={12} className="text-emerald-700 dark:text-emerald-400 inline" />}
-          </button>
-          <button
-            onClick={onOpenFloatPicker}
-            className="flex items-center gap-1 hover:text-black transition-colors cursor-pointer"
-            title="Change Float Ring"
-          >
-            <div
-              className="w-3 h-3 rounded-full border border-black/40 dark:border-white/30"
-              style={{ backgroundColor: floatColorMap[floatColor] }}
-            />
-          </button>
-          <button
-            onClick={onOpenHelpModal}
-            className="hover:text-[var(--gb-ridge-strong)] cursor-pointer"
-            title="Help"
-          >
-            <HelpCircle size={12} className="inline text-[var(--gb-ridge-icon)]" />
-          </button>
-        </div>
-      </div>
+      {/* Top console ridge: plain plastic (Teera 2026-10-30). Sound, float ring and help live in the START menu. */}
+      <div className="w-full h-5 bg-[var(--gb-ridge)] border-b border-[var(--gb-ridge-line)] shrink-0" aria-hidden="true" />
 
       {/* ========================================================================= */}
       {/* UPPER SECTION: OLD GAME BOY SCREEN (EXPANDED TO FILL REST OF VIEWPORT) */}
@@ -410,40 +365,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
       <div className="flex-1 min-h-0 flex flex-col justify-center px-3.5 pt-1 pb-1 relative">
         {/* Game Boy Classic Screen Bezel */}
         <div className="w-full h-full gameboy-bezel flex flex-col justify-between relative">
-          {/* Bezel Header: Retro dual stripes + room name + battery LED */}
-          {/* Fixed-height band: the title sits dead centre, both across and up/down. */}
-          <div className="w-full h-6 flex items-center justify-between shrink-0 gap-2">
-            {/* Invisible twin of the power LED, so the title is truly centred */}
-            <div className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
-            {/* Left stripes */}
-            <div className="flex flex-col gap-[3px] flex-1">
-              <div className="h-[1.5px] w-full bg-[#c05746] rounded-full"></div>
-              <div className="h-[1.5px] w-full bg-[#6b9080] rounded-full"></div>
-            </div>
-
-            {/* Center text */}
-            <span className="text-[7.5px] font-sans font-bold tracking-widest text-[var(--gb-bezel-text)] uppercase text-center px-1.5 shrink-0">
-              {statusLabel || 'WEEKDAY CHILL CAFÉ'}
-            </span>
-
-            {/* Right stripes */}
-            <div className="flex flex-col gap-[3px] flex-1">
-              <div className="h-[1.5px] w-full bg-[#c05746] rounded-full"></div>
-              <div className="h-[1.5px] w-full bg-[#6b9080] rounded-full"></div>
-            </div>
-
-            {/* Red battery / power indicator dot */}
-            <div className="flex items-center shrink-0">
-              <div
-                className={`w-2.5 h-2.5 rounded-full border border-[var(--gb-bezel-edge)] transition-all duration-300 ${
-                  isPoweredOff
-                    ? 'bg-[#2b1715] opacity-35 shadow-none'
-                    : 'bg-[#e0705c] shadow-[0_0_5px_#e0705c]'
-                }`}
-                title={isPoweredOff ? 'Power: Off' : 'Power: On'}
-              />
-            </div>
-          </div>
+          {/* Top band: SAP Co. + live status word + status light (2026-10-30) */}
+          <ShellTopBand status={status ?? (isPoweredOff ? 'standby' : 'ready')} roomName={statusLabel} />
 
           {/* Screen Row: Symmetrical Display Window with Balanced Grey Space */}
           <div className="relative flex-1 w-full my-1 min-h-0 overflow-hidden flex items-center justify-center">
@@ -507,26 +430,8 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             </div>
           </div>
 
-          {/* Logo printed on the screen frame, under the screen (like the Game Boy Color) */}
-          <div className="w-full h-8 flex items-center justify-center shrink-0 pointer-events-none">
-           <div className="flex items-baseline gap-1">
-            <span className="text-[var(--gb-bezel-ink)] font-sans font-semibold text-[12px] leading-none tracking-tight">
-              Nintendo
-            </span>
-            <span
-              className="text-[var(--gb-bezel-logo)] font-sans font-black italic text-[12px] leading-none tracking-wider"
-              style={{ transform: 'skewX(-6deg)' }}
-            >
-              GAME BOY
-            </span>
-            <span
-              className="text-[var(--gb-bezel-ink)] text-[6px] leading-none font-sans font-bold"
-              style={{ position: 'relative', top: -5 }}
-            >
-              TM
-            </span>
-           </div>
-          </div>
+          {/* Bottom band: credit line, "[part] inspired by [source]" (2026-10-30) */}
+          <ShellCreditLine scene={creditScene} />
         </div>
       </div>
 
@@ -558,7 +463,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
               onPointerCancel={handleDpadPointerCancel}
               onContextMenu={(e) => e.preventDefault()}
               onDragStart={(e) => e.preventDefault()}
-              className="relative w-[108px] h-[108px] rounded-full minimal-socket flex items-center justify-center cursor-pointer touch-none select-none shadow-md"
+              className="relative w-[108px] h-[108px] rounded-full minimal-socket flex items-center justify-center cursor-pointer touch-none select-none"
               style={{
                 WebkitTouchCallout: 'none',
                 WebkitUserSelect: 'none',
@@ -623,7 +528,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
             {/* Symmetrical Right Recessed Socket (108px) */}
             <div
               onContextMenu={(e) => e.preventDefault()}
-              className="relative w-[108px] h-[108px] rounded-full minimal-socket flex items-center justify-center select-none shadow-md"
+              className="relative w-[108px] h-[108px] rounded-full minimal-socket flex items-center justify-center select-none"
               style={{
                 WebkitTouchCallout: 'none',
                 WebkitUserSelect: 'none',
@@ -758,21 +663,18 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                 >
                   <span className="gb-round-btn block w-[18px] h-[18px] rounded-full" />
                 </button>
-                <span className="h-2 leading-none text-[7px] font-bold text-[var(--gb-ink)] font-sans tracking-[0.2em] uppercase">
+                <span className="gb-key-label">
                   {key.label}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* 6 Decorative Molded Speaker Ribs on Bottom-Right */}
-          <div className="absolute right-7 bottom-0 flex items-center gap-0.5 pointer-events-none" style={{ transform: 'rotate(-28deg)' }}>
-            <div className="w-1.5 h-2.5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-3.5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-4.5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-4.5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-3.5 rounded-full gameboy-speaker-slot"></div>
-            <div className="w-1.5 h-2.5 rounded-full gameboy-speaker-slot"></div>
+          {/* Speaker: a small grid of round holes, bottom-right (Teera picked the dot-hole grille, 2026-10-30) */}
+          <div className="gb-speaker-grid" aria-hidden="true">
+            {SPEAKER_HOLES.map(([r, c]) => (
+              <span key={`${r}-${c}`} className="gameboy-speaker-slot" style={{ gridRow: r + 1, gridColumn: c + 1 }} />
+            ))}
           </div>
         </div>
 
