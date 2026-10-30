@@ -637,7 +637,7 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Daytime is calm. Lots of Commons and Rares out there.', pose: 'talk', face: 'neutral' },
           { text: 'And on bright days... a Sun Carp. A God-tier fish! I saw it once.', pose: 'happy', face: 'smile' },
           { text: 'Catch an Epic or better and the whole bay hears about it in the chat.', pose: 'thumbsup', face: 'confident' },
-          { text: 'Every fish you catch goes in your Fish Book. Try to fill it!', pose: 'clipboard', face: 'explain' },
+          { text: 'Sell verified fish to Gen to fill your Fish Book. I can help with fishing tips!', pose: 'clipboard', face: 'explain' },
         ],
         choices: GUIDE_MENU,
       },

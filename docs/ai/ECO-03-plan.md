@@ -1,5 +1,7 @@
 # ECO-03 approved plan and stage reviews
 
+Current proposal (2026-10-29): stages 3–4 are merged in main a9b4f37 / PR #23. See [ECO-03-stage5-fishbook-plan.md](ECO-03-stage5-fishbook-plan.md) for the **approved, simplified** stage 5 + fresh sale-only Fish Book redesign requested by Teera. That plan supersedes this document's earlier independent guide-recording/Book-only assumptions; Gen remains buyer and reset is allowed, with no old-data preservation/migration; historical stage decisions/reviews below are preserved.
+
 2026-10-29. Owner: Teera. Based on main `79bd8d0` (merged PR #21), pulled before code. Stages 2 and 3 are approved after independent Claude reviews; stage 4 is built for review on `dev-test-id`. Claude's ECO-02 fixes and context entry are preserved. The earlier local review edits to AI_CONTEXT.md were discarded; this session records only the newly authorized ECO-03 work.
 
 ## Approved decisions

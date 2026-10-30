@@ -10,7 +10,7 @@ import type { ShopItem, Vendor } from '../../game/economy/shopCatalog';
 import type { CartLine, SellLine } from '../../game/economy/wallet';
 import { coolerSlots, goodsFreshRatio, goodsLeftMin } from '../../game/economy/wallet';
 import {
-  buyFrom, gameNow, quoteBuyNow, quoteSellNow, reasonLine, refreshWallet, retryTrade, sellToGen, syncEconomy, useBagItem, useEconomyStatus, useWallet,
+  buyFrom, gameNow, saleProblemNow, sellableFishNow, quoteBuyNow, quoteSellNow, reasonLine, refreshWallet, retryTrade, sellToGen, syncEconomy, useBagItem, useEconomyStatus, useWallet,
 } from '../../game/economy/walletStore';
 import type { TradeOutcome } from '../../game/economy/walletStore';
 import { iceMinutesFor } from '../../game/economy/market';
@@ -144,7 +144,8 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   const linesByUid = useMemo(() => new Map<string, SellLine>((sellQuote?.lines ?? []).map((l) => [l.uid, l])), [sellQuote]);
   /** Fish waiting in a trade whose answer never came: shown, but not pickable until Retry settles them. */
   const waiting = useMemo(() => new Set(econ.pending?.op === 'shop.sell' ? econ.pending.uids ?? [] : []), [econ.pending]);
-  const pickedNow = wallet.cooler.filter((c) => picked.has(c.uid) && !waiting.has(c.uid)).map((c) => c.uid);
+  const eligible = new Set(sellableFishNow().map(c => c.uid));
+  const pickedNow = wallet.cooler.filter((c) => picked.has(c.uid) && eligible.has(c.uid) && !waiting.has(c.uid)).map((c) => c.uid);
   const pickedQuote = useMemo(() => (tab === 'sell' && pickedNow.length ? quoteSellNow(pickedNow) : null), [tab, wallet, now, picked]); // eslint-disable-line react-hooks/exhaustive-deps
   const iceStacks = wallet.goods.filter((g) => SHOP_BY_ID[g.id]?.use === 'ice');
   const iceCount = iceStacks.reduce((s, g) => s + g.qty, 0);
@@ -191,11 +192,12 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   const goTab = (id: ShopTab) => { if (id !== tab) { setTab(id); setFocus(1); setMsg(null); sfx.move(); } };
 
   const togglePick = (uid: string) => {
+    if (!eligible.has(uid)) { const fish = wallet.cooler.find(c => c.uid === uid); if (fish) say(saleProblemNow(fish) ?? "I can’t take two catches with the same ticket.", 'no'); return; }
     setPicked((p) => { const n = new Set(p); if (n.has(uid)) n.delete(uid); else n.add(uid); return n; });
     sfx.move();
   };
   const pickAll = () => {
-    const all = wallet.cooler.map((c) => c.uid).filter((u) => !waiting.has(u));
+    const all = sellableFishNow().map((c) => c.uid).filter((u) => !waiting.has(u));
     setPicked((p) => (all.length && all.every((u) => p.has(u)) ? new Set() : new Set(all)));
     sfx.move();
   };
@@ -329,6 +331,8 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     const key = focusKey;
     if (key === 'retry') return 'The last trade got no answer. Retry sends the very same trade again: it can never pay or charge twice.';
     if (key.startsWith('fish:')) {
+      const fish = wallet.cooler.find(c => c.uid === key.slice(5));
+      if (fish && !eligible.has(fish.uid)) return saleProblemNow(fish) ?? "I can’t take two catches with the same ticket.";
       const l = linesByUid.get(key.slice(5));
       if (!l) return 'This one is gone.';
       return (
@@ -366,7 +370,7 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     <>
       {wallet.cooler.length > 0 && (
         <button type="button" tabIndex={-1} data-sp="all" className={`sp-row sp-row-sub${isFocus('all')}`} onClick={() => { setFocus(targets.indexOf('all')); pickAll(); }}>
-          <span className={`sp-check${pickedNow.length > 0 && wallet.cooler.every((c) => waiting.has(c.uid) || picked.has(c.uid)) ? ' is-on' : ''}`} />
+          <span className={`sp-check${pickedNow.length > 0 && wallet.cooler.every((c) => !eligible.has(c.uid) || waiting.has(c.uid) || picked.has(c.uid)) ? ' is-on' : ''}`} />
           <span className="sp-name">Select all</span>
           <span className="sp-meta">Cooler {wallet.cooler.length}/{coolerCap}</span>
         </button>
@@ -376,14 +380,15 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
         const fr = freshnessOf(c.caughtAt, iceMinutesFor(c.caughtAt, wallet.iceUsedAt), now);
         const key = `fish:${c.uid}`;
         return (
-          <button type="button" tabIndex={-1} key={c.uid} data-sp={key} className={`sp-row${isFocus(key)}${waiting.has(c.uid) ? ' is-off' : ''}`}
+          <button type="button" tabIndex={-1} key={c.uid} data-sp={key} className={`sp-row${isFocus(key)}${waiting.has(c.uid) || !eligible.has(c.uid) ? ' is-off' : ''}`}
             onClick={() => { setFocus(targets.indexOf(key)); if (!waiting.has(c.uid)) togglePick(c.uid); }}>
-            <span className={`sp-check${picked.has(c.uid) && !waiting.has(c.uid) ? ' is-on' : ''}`} />
+            <span className={`sp-check${picked.has(c.uid) && eligible.has(c.uid) && !waiting.has(c.uid) ? ' is-on' : ''}`} />
             <img className="sp-icon" src={freeIcon(c.fishId)} alt="" />
             <span className="sp-name">
               {fishName(c.fishId)}{c.sizeCm !== null && <small> {c.sizeCm} cm</small>}
               {l && l.wanted > 1 && <em className="sp-tag sp-tag-gold">WANTED</em>}
               {waiting.has(c.uid) && <em className="sp-tag">WAITING</em>}
+              {!waiting.has(c.uid) && !eligible.has(c.uid) && <em className="sp-tag">NOT SELLABLE</em>}
             </span>
             {fr && <span className={`sp-fresh is-${fr.id}`}>{fr.label} {mmss(fr.leftMin)}</span>}
             <span className="sp-price">{l ? l.price : '–'}</span>

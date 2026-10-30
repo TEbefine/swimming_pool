@@ -3,9 +3,11 @@
 // the cooler keeps exactly the fish the server did not take, old device coins are never imported,
 // older answers never overwrite newer ones, and answers for another Player ID are ignored.
 import './register-api-ts.mjs';
+import { fixtureCatch, saleEnv } from './fishing-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 const { createItemsHandler, DailyLimiter } = await import('../server/saves/handlers.ts');
+const { emptyPlayer, normalizePlayer, playerView } = await import('../server/saves/rules.ts');
 const { IpLimiter } = await import('../server/identity/http.ts');
 const { EconomyStore } = await import('../src/game/economy/economyStore.ts');
 const { SELL } = await import('../src/game/economy/economyConfig.ts');
@@ -32,7 +34,7 @@ function world({ economyApi = 'on' } = {}) {
     },
   };
   const handler = createItemsHandler({
-    env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ...(economyApi ? { ECONOMY_API: economyApi } : {}) },
+    env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ...saleEnv, ...(economyApi ? { ECONOMY_API: economyApi } : {}) },
     now: () => w.clock + w.serverAhead, limiter: new IpLimiter(1e6), playerLimiter: new IpLimiter(1e6), playerDaily: new DailyLimiter(1e7),
   }, services);
   w.who = ADDRESS;
@@ -60,13 +62,16 @@ function phone(w, storage = memoryStorage(), address = ADDRESS) {
   const s = new EconomyStore({ sandbox: false, storage, clock: () => w.clock, online: () => w.online, newOperationId: () => `op-client-${String(++opSeq).padStart(10, '0')}` });
   s.setTransport(w.transport);
   s.attach(address);
+  s.receiveView(address, { ...playerView(normalizePlayer(w.players.get(address) ?? emptyPlayer(w.clock), w.clock), w.clock), redeemFromDeckId: 0 });
   return s;
 }
 /** Catch a sardine `ago` ms before now (the cooler only; fishing never talks to the server). */
 function catchAt(w, s, ago, size = 15) {
   const keep = w.clock;
   w.clock = keep - ago;
-  const r = s.addCatch('sardine', size);
+  const c = fixtureCatch(w.who, s.now(), { size, startIndex: w.nextIndex ?? 0 });
+  w.nextIndex = c.ticket.castIndex + 1;
+  const r = s.addCatch(c.fish, c.sizeCm, { caughtAt: c.caughtAt, ticket: c.ticket });
   w.clock = keep;
   assert.ok(r.ok, 'catch goes in the cooler');
   return r.fish.uid;
@@ -81,6 +86,7 @@ test('a sale is one request with one operationId; coins and the slip come from t
   assert.equal(r.ok, true);
   assert.equal(w.sent.length, 1);
   assert.equal(w.sent[0].op, 'shop.sell');
+  assert.ok(w.sent[0].catches.every(c => c.ticket && Object.keys(c.ticket).length === 5), 'fresh sale carries the persisted ticket');
   assert.ok(r.earned > 0);
   assert.equal(s.getWallet().coins, coinsOnServer(w), 'the cached coins are the server coins');
   assert.equal(r.receipt.total, r.earned);
@@ -122,6 +128,7 @@ test('a lost answer keeps the exact request; Retry (even after a reload) pays on
   assert.equal(w.sent[1].operationId, w.sent[0].operationId, 'Retry resends the same operationId');
   assert.deepEqual(w.sent[1], w.sent[0], 'byte for byte');
   assert.equal(coinsOnServer(w), paid, 'paid ONCE');
+  assert.equal(w.players.get(ADDRESS).fishBook.sardine.sold, 2, 'Retry records each verified sale only once');
   assert.equal(again.receipt.total, again.earned);
   assert.equal(s.getWallet().cooler.length, 0, 'the sold fish leave the cooler after the replayed answer');
   assert.equal(s.getStatus().pending, null);
@@ -387,4 +394,67 @@ test('review P3: the Bag follows the server food clock (shorter, longer, keeper)
   assert.deepEqual(s.refresh().goods.map((g) => g.uid).sort(), ['keeper', 'long']);
   const load = await w.transport({ op: 'load' });
   assert.deepEqual(load.goods.map((g) => g.uid).sort(), ['keeper', 'long'], 'phone and server agree');
+});
+
+test('client offers/sends only eligible tickets, skipping unticketed and server-known paid catches', async () => {
+  const w = world(), first = phone(w), a = catchAt(w, first, 10000), b = catchAt(w, first, 5000);
+  const original = first.getWallet().cooler.find(c => c.uid === a);
+  const practice = first.addCatch('sardine', 15).fish.uid;
+  const other = phone(w); other.addCatch(original.fishId, original.sizeCm, { caughtAt: original.caughtAt, ticket: original.ticket });
+  assert.equal((await other.sell(other.getWallet().cooler.map(c => c.uid))).ok, true);
+  await first.sync();
+  assert.equal(first.sellableFish().some(c => c.uid === a), false); assert.equal(first.sellableFish().some(c => c.uid === practice), false);
+  assert.deepEqual(first.quoteSell([a, b, practice]).lines.map(c => c.uid), [b]);
+  const expectedTicket = first.getWallet().cooler.find(c => c.uid === b).ticket;
+  const r = await first.sell([practice, a, b]); assert.equal(r.ok, true);
+  const body = w.sent.filter(c => c.op === 'shop.sell').at(-1); assert.equal(body.catches.length, 1); assert.deepEqual(body.catches[0].ticket, expectedTicket);
+  assert.ok(first.getWallet().cooler.some(c => c.uid === practice));
+});
+
+test('a cross-device paid collision drops only the indexed fish with Gen’s message; remaining fish sell on the next tap', async () => {
+  const w = world(), first = phone(w), a = catchAt(w, first, 10000), b = catchAt(w, first, 5000);
+  const original = first.getWallet().cooler.find(c => c.uid === a), other = phone(w);
+  other.addCatch(original.fishId, original.sizeCm, { caughtAt: original.caughtAt, ticket: original.ticket });
+  assert.equal((await other.sell(other.getWallet().cooler.map(c => c.uid))).ok, true);
+  const refused = await first.sell([a, b]); assert.equal(refused.ok, false); assert.match(refused.message, /already paid/);
+  assert.deepEqual(first.getWallet().cooler.map(c => c.uid), [b]); assert.equal(first.getStatus().pending, null);
+  assert.equal((await first.sell([b])).ok, true); assert.equal(w.players.get(ADDRESS).fishBook.sardine.sold, 2);
+});
+
+test('invalid roll drops only that fish; no partial payment and the rest can still sell', async () => {
+  const w = world(), s = phone(w), c = fixtureCatch(ADDRESS, w.clock - 10000, { size: 15 });
+  const bad = s.addCatch(c.fish, 16, { caughtAt: c.caughtAt, ticket: c.ticket }).fish.uid;
+  w.nextIndex = c.ticket.castIndex + 1; const good = catchAt(w, s, 5000);
+  const refused = await s.sell([bad, good]); assert.equal(refused.ok, false); assert.match(refused.message, /doesn't match/);
+  assert.equal(coinsOnServer(w), 0); assert.deepEqual(s.getWallet().cooler.map(c => c.uid), [good]);
+  assert.equal((await s.sell([good])).ok, true); assert.equal(w.players.get(ADDRESS).fishBook.sardine.sold, 1);
+});
+
+test('missing policy, pre-cutoff, expired windows and duplicate indices are never sent; exact pending Retry ignores new filters', async () => {
+  const { FISHING_DECK: C } = await import('../src/game/fishing/deckConfig.ts');
+  const w = world(), s = phone(w), uid = catchAt(w, s, 1000), fish = s.getWallet().cooler[0];
+  const initial = { revision: 10, coins: 0, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [], paidDecks: [] };
+  s.receiveView(ADDRESS, initial); assert.equal((await s.sell([uid])).ok, false); assert.equal(w.sent.length, 0);
+  s.receiveView(ADDRESS, { ...initial, redeemFromDeckId: fish.ticket.deckId + 1 }); assert.equal((await s.sell([uid])).ok, false); assert.equal(w.sent.length, 0);
+  s.receiveView(ADDRESS, { ...initial, redeemFromDeckId: 0 });
+  s.addCatch(fish.fishId, fish.sizeCm, { caughtAt: fish.caughtAt, ticket: fish.ticket }); assert.equal(s.sellableFish().length, 1);
+  w.clock += 2 * C.windowMs; assert.equal(s.sellableFish().length, 0); assert.equal((await s.sell([uid])).ok, false); assert.equal(w.sent.length, 0);
+  const live = world(), storage = memoryStorage(); let p = phone(live, storage); catchAt(live, p, 1000); live.loseAnswers = 1;
+  assert.equal((await p.sell(p.getWallet().cooler.map(c => c.uid))).kind, 'uncertain'); const body = structuredClone(live.sent[0]);
+  live.clock += 2 * C.windowMs; p = phone(live, storage); assert.equal(p.sellableFish().length, 0);
+  assert.equal((await p.retry()).ok, true); assert.deepEqual(live.sent.findLast(c => c.op === 'shop.sell'), body); assert.equal(live.players.get(ADDRESS).fishBook.sardine.sold, 1);
+});
+
+test('dev reset token clears only local game economy/pending state once; production stores ignore it', async () => {
+  const storage = memoryStorage({ identity_vault: 'keep' }), w = world();
+  const make = enabled => { const s = new EconomyStore({ sandbox: false, allowDevReset: enabled, storage, clock: () => w.clock, online: () => true, newOperationId: () => 'op-reset-pending-00001' }); s.attach(ADDRESS); return s; };
+  let s = make(true); s.receiveView(ADDRESS, { revision: 1, coins: 99, coolerLevel: 0, goods: [], econ: { day: 1 }, paidDecks: [], redeemFromDeckId: 0 });
+  s.addCatch('sardine', 15); assert.equal(s.resetDevState(ADDRESS, 'reset-a'), true); assert.equal(s.getWallet().cooler.length, 0); assert.equal(s.getWallet().coins, 0);
+  s.addCatch('sardine', 15); assert.equal(s.resetDevState(OTHER, 'foreign-reset'), false); assert.equal(s.resetDevState(ADDRESS, 'reset-a'), false); assert.equal(s.getWallet().cooler.length, 1);
+  s = make(true); assert.equal(s.resetDevState(ADDRESS, 'reset-a'), false); assert.equal(s.resetDevState(ADDRESS, 'reset-b'), true); assert.equal(s.getWallet().cooler.length, 0);
+  s = make(false); s.addCatch('sardine', 15); assert.equal(s.resetDevState(ADDRESS, 'reset-c'), false); assert.equal(s.getWallet().cooler.length, 1);
+  assert.equal(storage.get('identity_vault'), 'keep');
+  const blocked = new EconomyStore({ sandbox: false, allowDevReset: true, storage: { get: () => null, set() { throw Error('quota'); }, remove() { throw Error('quota'); } }, clock: () => w.clock, online: () => true, newOperationId: () => 'op-blocked-reset-0001' });
+  blocked.attach(ADDRESS); assert.equal(blocked.resetDevState(ADDRESS, 'once'), true); blocked.addCatch('sardine', 15);
+  assert.equal(blocked.resetDevState(ADDRESS, 'once'), false); assert.equal(blocked.getWallet().cooler.length, 1);
 });

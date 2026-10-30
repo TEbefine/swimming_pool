@@ -34,9 +34,7 @@ import { music } from './game/audio/music';
 import { sound } from './game/audio';
 import { preloadBootIntro, showBootOnce } from './boot/bootSound';
 import { getStartupPlan, recordActiveSession, type StartupPlan } from './boot/bootSession';
-import { attachPlayer, getCloudAddress, recordPendingCatches } from './game/saves/cloud';
-import { FISHING_GUIDES, guideScript, withRecordResult } from './game/saves/guideRecord';
-import { getPendingCatches } from './game/fishing/freeFish';
+import { attachPlayer } from './game/saves/cloud';
 import { CafeOrder, type CafeInput } from './components/cafe/CafeOrder';
 import type { OrderLine } from './game/cafe/cafeMenu';
 import { orderCancelled, orderReadBack } from './game/cafe/cafeBarista';
@@ -199,6 +197,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const [storyPanel, setStoryPanel] = useState<StoryPanel | null>(null);
   // Café order app: the barista's "Order a drink" opens it when her line closes (components/cafe/CafeOrder.tsx).
   const [cafeOrderOpen, setCafeOrderOpen] = useState(false);
+  // The Fish Book: opened from START (any room). ✕ / Escape / its own ✕ close it. No map chip.
+  const [fishBookOpen, setFishBookOpen] = useState(false);
   const cafeOrderPending = useRef(false);
   const cafeInputRef = useRef<((input: CafeInput) => void) | null>(null);
   const cafeDpad = useMemo(() => new DpadAdapter((dir) => cafeInputRef.current?.(dir as CafeInput)), []);
@@ -364,6 +364,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       menu.press('confirm');
       return;
     }
+    // Fish Book open → ◯ does nothing in the world behind it (✕ closes it)
+    if (fishBookOpen) return;
     // Café order app → ◯ picks / confirms the focused row
     if (cafeOrderOpen) {
       cafeInputRef.current?.('confirm');
@@ -404,7 +406,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       // Fallback: toggleWaterLand
       engine.toggleWaterLand();
     }
-  }, [menu, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel, cafeOrderOpen, shop]);
+  }, [menu, sceneBoxOpen, dialogOpen, fishingOpen, storyPanel, cafeOrderOpen, shop, fishBookOpen]);
 
   // =========================================================================
   // ✕ BUTTON — jump / splash, cancel SceneBox, or advances dialog
@@ -414,6 +416,11 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     // Menu open → ✕ goes back exactly one level (item actions → Bag → field menu → game)
     if (menu.isOpen) {
       menu.press('back');
+      return;
+    }
+    // Fish Book → ✕ closes it
+    if (fishBookOpen) {
+      setFishBookOpen(false);
       return;
     }
     // Café order app → ✕ goes back one screen (menu → closes the app)
@@ -458,7 +465,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     } else {
       engine.triggerEmote('jump');
     }
-  }, [menu, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel, cafeOrderOpen, shop]);
+  }, [menu, sceneBoxOpen, dialogOpen, closeDialog, fishingOpen, closeFishing, storyPanel, closeStoryPanel, cafeOrderOpen, shop, fishBookOpen]);
 
   // =========================================================================
   // KEYBOARD: Tab for SceneBox, E and O for ◯, Escape for ✕
@@ -664,11 +671,6 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       // Free Fishing rooms (fun with friends): the pier end starts fishing
       if (engine.getRoom().freeFishing && targetId === 'pier_end') {
         void startFishing(engine, 'free');
-        return;
-      }
-      // Fishing Guides record this Player ID's pending catches (ID-01 c)
-      if (actionId === 'talk' && FISHING_GUIDES.has(targetId) && dialogues[targetId]) {
-        openDialog(targetId, guideScript(dialogues[targetId], getPendingCatches().length, getCloudAddress() !== null));
         return;
       }
       // Harbour Fish Shop (ECO-01): Gen / Minato talk about today's market and your cooler
@@ -955,24 +957,23 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   useEffect(() => {
     if (isStoryRoom(currentRoom.roomId)) onStoryRoomEnter(currentRoom.roomId);
   }, [currentRoom.roomId]);
-  // Free Fishing room: the Fish Book (key B or the chip)
   const freeFishingRoom = !!currentRoom.freeFishing;
-  const [fishBookOpen, setFishBookOpen] = useState(false);
+  // Escape / X close the Fish Book in any room (✕ on the Game Boy goes through handleCrossAction).
   useEffect(() => {
-    if (!freeFishingRoom) return;
+    if (!fishBookOpen) return;
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || dialogOpen || fishingOpen) return;
-      if (e.key === 'Escape') {
-        setFishBookOpen(false);
-      }
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === 'Escape' || e.code === 'KeyX') setFishBookOpen(false); // X = ✕ on a keyboard, like in the menus
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [freeFishingRoom, dialogOpen, fishingOpen]);
+  }, [fishBookOpen]);
+  // Starting to fish or walking to another room closes it.
   useEffect(() => {
-    if (fishingOpen || !freeFishingRoom) setFishBookOpen(false);
-  }, [fishingOpen, freeFishingRoom]);
+    if (fishingOpen) setFishBookOpen(false);
+  }, [fishingOpen]);
+  useEffect(() => { setFishBookOpen(false); }, [currentRoom.roomId]);
 
   // Close the bag when fishing starts; stop fishing if we leave the story room
   useEffect(() => {
@@ -985,9 +986,6 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   const fishingElement = (storyActive || freeFishingRoom) ? (
     <>
       <FishingHud compact={effectiveIsMobile} />
-      {freeFishingRoom && !fishingOpen && (
-        <FishBook open={fishBookOpen} onToggle={() => setFishBookOpen((o) => !o)} compact={effectiveIsMobile} />
-      )}
       {devOverlay}
     </>
   ) : devOverlay ?? null;
@@ -1005,9 +1003,9 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     </>
   ) : null;
 
-  // Standalone fish book overlay when opened via START menu outside free-fishing rooms
-  const standaloneFishBook = (!freeFishingRoom && fishBookOpen && !fishingOpen) ? (
-    <FishBook open={fishBookOpen} onToggle={() => setFishBookOpen(false)} compact={effectiveIsMobile} />
+  // The Fish Book overlay (opened from START, in any room)
+  const standaloneFishBook = (fishBookOpen && !fishingOpen) ? (
+    <FishBook open onToggle={() => setFishBookOpen(false)} compact={effectiveIsMobile} />
   ) : null;
 
   // =========================================================================
@@ -1024,9 +1022,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         if (dialogNpcId === 'barista' && nodeId === 'order') cafeOrderPending.current = true;
         const shopTab = SHOP_NODE_OPENS[dialogNpcId]?.[nodeId];
         if (shopTab) shopPending.current = { vendor: dialogNpcId as Vendor, tab: shopTab };
-        if (FISHING_GUIDES.has(dialogNpcId) && nodeId === 'record') {
-          void recordPendingCatches().then((r) => setDialogScript((cur) => (cur ? withRecordResult(cur, r) : cur)));
-        }
+
       }}
       onClose={closeDialog}
       directionNudge={dialogDpadNudge}

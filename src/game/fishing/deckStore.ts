@@ -55,6 +55,10 @@ export class FishingDeckStore {
     this.address = next; this.generation++; this.inFlight = null;
     this.cache = next ? this.read() : null;
   }
+  reset() {
+    this.generation++; this.cache = null; this.inFlight = null;
+    try { this.deps.storage.set(this.key(), 'null'); } catch { /* memory only */ }
+  }
   now() { return this.deps.clock() + (this.cache ? this.cache.deck.serverNow - this.cache.savedAt : 0); }
   getDeck(at = this.now()): FishingDeck | null {
     if (!this.deps.enabled || !this.address || !this.cache) return null;

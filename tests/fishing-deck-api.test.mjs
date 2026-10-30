@@ -31,9 +31,9 @@ test('issuance is stateless, owner-bound and identical throughout one window', a
   const w = rig(); const a = await call(w);
   assert.equal(a.statusCode, 200);
   const d = a.body;
-  assert.equal(d.address, ADDRESS); assert.equal(d.casts, 8192);
+  assert.equal(d.address, ADDRESS); assert.equal(d.casts, 8192); assert.equal(d.version, 2);
   assert.equal(d.deckId, Math.floor(NOW / FISHING_DECK.windowMs));
-  assert.equal(d.seed, createHmac('sha256', SECRET).update(JSON.stringify(['lumen-bay/fishing-deck', 1, ADDRESS, d.deckId])).digest('hex'));
+  assert.equal(d.seed, createHmac('sha256', SECRET).update(JSON.stringify(['lumen-bay/fishing-deck', 2, ADDRESS, d.deckId])).digest('hex'));
   assert.ok(!JSON.stringify(d).includes(SECRET));
   w.now = d.window.endAt - 1;
   const b = (await call(w)).body;
@@ -90,8 +90,12 @@ test('bounded IP and Player ID request limits add no persisted counters', async 
 test('real Vite dev middleware issues tickets with zero env setup and only the fixed test token', async () => {
   const { createServer } = await import('vite');
   const { devDeck } = await import('../server/dev/devDeck.ts');
+  const { mkdtemp, symlink, rm } = await import('node:fs/promises');
+  const { join } = await import('node:path'); const { tmpdir } = await import('node:os');
+  const root = await mkdtemp(join(tmpdir(), 'lumen-deck-api-')), repo = fileURLToPath(new URL('../', import.meta.url));
+  await symlink(join(repo, 'server'), join(root, 'server'), 'dir'); await symlink(join(repo, 'src'), join(root, 'src'), 'dir');
   const saved = process.env.FISHING_DECK_SECRET; delete process.env.FISHING_DECK_SECRET;
-  const server = await createServer({ configFile: false, root: fileURLToPath(new URL('../', import.meta.url)), appType: 'custom', logLevel: 'silent', plugins: [devDeck()], server: { host: '127.0.0.1', port: 0 } });
+  const server = await createServer({ configFile: false, root, appType: 'custom', logLevel: 'silent', plugins: [devDeck()], server: { host: '127.0.0.1', port: 0, fs: { allow: [repo, root] } } });
   try {
     await server.listen(); const port = server.httpServer.address().port;
     const post = token => fetch(`http://127.0.0.1:${port}/api/fishing-deck`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: '{}' });
@@ -99,5 +103,5 @@ test('real Vite dev middleware issues tickets with zero env setup and only the f
     assert.equal(a.status, 200); assert.equal(d.address, DEV_TEST_ADDRESS); assert.match(d.seed, /^[0-9a-f]{64}$/);
     assert.equal((await (await post(DEV_TEST_TOKEN)).json()).seed, d.seed);
     assert.equal((await post(TOKEN)).status, 401);
-  } finally { await server.close(); if (saved === undefined) delete process.env.FISHING_DECK_SECRET; else process.env.FISHING_DECK_SECRET = saved; }
+  } finally { await server.close(); await rm(root, { recursive: true, force: true }); if (saved === undefined) delete process.env.FISHING_DECK_SECRET; else process.env.FISHING_DECK_SECRET = saved; }
 });

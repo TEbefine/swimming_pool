@@ -16,7 +16,7 @@ import type { GameEngine } from '../game/Engine';
 import { TUNING, type FishingPhase } from '../game/story/fishing';
 import { FISHING_SPOT, setFishingTestHooks } from '../game/story/fishingSession';
 import { ITEMS, ITEM_IDS, type ItemId } from '../game/story/items';
-import { FREE_BY_ID, FREE_FISH, TIERS, resetFishBook } from '../game/fishing/freeFish';
+import { FREE_BY_ID, FREE_FISH, TIERS } from '../game/fishing/freeFish';
 import { getStory, resetStory, setEnergy, setStep, subscribeStory } from '../game/story/storyStore';
 
 // ---- results ------------------------------------------------------------
@@ -153,9 +153,9 @@ const FishingTestChip: React.FC = () => {
           <button
             type="button"
             className="border border-[#4A2E1A] rounded px-1 py-0.5 hover:bg-[#F4E6CC]"
-            onClick={() => { if (kind === 'free') resetFishBook(); else { resetStory(); prepareSandbox(); } results = []; emit(); }}
+            onClick={() => { if (kind !== 'free') { resetStory(); prepareSandbox(); } results = []; emit(); }}
           >
-            {kind === 'free' ? 'Reset Fish Book' : 'Reset sandbox'}
+            {kind === 'free' ? 'Clear results' : 'Reset sandbox'}
           </button>
         </div>
       )}

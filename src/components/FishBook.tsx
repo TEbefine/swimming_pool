@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
+import { FISH_BOOK_KINDS } from '../game/fishing/fishBookConfig';
 import {
   FREE_BY_ID,
-  FREE_FISH,
   READY_SHEETS,
   SEASONS,
   TIERS,
   freeIcon,
   thaiSeason,
   useFishBook,
-  usePendingCount,
   type FreeFish,
   type Sheet,
 } from '../game/fishing/freeFish';
 
+const BOOK_FISH = FISH_BOOK_KINDS.map(f => FREE_BY_ID[f.id]);
+
 // The Fish Book (Free Fishing): the wooden storage box from public/ui/fishbook_window.webp,
 // Harvest Moon style. Two icon sheets per page (16 kinds each = the 32 slots).
-// Caught kinds show their icon + count; unknown kinds are dark shadows.
-// Tap / click a slot to read about it. Opens with the "Fish Book" chip or key B.
+// Verified kinds show their icon + star; unknown kinds are dark shadows.
+// Tap / click a slot to read about it. Opens from the START menu; ✕ or Escape closes it.
 
 // Positions measured on the cropped window art (1352 × 953 px, served at half size).
 const W = 1352;
@@ -60,23 +61,22 @@ interface FishBookProps {
 
 export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = false }) => {
   const book = useFishBook();
-  const pending = usePendingCount();
   const [page, setPage] = useState(0);
-  const [sel, setSel] = useState<string>(FREE_FISH[0].id);
+  const [sel, setSel] = useState<string>(BOOK_FISH[0].id);
   const [detail, setDetail] = useState(false); // phone: the big info card over the grid
-  const caughtKinds = FREE_FISH.filter((f) => book.entries[f.id]).length;
+  const caughtKinds = BOOK_FISH.filter((f) => book.entries[f.id]).length;
   const season = thaiSeason();
 
   const pg = PAGES[Math.min(page, PAGES.length - 1)];
-  const onPage = FREE_FISH.filter((f) => pg.sheets.includes(f.sheet));
+  const onPage = BOOK_FISH.filter((f) => pg.sheets.includes(f.sheet));
   const pageCaught = onPage.filter((f) => book.entries[f.id]).length;
-  const selFish = FREE_BY_ID[sel] ?? FREE_FISH[0];
+  const selFish = FREE_BY_ID[sel] ?? BOOK_FISH[0];
   const selEntry = book.entries[selFish.id];
   const turn = (d: number) => {
     const p = (page + d + PAGES.length) % PAGES.length;
     setPage(p);
     setDetail(false);
-    const first = FREE_FISH.find((f) => PAGES[p].sheets.includes(f.sheet));
+    const first = BOOK_FISH.find((f) => PAGES[p].sheets.includes(f.sheet));
     if (first) setSel(first.id);
   };
 
@@ -85,15 +85,7 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[6]" style={{ fontFamily: 'var(--font-pixel)', containerType: 'size' }}>
-      {/* the chip that opens it */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`pointer-events-auto absolute ${compact ? 'right-1 top-1 text-[10px] px-1.5 py-0.5' : 'right-3 top-16 text-[13px] px-2 py-1'} rounded-md border-2 border-[#4A2E1A] bg-[#F4D98B] text-[#4A2E1A] shadow-[0_2px_0_#4A2E1A] active:translate-y-[1px]`}
-      >
-        Fish Book {caughtKinds}/{FREE_FISH.length}{compact ? '' : ' [B]'}
-      </button>
-
+      {/* No chip on the map: the Fish Book opens from the START menu; ✕ (Game Boy / its own button) or Escape closes it. */}
       {open && (
         <div
           className="pointer-events-auto absolute left-1/2"
@@ -136,18 +128,12 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
 
           {/* totals + close, on the wood right of the plaque */}
           <span style={{ ...box(950, 30, 250, 60), display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: fs(1.8, 7), color: '#FFF6E5', textShadow: `0 0.2cqw 0 ${INK}`, whiteSpace: 'nowrap' }}>
-            {caughtKinds}/{FREE_FISH.length} kinds · {book.total} caught
+            {caughtKinds}/{BOOK_FISH.length} kinds
           </span>
-          {pending > 0 && (
-            // Player ID: catches wait on this device until a Fishing Guide (Nami / Kai) records them
-            <span style={{ ...box(950, 88, 300, 40), display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: fs(1.5, 6), color: '#F4D98B', textShadow: `0 0.2cqw 0 ${INK}`, whiteSpace: 'nowrap' }}>
-              {pending} waiting · show the Fishing Guide
-            </span>
-          )}
           <button type="button" onClick={onToggle} aria-label="Close Fish Book"
             style={{ ...box(1262, 0, 90, 90), fontSize: fs(2.8, 10), color: '#FFF6E5', textShadow: `0 0.25cqw 0 ${INK}` }}>✕</button>
 
-          {/* the 32 slots (empty ones wait for a sheet that isn't cut yet) */}
+          {/* Keep the frame’s 32 slots; five decorative blanks are outside the 27-kind Book. */}
           {Array.from({ length: 32 }, (_, i) => {
             const f = onPage[i];
             const c = i % 8;
@@ -155,7 +141,7 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
             const pos = box(SLOT.x0 + c * SLOT.step, SLOT.y0 + r * SLOT.stepY, SLOT.w, SLOT.h);
             if (!f) return <span key={i} style={{ ...pos, background: 'rgba(74,46,26,0.10)' }} />;
             return (
-              <Slot key={f.id} style={pos} fish={f} count={book.entries[f.id]?.count ?? 0} selected={f.id === selFish.id}
+              <Slot key={f.id} style={pos} fish={f} found={!!book.entries[f.id]} starred={book.entries[f.id]?.starred ?? false} selected={f.id === selFish.id}
                 onPick={() => { setSel(f.id); if (compact) setDetail(true); }} />
             );
           })}
@@ -167,7 +153,7 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
               <InfoTitle fish={selFish} entry={selEntry} size={fs(2.1, 8)} />
               {!compact && (
                 <span style={{ fontFamily: 'var(--font-pixel)', fontSize: fs(1.9, 9), opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {selEntry ? selFish.note : `${hint(selFish)} · not caught yet`}
+                  {selEntry ? selFish.note : `${hint(selFish)} · sell to Gen to discover`}
                 </span>
               )}
             </div>
@@ -181,7 +167,7 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
               <span style={{ display: 'flex', flexDirection: 'column', gap: '1.5cqw', minWidth: 0 }}>
                 <InfoTitle fish={selFish} entry={selEntry} size="max(10px, 4cqw)" />
                 <span style={{ fontFamily: 'var(--font-pixel)', fontSize: 'max(11px, 4.4cqw)', lineHeight: 1.25 }}>
-                  {selEntry ? selFish.note : `${hint(selFish)}. Not caught yet.`}
+                  {selEntry ? selFish.note : `${hint(selFish)}. Sell it to Gen to discover it.`}
                 </span>
               </span>
             </button>
@@ -192,17 +178,17 @@ export const FishBook: React.FC<FishBookProps> = ({ open, onToggle, compact = fa
   );
 };
 
-const InfoTitle: React.FC<{ fish: FreeFish; entry?: { count: number; best: number | null }; size: string }> = ({ fish, entry, size }) => (
+const InfoTitle: React.FC<{ fish: FreeFish; entry?: { best: number; starred: boolean }; size: string }> = ({ fish, entry, size }) => (
   <span style={{ fontSize: size, display: 'flex', flexWrap: 'wrap', columnGap: '0.8em', alignItems: 'baseline', whiteSpace: 'nowrap' }}>
     <span style={{ background: TIERS[fish.tier].color, color: '#fff', padding: '0 0.35em', borderRadius: 2, fontSize: '0.8em' }}>{TIERS[fish.tier].label}</span>
     <span>{entry ? fish.name : '???'}</span>
-    {entry && <span style={{ opacity: 0.7 }}>×{entry.count}</span>}
+    {entry?.starred && <span aria-label="Starred fish" title="More time to strike for this kind.">★</span>}
     {entry?.best != null && <span style={{ opacity: 0.7 }}>best {entry.best} cm</span>}
     {entry && fish.release && <span style={{ opacity: 0.7 }}>released ♡</span>}
   </span>
 );
 
-const Slot: React.FC<{ fish: FreeFish; count: number; selected: boolean; style: React.CSSProperties; onPick: () => void }> = ({ fish, count, selected, style, onPick }) => (
+const Slot: React.FC<{ fish: FreeFish; found: boolean; starred: boolean; selected: boolean; style: React.CSSProperties; onPick: () => void }> = ({ fish, found, starred, selected, style, onPick }) => (
   <button
     type="button"
     onClick={onPick}
@@ -214,13 +200,13 @@ const Slot: React.FC<{ fish: FreeFish; count: number; selected: boolean; style: 
       boxShadow: selected ? `0 0 0 0.35cqw #FFFFFF, inset 0 0 0 0.35cqw ${TIERS.legend.color}` : undefined,
       borderRadius: '0.3cqw',
     }}
-    aria-label={count ? fish.name : 'Unknown fish'}
+    aria-label={found ? fish.name : 'Unknown fish'}
   >
-    <FishIcon fish={fish} caught={count > 0} style={{ width: '82%', height: '82%' }} />
+    <FishIcon fish={fish} caught={found} style={{ width: '82%', height: '82%' }} />
     {/* tier stripe */}
-    <span style={{ position: 'absolute', left: '8%', right: '8%', bottom: '5%', height: '6%', borderRadius: 99, background: TIERS[fish.tier].color, opacity: count ? 1 : 0.5 }} />
-    {count > 1 && (
-      <span style={{ position: 'absolute', right: '3%', top: '3%', fontSize: 'max(7px, 1.3cqw)', lineHeight: 1, padding: '0.15cqw 0.3cqw', borderRadius: 2, background: INK, color: '#FFF6E5' }}>{count}</span>
+    <span style={{ position: 'absolute', left: '8%', right: '8%', bottom: '5%', height: '6%', borderRadius: 99, background: TIERS[fish.tier].color, opacity: found ? 1 : 0.5 }} />
+    {starred && (
+      <span style={{ position: 'absolute', right: '3%', top: '3%', fontSize: 'max(7px, 1.3cqw)', lineHeight: 1, padding: '0.15cqw 0.3cqw', borderRadius: 2, background: INK, color: '#FFF6E5' }} aria-label="Starred fish" title="More time to strike for this kind.">★</span>
     )}
   </button>
 );

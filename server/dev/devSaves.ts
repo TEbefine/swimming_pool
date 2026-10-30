@@ -5,6 +5,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { Plugin } from 'vite';
+import { devFishingPolicy } from './devFishingPolicy.js';
 
 interface Store { players: Record<string, unknown>; logs: Record<string, unknown> }
 
@@ -14,6 +15,7 @@ export function devSaves(): Plugin {
     apply: 'serve',
     configureServer(server) {
       const file = resolve(server.config.root, '.dev/saves.json');
+      const fishingPolicy = devFishingPolicy(server.config.root);
       let store: Store = { players: {}, logs: {} };
       try { store = JSON.parse(readFileSync(file, 'utf8')) as Store; } catch { /* first run */ }
       const persist = () => {
@@ -32,7 +34,7 @@ export function devSaves(): Plugin {
         req.headers.origin = origin;
         (req as typeof req & { body?: unknown }).body = Buffer.concat(chunks).toString('utf8');
         const handler = createItemsHandler({
-          env: { LOGIN_ALLOWED_ORIGINS: origin, ECONOMY_API: 'on' }, // dev saves: the shop is open
+          env: { LOGIN_ALLOWED_ORIGINS: origin, ECONOMY_API: 'on', ...fishingPolicy }, // dev saves: the shop is open
           limiter: new IpLimiter(10_000), playerLimiter: new IpLimiter(10_000), playerDaily: new DailyLimiter(1_000_000),
         }, {
           verifyToken: async (token: string) => {

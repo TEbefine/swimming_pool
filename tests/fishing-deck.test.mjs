@@ -12,7 +12,7 @@ import { createContext, Script } from 'node:vm';
 import ts from 'typescript';
 import { build } from 'vite';
 const { FISHING_DECK } = await import('../src/game/fishing/deckConfig.ts');
-const { canonicalDeckCast, createDeckRng, deckContextAt, rollDeckCatch } = await import('../src/game/fishing/deckRoll.ts');
+const { canonicalDeckCast, createDeckRng, deckContextAt, rollDeckCatch } = await import('../src/game/fishing/deckKernelV1.ts');
 const { DECK_RULES_V1, DECK_SPECIES_V1, DECK_TIERS_V1 } = await import('../src/game/fishing/deckRollV1.ts');
 const { FREE_FISH, FREE_BY_ID, TIERS, thaiSeasonAt, bangkokHourAt, isDayHourAt } = await import('../src/game/fishing/freeFishCatalog.ts');
 const { FRESH, SALE } = await import('../src/game/economy/economyConfig.ts');
@@ -77,7 +77,7 @@ test('7680 deck results match the unchanged legacy free cast, including size and
   assert.equal(count, 7680);
 });
 
-test('compiled browser IIFE and NodeNext server agree on 7680 cases without browser/server globals', async () => {
+test('compiled browser IIFE and NodeNext server agree on 15360 v1/v2 cases without ambient globals', async () => {
   const sourceRoot = fileURLToPath(new URL('../src/game/fishing/', import.meta.url));
   const entry = join(sourceRoot, 'deckRoll.ts');
   const temporary = await mkdtemp(join(tmpdir(), 'lumen-deck-roll-'));
@@ -104,12 +104,13 @@ test('compiled browser IIFE and NodeNext server agree on 7680 cases without brow
     new Script(chunk.code).runInContext(browser);
     assert.equal(new Script('typeof window + "/" + typeof process + "/" + typeof localStorage + "/" + typeof crypto').runInContext(browser), 'undefined/undefined/undefined/undefined');
     let count = 0;
-    for (const c of cases()) {
+    for (const version of [1, 2]) for (const original of cases()) {
+      const c = { ...original, version };
       const phone = JSON.parse(JSON.stringify(browser.FishingDeckV1.rollDeckCatch(c)));
       assert.deepEqual(phone, server.rollDeckCatch(c), JSON.stringify(c));
       count++;
     }
-    assert.equal(count, 7680);
+    assert.equal(count, 15360);
   } finally { await rm(temporary, { recursive: true, force: true }); }
 });
 

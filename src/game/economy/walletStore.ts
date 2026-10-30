@@ -6,12 +6,14 @@
 // The live game has no shop at all until ECO-04 (ECONOMY_ON is false there, and the server refuses money ops).
 
 import { useSyncExternalStore } from 'react';
+import { attachFishBook, receiveFishBook, resetVerifiedBook } from '../fishing/freeFish';
+import { resetFishingDeck } from '../fishing/deckClient';
 import type { CatchStamp } from '../fishing/catchTicket';
 import { EconomyStore, formatMoney } from './economyStore';
 import type { EconomyStatus, Transport, TradeOutcome } from './economyStore';
 import type { Vendor } from './shopCatalog';
 import { REASON_LINES } from './wallet';
-import type { CartLine, Fail, Wallet } from './wallet';
+import type { CartLine, CoolerFish, Fail, Wallet } from './wallet';
 
 import { ECONOMY_ON, ECONOMY_SANDBOX as SANDBOX } from './flags';
 
@@ -26,6 +28,7 @@ function newOperationId(): string {
 
 const store = new EconomyStore({
   sandbox: SANDBOX,
+  allowDevReset: typeof import.meta.env !== 'undefined' && import.meta.env.DEV,
   storage: {
     get: (k) => localStorage.getItem(k),
     set: (k, v) => localStorage.setItem(k, v),
@@ -39,9 +42,13 @@ const store = new EconomyStore({
 /** game/saves/cloud.ts plugs in the authenticated /api/items call. */
 export function registerEconomyTransport(t: Transport | null) { store.setTransport(t); }
 /** Every server answer for a Player ID passes through here (cloud.ts), so coins stay current for free. */
-export function receiveServerView(address: string | null, view: Record<string, unknown>) { store.receiveView(address, view); }
+export function receiveServerView(address: string | null, view: Record<string, unknown>) {
+  if (address && typeof import.meta.env !== 'undefined' && import.meta.env.DEV && store.resetDevState(address, view.devFishingResetId)) { resetVerifiedBook(address); resetFishingDeck(); }
+  store.receiveView(address, view);
+  receiveFishBook(address, view);
+}
 /** Switch to a Player ID's cooler + server cache (null = guest). Called by game/saves/cloud.ts. */
-export function attachWallet(address: string | null) { store.attach(address); }
+export function attachWallet(address: string | null) { store.attach(address); attachFishBook(address); }
 
 export function getWallet(): Wallet { return store.getWallet(); }
 export function useWallet(): Wallet {
@@ -69,6 +76,8 @@ export function catchToCooler(fishId: string, sizeCm: number | null, stamp?: Cat
   if (!ECONOMY_ON) return null;
   return store.addCatch(fishId, sizeCm, stamp);
 }
+export const sellableFishNow = () => store.sellableFish();
+export const saleProblemNow = (c: CoolerFish) => store.saleProblem(c);
 export const quoteSellNow = (uids: string[]) => store.quoteSell(uids);
 export const quoteBuyNow = (cart: CartLine[], vendor: Vendor) => store.quoteBuy(cart, vendor);
 export const sellToGen = (uids: string[]): Promise<TradeOutcome> => store.sell(uids);

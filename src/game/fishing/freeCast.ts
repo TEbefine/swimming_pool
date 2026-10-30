@@ -34,4 +34,4 @@ export function finishFreeCast(cast: FreeCast, now: number, address: string | nu
   return { caughtAt, ...(ticket ? { ticket } : {}) };
 }
 
-export const BOOK_ONLY_CATCH = "Fish Book only — can't be sold.";
+export const PRACTICE_CATCH = "Practice catch — can’t be sold or added to your Fish Book.";

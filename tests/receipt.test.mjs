@@ -61,3 +61,13 @@ test('receipt time is Bangkok time whatever the phone says', () => {
   assert.equal(R.receiptTime(Date.UTC(2026, 9, 28, 10, 42)), '28 Oct · 17:42');
   assert.equal(R.receiptTime(Date.UTC(2026, 9, 28, 17, 5)), '29 Oct · 00:05'); // past Bangkok midnight
 });
+
+// Server tier caps use the existing Gen receipt, without changing counters or buyer roles.
+test('tier-kept receipt uses Gen’s trophy line alongside spoiled/daily-cap reasons', () => {
+  const slip = R.sellReceipt([], [{ reason: 'tier_cap' }, { reason: 'spoiled' }, { reason: 'daily_cap' }], 0, NOON);
+  assert.equal(slip.vendor, 'gen');
+  assert.match(slip.note, /I can’t take another trophy today/);
+  assert.match(slip.note, /1 fish went bad/);
+  assert.match(slip.note, /1 fish stay in your cooler/);
+  assert.equal(R.keptNote([{ reason: 'tier_cap' }]), 'I can’t take another trophy today');
+});

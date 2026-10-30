@@ -29,7 +29,7 @@ export const SELL = {
   glutStep: 0.9,
   glutFloor: 0.5,
   /** Hard ceiling per player per Bangkok day. Not a pacing tool (glut does that): an anti-cheat ceiling. */
-  dailyCap: 5000,
+  dailyCap: 3000,
   /** Every sale pays at least this. */
   minPrice: 1,
 };
@@ -79,8 +79,8 @@ export const LOG_KEEP = 30;
 export const ECONOMY_SAVE = {
   opsPerDay: 40,
   goodsUidMaxLength: 64,
-  /** Balance ceiling = SELL.dailyCap times this many days. */
-  balanceCapDays: 400,
+  /** Absolute saved-balance ceiling; independent of daily fishing income limits. */
+  maxBalance: 2_000_000,
 } as const;
 
 export const ICE = {
@@ -88,9 +88,7 @@ export const ICE = {
   retentionMs: (FRESH.lifetimeMin + FRESH.iceMaxPerFishMin) * 60_000 + 10_000,
 } as const;
 
-/** Server sale policy. Retention includes the maximum future server-verified ice extension. */
+/** Server sale clock tolerance. Redemption retention lives in the versioned deck policy. */
 export const SALE = {
   clockSkewMs: 10_000,
-  soldRetentionMs: (FRESH.lifetimeMin + FRESH.iceMaxPerFishMin) * 60_000,
-  maxRecentSold: ECONOMY_SAVE.opsPerDay * (COOLER.baseSlots + COOLER.upgradeSlots * COOLER.upgradePrices.length),
 } as const;

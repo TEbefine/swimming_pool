@@ -11,6 +11,8 @@
 //   lost, the exact request is kept (also across a reload) and the player taps Retry: the server replays the
 //   original result instead of paying or charging twice. Nothing is queued or sent automatically.
 
+import { parseSalePolicy, saleProblem } from '../fishing/saleEligibility.js';
+import type { SalePolicy } from '../fishing/saleEligibility.js';
 import { parseCatchTicket } from '../fishing/catchTicket.js';
 import type { CatchStamp, CatchTicket } from '../fishing/catchTicket.js';
 import { CURRENCY, ICE } from './economyConfig.js';
@@ -29,6 +31,7 @@ export interface KeyValue { get(key: string): string | null; set(key: string, va
 export type Transport = (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
 export interface StoreDeps {
   sandbox: boolean;
+  allowDevReset?: boolean;
   storage: KeyValue;
   clock: () => number;
   online: () => boolean;
@@ -41,7 +44,7 @@ export interface PendingTrade {
   body: Record<string, unknown>;
   /** shop.sell: cooler uids in the same order as body.catches (result indices point here). */
   uids?: string[];
-  /** Same-order tickets retained with an uncertain sale; stage 5 will add them to the wire schema. */
+  /** Same-order ticket metadata; the persisted body is always retried unchanged. */
   tickets?: (CatchTicket | null)[];
   vendor?: Vendor;
   at: number;
@@ -61,6 +64,7 @@ export type TradeOutcome =
 
 interface ServerGoods { uid: string; id: string; qty: number; at: number; expiresAt: number | null }
 interface ServerEconomy {
+  salePolicy: SalePolicy | null;
   revision: number;
   coins: number;
   coolerLevel: number;
@@ -82,6 +86,8 @@ export function formatMoney(n: number): string {
   return `${n.toLocaleString('en-US')} ${n === 1 ? CURRENCY.one : CURRENCY.many}`;
 }
 
+// Compiled out of production; also keeps a reset acknowledgement when browser storage is blocked.
+const devResets = typeof import.meta.env === 'undefined' || import.meta.env.DEV ? new WeakMap<object, { address: string; id: string }>() : null;
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 function counts(v: unknown): Record<string, number> {
   const out: Record<string, number> = {};
@@ -95,6 +101,7 @@ export function parseServerEconomy(v: unknown): ServerEconomy | null {
   if (!isNum(r.revision) || !isNum(r.coins) || !Array.isArray(r.goods) || !r.econ || typeof r.econ !== 'object') return null;
   const e = r.econ as Record<string, unknown>;
   return {
+    salePolicy: parseSalePolicy((r.salePolicy ?? r) as Record<string, unknown>),
     revision: r.revision,
     coins: Math.max(0, Math.floor(r.coins)),
     coolerLevel: isNum(r.coolerLevel) ? Math.max(0, Math.floor(r.coolerLevel)) : 0,
@@ -218,6 +225,19 @@ export class EconomyStore {
     }
   }
 
+  /** Explicit local-dev reset only. A new server reset token drops matching game caches, never identity. */
+  resetDevState(address: string | null, id: unknown): boolean {
+    if (typeof import.meta.env !== 'undefined' && !import.meta.env.DEV) return false;
+    if (!this.deps.allowDevReset || !this.scope || address !== this.scope || typeof id !== 'string' || id.length > 80 || !id) return false;
+    const key = `sp_dev_fishing_reset_${this.scope}`;
+    const seen = devResets?.get(this);
+    if ((seen?.address === this.scope && seen.id === id) || this.json(key) === id) return false;
+    devResets?.set(this, { address: this.scope, id });
+    this.snap = null; this.pending = null; this.cooler = [];
+    this.write(this.key('econ'), null); this.write(this.key('pending'), null); this.write(this.key('cooler'), []); this.write(key, id);
+    this.emit(); return true;
+  }
+
   /** Every /api/items answer for `address` passes through here (load, Fish Book, story, trades). */
   receiveView(address: string | null, view: Record<string, unknown>) {
     if (this.deps.sandbox || address === null || address !== this.scope) return; // an answer for another Player ID
@@ -281,7 +301,16 @@ export class EconomyStore {
   }
 
   // ---- quotes (draw only; the server prices for real) ----
-  quoteSell(uids: string[]) { return quoteSell(this.wallet, uids, this.now()).quote; }
+  saleProblem(c: CoolerFish): string | null { return this.deps.sandbox ? null : saleProblem(c, this.snap?.salePolicy ?? null, this.now()); }
+  sellableFish(): CoolerFish[] {
+    const seen = new Set<string>();
+    return this.wallet.cooler.filter(c => {
+      if (this.saleProblem(c)) return false;
+      const key = c.ticket ? `${c.ticket.version}:${c.ticket.deckId}:${c.ticket.castIndex}` : c.uid;
+      if (seen.has(key)) return false; seen.add(key); return true;
+    });
+  }
+  quoteSell(uids: string[]) { return quoteSell({ ...this.wallet, cooler: this.sellableFish() }, uids, this.now()).quote; }
   quoteBuy(cart: CartLine[], vendor: Vendor) { return quoteBuy(this.wallet, cart, vendor, this.now()).quote; }
 
   // ---- trades ----
@@ -295,9 +324,12 @@ export class EconomyStore {
     const block = this.blocked('gen');
     if (block) return block;
     const waiting = new Set(this.pending?.uids ?? []);
-    const fish = this.wallet.cooler.filter((c) => uids.includes(c.uid) && !waiting.has(c.uid));
-    if (!fish.length) return refused(REASON_LINES.nothing_selected);
-    const catches = fish.map((c) => ({ fish: c.fishId, sizeCm: c.sizeCm, caughtAt: c.caughtAt }));
+    const fish = this.sellableFish().filter((c) => uids.includes(c.uid) && !waiting.has(c.uid));
+    if (!fish.length) {
+      const selected = this.wallet.cooler.find(c => uids.includes(c.uid));
+      return refused(selected ? this.saleProblem(selected) ?? REASON_LINES.nothing_selected : REASON_LINES.nothing_selected);
+    }
+    const catches = fish.map((c) => ({ fish: c.fishId, sizeCm: c.sizeCm, caughtAt: c.caughtAt, ...(c.ticket ? { ticket: c.ticket } : {}) }));
     return this.send({ op: 'shop.sell', body: { op: 'shop.sell', operationId: this.deps.newOperationId(), catches }, uids: fish.map((c) => c.uid), tickets: fish.map((c) => c.ticket ?? null), vendor: 'gen', at: this.now() });
   }
 
@@ -382,6 +414,7 @@ export class EconomyStore {
     } catch (raw) {
       if (who !== this.scope) return { ok: false, kind: 'refused', message: '' };
       const err = raw as ErrorLike;
+      let refusalMessage = err.message;
       const status = typeof err.status === 'number' ? err.status : 0;
       // Does this answer SETTLE the trade (prove it never happened)?
       // - 400/409/422 come from validation/pricing, which the server runs AFTER looking up the operationId: had the
@@ -401,9 +434,19 @@ export class EconomyStore {
       if (err.data && isNum(err.data.serverNow)) this.receiveView(who, { serverNow: err.data.serverNow });
       if (status === 403 && err.data?.shopClosed) return { ok: false, kind: 'closed', message: TRADE_LINES.closed };
       if (status === 401) return { ok: false, kind: 'signin', message: TRADE_LINES.signin };
+      if (p.op === 'shop.sell' && Array.isArray(err.data?.rejectedCatches)) {
+        const gone = new Set<string>();
+        for (const line of err.data.rejectedCatches as { index?: unknown; reason?: unknown; message?: unknown }[]) {
+          if (Number.isSafeInteger(line.index) && (line.index as number) >= 0 && ['invalid', 'already_paid'].includes(String(line.reason))) {
+            const uid = p.uids?.[line.index as number];
+            if (uid) { gone.add(uid); if (typeof line.message === 'string') refusalMessage = line.message; }
+          }
+        }
+        if (gone.size) this.setCooler(this.cooler.filter(c => !gone.has(c.uid)));
+      }
       if (p.op === 'shop.sell' && err.data?.result) this.reconcileSale(p, err.data.result as Record<string, unknown>); // all kept: drop the spoiled ones
       void this.sync();
-      return refused(err.message || 'Not today, sorry.');
+      return refused(refusalMessage || 'Not today, sorry.');
     } finally {
       this.busy = false;
       this.emit();
