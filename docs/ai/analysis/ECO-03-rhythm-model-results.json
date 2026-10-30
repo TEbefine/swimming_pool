@@ -1,0 +1,414 @@
+{
+  "base": "e96b8ad",
+  "n": 1000,
+  "profiles": {
+    "casual": {
+      "quality": [
+        0.05,
+        0.2,
+        0.25,
+        0.35,
+        0.15
+      ],
+      "success": [
+        0.96,
+        0.9,
+        0.8,
+        0.65,
+        0.5
+      ],
+      "inNet": 0.65,
+      "readSeconds": 4,
+      "extraSeconds": 3,
+      "travelSeconds": 100,
+      "activeMinutes": 30
+    },
+    "regular": {
+      "quality": [
+        0.02,
+        0.13,
+        0.2,
+        0.3,
+        0.35
+      ],
+      "success": [
+        0.99,
+        0.96,
+        0.9,
+        0.82,
+        0.72
+      ],
+      "inNet": 0.75,
+      "readSeconds": 2.5,
+      "extraSeconds": 1.5,
+      "travelSeconds": 75,
+      "activeMinutes": 30
+    },
+    "skilled": {
+      "quality": [
+        0,
+        0.08,
+        0.12,
+        0.2,
+        0.6
+      ],
+      "success": [
+        0.995,
+        0.99,
+        0.97,
+        0.93,
+        0.88
+      ],
+      "inNet": 0.85,
+      "readSeconds": 1.5,
+      "extraSeconds": 0.8,
+      "travelSeconds": 50,
+      "activeMinutes": 30
+    }
+  },
+  "rows": [
+    {
+      "rhythm": false,
+      "profile": "casual",
+      "minutes": 10,
+      "n": 1000,
+      "mean": 219.021,
+      "p50": 190,
+      "p95": 461,
+      "capHitPercent": 0,
+      "genTripsMean": 1.153
+    },
+    {
+      "rhythm": false,
+      "profile": "casual",
+      "minutes": 20,
+      "n": 1000,
+      "mean": 550.187,
+      "p50": 531,
+      "p95": 833,
+      "capHitPercent": 0,
+      "genTripsMean": 3.009
+    },
+    {
+      "rhythm": false,
+      "profile": "casual",
+      "minutes": 30,
+      "n": 1000,
+      "mean": 832.998,
+      "p50": 813,
+      "p95": 1193,
+      "capHitPercent": 0,
+      "genTripsMean": 4.743
+    },
+    {
+      "rhythm": false,
+      "profile": "casual",
+      "minutes": 60,
+      "n": 1000,
+      "mean": 1522.576,
+      "p50": 1483,
+      "p95": 1933,
+      "capHitPercent": 0,
+      "genTripsMean": 9.775
+    },
+    {
+      "rhythm": false,
+      "profile": "regular",
+      "minutes": 10,
+      "n": 1000,
+      "mean": 452.031,
+      "p50": 417,
+      "p95": 742,
+      "capHitPercent": 0,
+      "genTripsMean": 2.003
+    },
+    {
+      "rhythm": false,
+      "profile": "regular",
+      "minutes": 20,
+      "n": 1000,
+      "mean": 958.239,
+      "p50": 933,
+      "p95": 1407,
+      "capHitPercent": 0,
+      "genTripsMean": 4.541
+    },
+    {
+      "rhythm": false,
+      "profile": "regular",
+      "minutes": 30,
+      "n": 1000,
+      "mean": 1372.163,
+      "p50": 1332,
+      "p95": 1830,
+      "capHitPercent": 0,
+      "genTripsMean": 6.975
+    },
+    {
+      "rhythm": false,
+      "profile": "regular",
+      "minutes": 60,
+      "n": 1000,
+      "mean": 2097.66,
+      "p50": 2112,
+      "p95": 2436,
+      "capHitPercent": 0,
+      "genTripsMean": 14.224
+    },
+    {
+      "rhythm": false,
+      "profile": "skilled",
+      "minutes": 10,
+      "n": 1000,
+      "mean": 762.348,
+      "p50": 731,
+      "p95": 1131,
+      "capHitPercent": 0,
+      "genTripsMean": 2.997
+    },
+    {
+      "rhythm": false,
+      "profile": "skilled",
+      "minutes": 20,
+      "n": 1000,
+      "mean": 1430.206,
+      "p50": 1410,
+      "p95": 1862,
+      "capHitPercent": 0,
+      "genTripsMean": 6.385
+    },
+    {
+      "rhythm": false,
+      "profile": "skilled",
+      "minutes": 30,
+      "n": 1000,
+      "mean": 1833.466,
+      "p50": 1839,
+      "p95": 2177,
+      "capHitPercent": 0,
+      "genTripsMean": 9.818
+    },
+    {
+      "rhythm": false,
+      "profile": "skilled",
+      "minutes": 60,
+      "n": 1000,
+      "mean": 2645.314,
+      "p50": 2676,
+      "p95": 2918,
+      "capHitPercent": 1.4,
+      "genTripsMean": 19.931
+    },
+    {
+      "rhythm": true,
+      "profile": "casual",
+      "minutes": 10,
+      "n": 1000,
+      "mean": 254.028,
+      "p50": 222,
+      "p95": 513,
+      "capHitPercent": 0,
+      "genTripsMean": 1.342
+    },
+    {
+      "rhythm": true,
+      "profile": "casual",
+      "minutes": 20,
+      "n": 1000,
+      "mean": 566.12,
+      "p50": 542,
+      "p95": 860,
+      "capHitPercent": 0,
+      "genTripsMean": 3.103
+    },
+    {
+      "rhythm": true,
+      "profile": "casual",
+      "minutes": 30,
+      "n": 1000,
+      "mean": 867.61,
+      "p50": 852,
+      "p95": 1214,
+      "capHitPercent": 0,
+      "genTripsMean": 4.966
+    },
+    {
+      "rhythm": true,
+      "profile": "casual",
+      "minutes": 60,
+      "n": 1000,
+      "mean": 1569.384,
+      "p50": 1525,
+      "p95": 1988,
+      "capHitPercent": 0,
+      "genTripsMean": 10.231
+    },
+    {
+      "rhythm": true,
+      "profile": "regular",
+      "minutes": 10,
+      "n": 1000,
+      "mean": 459.442,
+      "p50": 421,
+      "p95": 763,
+      "capHitPercent": 0,
+      "genTripsMean": 2.035
+    },
+    {
+      "rhythm": true,
+      "profile": "regular",
+      "minutes": 20,
+      "n": 1000,
+      "mean": 1006.363,
+      "p50": 989,
+      "p95": 1442,
+      "capHitPercent": 0,
+      "genTripsMean": 4.797
+    },
+    {
+      "rhythm": true,
+      "profile": "regular",
+      "minutes": 30,
+      "n": 1000,
+      "mean": 1403.051,
+      "p50": 1360,
+      "p95": 1864,
+      "capHitPercent": 0,
+      "genTripsMean": 7.192
+    },
+    {
+      "rhythm": true,
+      "profile": "regular",
+      "minutes": 60,
+      "n": 1000,
+      "mean": 2143.909,
+      "p50": 2163,
+      "p95": 2479,
+      "capHitPercent": 0,
+      "genTripsMean": 14.823
+    },
+    {
+      "rhythm": true,
+      "profile": "skilled",
+      "minutes": 10,
+      "n": 1000,
+      "mean": 769.905,
+      "p50": 737,
+      "p95": 1150,
+      "capHitPercent": 0,
+      "genTripsMean": 3.029
+    },
+    {
+      "rhythm": true,
+      "profile": "skilled",
+      "minutes": 20,
+      "n": 1000,
+      "mean": 1474.51,
+      "p50": 1464,
+      "p95": 1893,
+      "capHitPercent": 0,
+      "genTripsMean": 6.698
+    },
+    {
+      "rhythm": true,
+      "profile": "skilled",
+      "minutes": 30,
+      "n": 1000,
+      "mean": 1864.368,
+      "p50": 1875,
+      "p95": 2214,
+      "capHitPercent": 0,
+      "genTripsMean": 10.119
+    },
+    {
+      "rhythm": true,
+      "profile": "skilled",
+      "minutes": 60,
+      "n": 1000,
+      "mean": 2692.94,
+      "p50": 2718,
+      "p95": 2956,
+      "capHitPercent": 3,
+      "genTripsMean": 20.604
+    }
+  ],
+  "sensitivities": [
+    {
+      "profile": "regular",
+      "minutes": 60,
+      "capacity": 20,
+      "rhythm": false,
+      "p50": 2287,
+      "p95": 2576,
+      "capHitPercent": 0
+    },
+    {
+      "profile": "regular",
+      "minutes": 60,
+      "capacity": 20,
+      "rhythm": true,
+      "p50": 2358,
+      "p95": 2651,
+      "capHitPercent": 0
+    },
+    {
+      "profile": "skilled",
+      "minutes": 60,
+      "capacity": 20,
+      "rhythm": false,
+      "p50": 2860,
+      "p95": 3000,
+      "capHitPercent": 18.2
+    },
+    {
+      "profile": "skilled",
+      "minutes": 60,
+      "capacity": 20,
+      "rhythm": true,
+      "p50": 2931,
+      "p95": 3000,
+      "capHitPercent": 31
+    },
+    {
+      "profile": "regular",
+      "minutes": 30,
+      "tripMultiplier": 2,
+      "rhythm": false,
+      "p50": 1054,
+      "p95": 1544,
+      "capHitPercent": 0
+    },
+    {
+      "profile": "regular",
+      "minutes": 30,
+      "tripMultiplier": 2,
+      "rhythm": true,
+      "p50": 1123,
+      "p95": 1585,
+      "capHitPercent": 0
+    },
+    {
+      "profile": "skilled",
+      "minutes": 120,
+      "rhythm": false,
+      "p50": 3000,
+      "p95": 3000,
+      "capHitPercent": 100
+    },
+    {
+      "profile": "skilled",
+      "minutes": 120,
+      "rhythm": true,
+      "p50": 3000,
+      "p95": 3000,
+      "capHitPercent": 99.9
+    }
+  ],
+  "assumptions": {
+    "roll": "actual shared v2 kernel; honest sequential indices, random start; no peeking/skipping",
+    "reel": "Average occupancy approximation, NOT measured humans. Same q/success assumptions as original plan; current fill .37/drain .24. Rhythm effective fill +18% is an explicit assumed time-average, not measured combo uptime. Reel estimate adds .7s settling overhead. Controller sweeps separately validate finite catchability; their skilled tracking is not a human timing forecast.",
+    "trips": "Assumed 100/75/50 seconds round trip casual/regular/skilled. genTripsMean counts successful sale operations, excluding all-kept trips.",
+    "caps": "3000/day, legend2, epic10,40 successful ops; one fresh day per session, no ice or shopping. Gross fishing coins, not net income.",
+    "limitations": "No human telemetry, true phone travel/reaction/beat accuracy unknown. Does not model time-varying impulses, audio output latency or a player deliberately waiting for more combo."
+  }
+}

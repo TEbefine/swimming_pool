@@ -1,3 +1,4 @@
+import { beatIntervalMs } from '../fishing/reelRhythm.js';
 import { FREE_FISHING_TUNING } from '../fishing/freeFishingTuning.js';
 import { FISH_BOOK } from '../fishing/fishBookConfig.js';
 // Fishing minigame logic — no drawing, no React. FishingGame.tsx draws it and feeds it input.
@@ -281,7 +282,7 @@ export function press(s: FishingState): FishingState {
 }
 
 /** Advance time. `held` = the key is being held down (keyboard / touch on the panel). */
-export function step(s: FishingState, dt: number, rng: Rng, held = false): FishingState {
+export function step(s: FishingState, dt: number, rng: Rng, held = false, reel?: { elapsedMs: number; intervalMs: number; fillMultiplier: number }): FishingState {
   const t = s.t + dt;
   const d = difficultyOf(s);
 
@@ -318,7 +319,11 @@ export function step(s: FishingState, dt: number, rng: Rng, held = false): Fishi
     let fishY = s.fishY + Math.sign(diff) * Math.min(Math.abs(diff), speed * dt);
     if (s.freeTuning) {
       const a = s.freeTuning.fishAcceleration;
-      const desired = Math.sign(diff) * Math.min(speed, s.freeTuning.maxFishSpeed, Math.sqrt(2 * a * Math.abs(diff)));
+      // A bounded pull on each beat, easing between them. Default elapsed keeps pure controller tests rhythmic too.
+      const interval = reel?.intervalMs ?? beatIntervalMs(d);
+      const elapsed = reel?.elapsedMs ?? t * 1000;
+      const pulse = .85 + .15 * Math.cos(elapsed / interval * Math.PI * 2);
+      const desired = Math.sign(diff) * Math.min(speed * pulse, s.freeTuning.maxFishSpeed, Math.sqrt(2 * a * Math.abs(diff)));
       fishV += Math.max(-a * dt, Math.min(a * dt, desired - fishV));
       fishY = s.fishY + fishV * dt;
       // Targets are inside these rails; approaching them brakes before a reversal.
@@ -327,7 +332,7 @@ export function step(s: FishingState, dt: number, rng: Rng, held = false): Fishi
     const movement = s.freeTuning ? { fishV } : {};
 
     const inNet = fishY >= netY && fishY <= netY + TUNING.netSize;
-    const progress = Math.max(0, Math.min(1, s.progress + (inNet ? (s.freeTuning?.fillRate ?? TUNING.fillRate) : -TUNING.drainRate) * dt));
+    const progress = Math.max(0, Math.min(1, s.progress + (inNet ? (s.freeTuning?.fillRate ?? TUNING.fillRate) * (s.freeTuning ? reel?.fillMultiplier ?? 1 : 1) : -(s.freeTuning?.drainRate ?? TUNING.drainRate)) * dt));
     if (progress >= 1) return { ...s, phase: 'caught', t: 0, progress, netY, fishY, inNet, ...movement };
     if (progress <= 0) return { ...s, phase: 'escaped', t: 0, progress, netY, fishY, inNet, ...movement };
     return { ...s, t, netY, netV, fishY, fishTarget, fishTurnIn, progress, inNet, ...movement };

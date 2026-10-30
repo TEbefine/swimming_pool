@@ -140,10 +140,10 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
   const math = Object.create(Math); math.random = () => .5;
   class ClockDate extends Date { constructor(...args) { super(...(args.length ? args : [w.time])); } static now() { return w.time; } }
   const context = createContext({ atob, btoa, Math: math, Date: ClockDate, structuredClone, URLSearchParams,
-    performance: { now: () => w.perf }, location: { search: '' }, navigator: { onLine: true },
+    performance: { now: () => w.perf, timeOrigin: 1_700_000_000_000 }, location: { search: '' }, navigator: { onLine: true },
     localStorage: { getItem: k => { if (w.failStorage) throw Error('blocked'); return mem.get(k); }, setItem: (k, v) => { if (w.failStorage) throw Error('quota'); mem.set(k, v); }, removeItem: k => mem.remove(k) },
     crypto: { getRandomValues: a => a.fill(4) }, document: { hidden: false, addEventListener() {} }, window: { location: { search: '' }, addEventListener() {}, setTimeout() {} },
-    setTimeout: () => 1, clearTimeout() {}, fetch: async () => ({ json: async () => ({}) }), Image: class { complete = false; },
+    setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {}, fetch: async () => ({ json: async () => ({}) }), Image: class { complete = false; },
   });
   new Script(bundle).runInContext(context); const api = context.Session;
   api.attachWallet(A); api.attachFishBook(A); api.attachFishingDeck(A);
@@ -286,4 +286,28 @@ test('whole loop: real minigame catch → verified Gen sale → Book update; los
   assert.equal((await w.api.retryTrade()).ok, true); assert.deepEqual(sent[1], sent[0]);
   assert.equal(h.logs.size, 2); assert.equal(Object.values(h.players.get(A).fishBook).reduce((n, e) => n + e.sold, 0), 2);
   assert.equal(w.api.getWallet().cooler.length, 0);
+});
+
+
+test('real free session judges a delayed press by event time rather than frame time', async () => {
+  const w = await sessionRig(); w.throwAt(.85);
+  const text=[];
+  const ctx=new Proxy({ fillText(value){text.push(value);} },{get:(o,k)=>k in o?o[k]:()=>{}});
+  for(let n=0;n<1000&&w.api.useFishingView().phase!=='bite';n++){
+    w.perf+=20;w.time+=20;w.api.drawFishing(ctx,'world',w.perf);
+  }
+  assert.equal(w.api.useFishingView().phase,'bite');
+  const epoch=w.perf;w.api.fishingPress(epoch);
+  const ticket=w.api.getFishingDeck();
+  // Actual selected fish determines tempo; accepting any of the five possible beats is
+  // not sufficient here: read the authoritative roll for this reserved index.
+  const rolled=rollDeckCatch({...ticket,castIndex:4,castInfo:{distance:.85,nice:true},castAt:w.time});
+  // The rig's crypto source starts the real deck cursor at index 4.
+  const d=Math.min(5,rolled.baseDiff+(rolled.big?1:0));
+  const interval=60000/[72,80,88,96,104][d-1];
+  w.perf=epoch+interval+350;
+  w.api.fishingPress(epoch+interval);
+  w.api.drawFishing(ctx,'top',w.perf);
+  assert.ok(text.some(t=>String(t).includes('Perfect! ×1')),JSON.stringify({d,text}));
+  w.api.stopFishing();
 });

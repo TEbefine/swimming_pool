@@ -131,6 +131,27 @@ export class SoundManager {
     return this.muted;
   }
 
+  public rhythmClick(performanceMs: number, perfect = false): () => void {
+    if (!this.canPlay()) return () => {};
+    try {
+      this.initCtx();
+      const ctx = this.ctx;
+      if (!ctx || ctx.state !== 'running') return () => {};
+      const output = ctx.getOutputTimestamp?.();
+      const audioAt = output && typeof output.contextTime === 'number' && typeof output.performanceTime === 'number' && output.performanceTime > 0
+        ? output.contextTime + (performanceMs - output.performanceTime) / 1000
+        : ctx.currentTime + (performanceMs - performance.now()) / 1000;
+      const at = Math.max(ctx.currentTime, audioAt);
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.frequency.value = perfect ? 1050 : 650;
+      gain.gain.setValueAtTime(perfect ? .045 : .025, at);
+      gain.gain.exponentialRampToValueAtTime(.001, at + .035);
+      osc.connect(gain); gain.connect(ctx.destination);
+      this.trackSource(osc, gain); osc.start(at); osc.stop(at + .04);
+      return () => { try { osc.stop(); } catch { /* Already ended. */ } };
+    } catch { return () => {}; }
+  }
+
   // Water splash sound (noise filtered + bubble drop)
   public playSplash() {
     if (!this.canPlay()) return;

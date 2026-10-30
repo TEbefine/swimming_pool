@@ -12,6 +12,11 @@
 // ✕ / Esc = stop. Drawing is called by the engine every frame through engine.onDrawLayer.
 
 import { useSyncExternalStore } from 'react';
+import { inputTimeMs, newRhythm, rhythmPress, rhythmFill, rhythmCombo, rhythmAnnouncement, REEL_RHYTHM, type ReelRhythm } from '../fishing/reelRhythm';
+import { startRhythmFeedback } from '../fishing/rhythmFeedback';
+let rhythm: ReelRhythm | null = null;
+let stopRhythmFeedback = () => {};
+
 import { sound } from '../audio';
 import type { GameEngine } from '../Engine';
 import { cast, difficultyOf, isOver, newFishing, press as pressRule, step, TUNING, type CastInfo, type FishingPhase, type FishingState } from './fishing';
@@ -252,6 +257,7 @@ export async function startFishing(e: GameEngine, m: FishingMode = 'story') {
 export function stopFishing() {
   if (!view.active) return;
   held = false;
+  stopRhythmFeedback(); rhythm = null;
   fs = newFishing();
   drops = [];
   if (engine) {
@@ -342,7 +348,7 @@ function throwLine(info: CastInfo) {
 }
 
 /** ◯ pressed. */
-export function fishingPress() {
+export function fishingPress(eventTimeMs?: number) {
   if (!view.active) return;
   const now = performance.now();
   if (view.tired || view.aiming) return;
@@ -352,9 +358,25 @@ export function fishingPress() {
     return;
   }
   if (fs.phase === 'waiting' && now < landedAt()) return; // float still in the air
-  const next = pressRule(fs);
+  const inputAt = inputTimeMs(eventTimeMs ?? now, performance.timeOrigin, now);
+  const wasReel = fs.phase === 'reel';
+  let next = pressRule(fs);
+  if (mode === 'free' && wasReel && rhythm) {
+    const judged = rhythmPress(rhythm, inputAt - reelStart);
+    rhythm = judged.state;
+    if (judged.perfect) {
+      next = { ...next, netV: Math.min(TUNING.maxSpeed, fs.netV + REEL_RHYTHM.perfectLift) };
+      popText = { text: `Perfect! ×${rhythm.streak}`, color: '#F4D98B', at: now };
+      sound.rhythmClick(now, true);
+    }
+  }
   if (next.phase === 'reel' && fs.phase === 'bite') {
-    reelStart = now;
+    reelStart = mode === 'free' ? inputAt : now;
+    if (mode === 'free') {
+      rhythm = newRhythm(difficultyOf(next));
+      stopRhythmFeedback();
+      stopRhythmFeedback = startRhythmFeedback(reelStart, rhythm.interval);
+    }
     leftNet = false;
     prevInNet = true;
     prevFishY = next.fishY;
@@ -372,6 +394,7 @@ export function fishingHold(down: boolean) {
 }
 
 function finish(now: number) {
+  stopRhythmFeedback();
   endAt = now;
   held = false;
   if (engine) engine.localShakeX = 0;
@@ -398,9 +421,9 @@ function finish(now: number) {
       if (!Object.hasOwn(FISH_BOOK_BY_ID, fish)) info.bookMessage = 'This find can’t be sold or added to your Fish Book.';
       // tell everyone in the room about the big ones (chat bubble over your head)
       const f = FREE_BY_ID[fish];
-      if (TIERS[f.tier].announce) {
-        engine?.sendChat(`caught ${sayName(fish)}! [${TIERS[f.tier].label}]${fs.sizeCm !== null ? ` ${fs.sizeCm} cm` : ''}`);
-      }
+      const rhythmLine = rhythm ? rhythmAnnouncement(rhythm, now - reelStart) : null;
+      const rareLine = TIERS[f.tier].announce ? `caught ${sayName(fish)}! [${TIERS[f.tier].label}]${fs.sizeCm !== null ? ` ${fs.sizeCm} cm` : ''}` : null;
+      if (rhythmLine || rareLine) engine?.sendChat([rhythmLine, rareLine].filter(Boolean).join(' '));
     } else {
       addItem(fish as ItemId);
       if (fs.sizeCm !== null) record = recordSize(fish as ItemId, fs.sizeCm);
@@ -466,7 +489,7 @@ function update(now: number) {
     // the fish can't bite a float in the air
   } else if (fs.phase === 'waiting' || fs.phase === 'bite' || fs.phase === 'reel') {
     const prev = fs.phase;
-    fs = step(fs, dt, Math.random, held);
+    fs = step(fs, dt, Math.random, held, mode === 'free' && rhythm ? { elapsedMs: now - reelStart, intervalMs: rhythm.interval, fillMultiplier: rhythmFill(rhythm, now - reelStart) } : undefined);
     if (fs.phase === 'bite' && !biteSounded) {
       biteSounded = true;
       sound.playEmoteSound('surprise');
@@ -1003,6 +1026,19 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedM
     ctx.rotate(reducedMotion ? 0 : fishTilt);
     drawMysteryFish(ctx, fs.inNet);
     ctx.restore();
+  }
+
+  if (mode === 'free' && rhythm && fs.phase === 'reel') {
+    const elapsed = performance.now() - reelStart;
+    const phase = ((elapsed % rhythm.interval) + rhythm.interval) % rhythm.interval / rhythm.interval;
+    const beatDistance = Math.min(phase, 1 - phase) * rhythm.interval;
+    const cx = X + 17, cy = Y + 7;
+    ctx.strokeStyle = beatDistance < 90 ? '#FFE9A8' : '#EEE6C8';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, reducedMotion ? 6 : 6 + (1 - phase) * 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#FFE9A8';
+    const combo = rhythmCombo(rhythm, elapsed);
+    if (combo > 0) ctx.fillText(`×${combo}`, cx, Y + FH - 2);
   }
 
   // catch meter (right): red → yellow → green, glows near full, blinks when the line is in danger

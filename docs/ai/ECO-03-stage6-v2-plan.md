@@ -197,3 +197,7 @@ Firestore stored shapes and permissions stay the same: `{version,deckId,bits}` s
 ## Step 3 review result — 2026-10-30
 
 Free-only profile and v2 practice table built after pulling4db5f42, preserving Claude Book/shell UI.297 tests, TypeScript/build/four APIs and10 emulator tests pass;1,920 delayed-input controller runs and38,400-frame frozen story parity. No reset or shared DB. Physical iPhone feel review pending; no universal catchability proof claimed. Full evidence: [step3 review](ECO-03-stage6-step3-review.md). Stop after commit/push; step4 remains unstarted.
+
+## Step 4 revised by Teera — free reel rhythm (2026-10-30)
+
+Step3 approved; iPhone “middle-easy.” Approved rhythm adds scaled ±min(140ms,18% interval), event-time judging, shared beat/audio/ring deadlines with latencyOffset0, tempos72–104, normal hold playable, .24 free drain, combo10/20/30% and .65 Perfect lift. Social peak>=6 or full-perfect, merged with rare catches. Implemented after pulling e96b8ad; 311 tests and10 emulator tests, TypeScript/build/four APIs pass. Short-session model is explicitly an occupancy estimate, not measured human rhythm performance. [Step4 final review packet](ECO-03-stage6-step4-review.md). iPhone rhythm review pending; stop after push.

@@ -353,7 +353,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   // =========================================================================
   const closeFishing = useCallback(() => stopFishing(), []);
 
-  const handleCircleAction = useCallback(() => {
+  const handleCircleAction = useCallback((eventTimeMs?: number) => {
     if (engineRef.current?.isRoomTransitioning()) return;
     if (enterGameRef.current) {
       enterGameRef.current();
@@ -380,7 +380,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     if (storyPanel) return;
     // Fishing → ◯ casts / strikes / lifts the net
     if (fishingOpen) {
-      fishingPress();
+      fishingPress(eventTimeMs);
       return;
     }
     // If SceneBox is open → confirm travel on currently selected slot
@@ -483,7 +483,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         if (k === 'e' || k === 'o' || k === ' ') {
           e.preventDefault();
           fishingHold(true);
-          if (!e.repeat) fishingPress();
+          if (!e.repeat) fishingPress(e.timeStamp);
         } else if (k === 'escape' || k === 'x') {
           e.preventDefault();
           stopFishing();
