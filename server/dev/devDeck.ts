@@ -24,7 +24,8 @@ export function devDeck(): Plugin {
         (req as typeof req & { body?: unknown }).body = Buffer.concat(chunks).toString('utf8');
         const handler = createFishingDeckHandler({ env: {
           ECONOMY_API: 'on', LOGIN_ALLOWED_ORIGINS: origin, ...policy,
-        } }, { verifyToken: async (token: string) => {
+        } }, { readControl: async () => true,
+          verifyToken: async (token: string) => {
           if (token !== DEV_TEST_TOKEN) throw new Error('not the dev test token');
           return { uid: DEV_TEST_ADDRESS, walletSignedInAt: Date.now() - 1000, walletLoginOrigin: origin };
         } });

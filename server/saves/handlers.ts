@@ -2,12 +2,15 @@
 // Firebase ID token → address (uid) → validate the request → one Firestore transaction that updates
 // players/{address} and creates players/{address}/log/{operationId}. Retrying the same operation
 // returns the saved result instead of applying it twice (idempotent).
+import { epochPlayer, epochClosing } from './epoch.js';
+import { controlOpen, CLOSED_TODAY } from './control.js';
+import { ECONOMY_EPOCH } from '../../src/game/economy/economyConfig.js';
 import { createHash } from 'node:crypto';
 import { canonicalAddress, LoginError, validSessionClaims } from '../identity/challenge.js';
 import { allowedOrigin, clientIp, header, IpLimiter, readBody, reply } from '../identity/http.js';
 import type { Request, Response } from '../identity/http.js';
 import {
-  checkOperationId, countOperation, emptyPlayer, normalizePlayer, playerView,
+  checkOperationId, countOperation, playerView,
   SaveError, validateStoryDay,
 } from './rules.js';
 import { applyBuy, applyIce, parseBuy, parseGoodsUid } from './purchases.js';
@@ -18,9 +21,10 @@ import type { LogEntry, PlayerDoc } from './rules.js';
 export interface TxResult<T> { write: { player: PlayerDoc; log: LogEntry } | null; response: T }
 export interface SaveServices {
   verifyToken: (token: string) => Promise<{ uid: string; walletSignedInAt?: unknown; walletLoginOrigin?: unknown }>;
+  readControl?: () => Promise<boolean>;
   readPlayer: (address: string) => Promise<unknown>;
   /** Runs `fn` in one transaction with the current player + log documents; writes only if it says so. */
-  transact: <T>(address: string, operationId: string, fn: (player: unknown, log: unknown) => TxResult<T>) => Promise<T>;
+  transact: <T>(address: string, operationId: string, fn: (player: unknown, log: unknown, control?: unknown) => TxResult<T>, money?: boolean) => Promise<T>;
 }
 interface Options {
   env: NodeJS.ProcessEnv;
@@ -57,7 +61,7 @@ export const SHOP_CLOSED_LINE = "The shop isn't open yet.";
 export function economyApiOn(env: NodeJS.ProcessEnv): boolean {
   return env.ECONOMY_API === 'on';
 }
-const FIELDS = ['op', 'operationId', 'catches', 'world', 'baseRevision', 'state', 'vendor', 'cart', 'uid', 'expectedTotal'];
+const FIELDS = ['op', 'operationId', 'catches', 'world', 'baseRevision', 'state', 'vendor', 'cart', 'uid', 'expectedTotal', 'econEpoch'];
 
 /** Same JSON for the same request, whatever the key order (for the idempotency hash). */
 function stable(value: unknown): string {
@@ -90,7 +94,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
       try { address = canonicalAddress(claims.uid); } catch { throw new SaveError(401, 'Please unlock your Player ID to save.'); }
       if (!validSessionClaims(claims, address, origin, now())) throw new SaveError(401, 'Please unlock your Player ID to save.');
       try { playerLimiter.check(address, now()); } catch { throw new SaveError(429, 'Saving too often. Please wait a minute.'); }
-      playerDaily.check(address, now()); // ≤ 600 requests × ≤ 2 reads per ID per day per instance
+      playerDaily.check(address, now()); // ≤ 600 requests × ≤ 3 reads per ID per day per instance
 
       const body = readBody(req, FIELDS, BODY_LIMIT, 'Save request');
       const op = body.op;
@@ -101,46 +105,54 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         onlyFields(body, ['op']);
         const raw = await services.readPlayer(address);
         const t = now();
-        reply(res, 200, { ...playerView(raw ? normalizePlayer(raw, t) : emptyPlayer(t), t), serverNow: t, redeemFromDeckId: cutoffView(env), ...devResetView(env) });
+        reply(res, 200, { ...playerView(epochPlayer(raw, t), t), shopOpen: economyApiOn(env) && await services.readControl?.() === true, serverNow: t, redeemFromDeckId: cutoffView(env), ...devResetView(env) });
         return;
       }
 
       if (op === 'shop.buy' || op === 'bag.use') {
-        onlyFields(body, op === 'shop.buy' ? ['op', 'operationId', 'vendor', 'cart', 'expectedTotal'] : ['op', 'operationId', 'uid']);
+        onlyFields(body, op === 'shop.buy' ? ['op', 'operationId', 'vendor', 'cart', 'expectedTotal', 'econEpoch'] : ['op', 'operationId', 'uid', 'econEpoch']);
         const operationId = checkOperationId(body.operationId);
         const purchase = op === 'shop.buy' ? parseBuy(body) : null;
         const uid = op === 'bag.use' ? parseGoodsUid(body.uid) : null;
         const hash = createHash('sha256').update(stable(purchase
-          ? [op, purchase.vendor, purchase.cart, purchase.expectedTotal ?? null] : [op, uid])).digest('hex');
-        const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
+          ? [op, purchase.vendor, purchase.cart, purchase.expectedTotal ?? null] : [op, uid]) + (body.econEpoch === undefined ? '' : stable(['epoch',body.econEpoch]))).digest('hex');
+        const result = await services.transact(address, operationId, (rawPlayer, rawLog, control) => {
           const t = now();
-          const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
+          const doc = epochPlayer(rawPlayer, t);
           if (rawLog) return replay(doc, rawLog, hash, t);
+          {
+            if (!controlOpen(control)) throw new SaveError(403, CLOSED_TODAY, {shopClosed:true});
+            if (doc.econEpoch !== ECONOMY_EPOCH || body.econEpoch !== ECONOMY_EPOCH) throw new SaveError(409, 'A new season has started. Refresh your wallet.', {epochChanged:true,econEpoch:ECONOMY_EPOCH});
+          }
           const budget = countOperation(doc, t);
           const { fields, changes } = purchase
             ? applyBuy(doc, purchase.cart, purchase.vendor, purchase.expectedTotal, t)
             : applyIce(doc, uid!, t);
           return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
-        });
+        }, true);
         reply(res, 200, { ...(result as object), serverNow: now(), redeemFromDeckId: cutoffView(env), ...devResetView(env) }); // the phone keeps its catch clock in step with ours
         return;
       }
 
       if (op === 'shop.sell') {
-        onlyFields(body, ['op', 'operationId', 'catches']);
+        onlyFields(body, ['op', 'operationId', 'catches', 'econEpoch']);
         const operationId = checkOperationId(body.operationId);
         const catches = parseSaleCatches(body.catches);
-        const hash = createHash('sha256').update(stable([op, catches])).digest('hex');
-        const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
+        const hash = createHash('sha256').update(stable([op, catches]) + (body.econEpoch === undefined ? '' : stable(['epoch',body.econEpoch]))).digest('hex');
+        const result = await services.transact(address, operationId, (rawPlayer, rawLog, control) => {
           const t = now();
-          const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
+          const doc = epochPlayer(rawPlayer, t);
           // Time, catalogue and player-state checks follow replay lookup: the original receipt
           // remains valid after spoilage, config changes, a later sale or Bangkok midnight.
           if (rawLog) return replay(doc, rawLog, hash, t);
+          {
+            if (!controlOpen(control)) throw new SaveError(403, CLOSED_TODAY, {shopClosed:true});
+            if (doc.econEpoch !== ECONOMY_EPOCH || body.econEpoch !== ECONOMY_EPOCH) throw new SaveError(409, 'A new season has started. Refresh your wallet.', {epochChanged:true,econEpoch:ECONOMY_EPOCH});
+          }
           const budget = countOperation(doc, t);
           const { fields, changes } = applySale(doc, catches, { now: t, address, secret: fishingDeckSecret(env), redeemFromDeckId: fishingRedemptionCutoff(env) });
           return commit(doc, { ...fields, ...budget }, op, hash, changes, t);
-        });
+        }, true);
         reply(res, 200, { ...(result as object), serverNow: now(), redeemFromDeckId: cutoffView(env), ...devResetView(env) }); // the phone keeps its catch clock in step with ours
         return;
       }
@@ -155,7 +167,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
         const hash = createHash('sha256').update(stable([op, body.world, base, body.state])).digest('hex');
         const result = await services.transact(address, operationId, (rawPlayer, rawLog) => {
           const t = now();
-          const doc = rawPlayer ? normalizePlayer(rawPlayer, t) : emptyPlayer(t);
+          const doc = epochPlayer(rawPlayer, t);
           if (rawLog) return replay(doc, rawLog, hash, t);
           const budget = countOperation(doc, t);
           const prev = doc.storyWorlds.dalbit;
@@ -164,7 +176,7 @@ export function createItemsHandler({ env, now = Date.now, limiter = new IpLimite
           const save = { day: state.day, step: state.step, revision: (prev?.revision ?? 0) + 1, savedAt: t, state };
           const changes = { world: 'dalbit', day: state.day, storyRevision: save.revision, coins: state.coins };
           return commit(doc, { storyWorlds: { ...doc.storyWorlds, dalbit: save }, ...budget }, op, hash, changes, t);
-        });
+        }, false);
         reply(res, 200, { ...(result as object), serverNow: now(), redeemFromDeckId: cutoffView(env), ...devResetView(env) }); // the phone keeps its catch clock in step with ours
         return;
       }
@@ -182,7 +194,7 @@ function replay(doc: PlayerDoc, rawLog: unknown, hash: string, now: number): TxR
 
 function commit(doc: PlayerDoc, fields: Partial<PlayerDoc>, op: string, hash: string, changes: Record<string, unknown>, t: number): TxResult<unknown> {
   const player: PlayerDoc = { ...doc, ...fields, revision: doc.revision + 1, updatedAt: t };
-  const log: LogEntry = { at: t, op, requestHash: hash, changes, prevRevision: doc.revision, newRevision: player.revision };
+  const log: LogEntry = { at: t, op, requestHash: hash, changes: {...changes,...(epochClosing(doc) ? {epoch:epochClosing(doc)} : {})}, prevRevision: doc.revision, newRevision: player.revision };
   return { write: { player, log }, response: { ...playerView(player, t), result: changes } };
 }
 

@@ -1,9 +1,8 @@
 // The one real economy store (economyStore.ts) + React hooks. Game code calls the small functions below.
 //
-// ECO-02(d): in SERVER mode (npm run dev with the TEST Player ID, and dev-test-id previews) the server owns
-// coins, goods, cooler level and ice; this device keeps the cooler and a cache of the last server answer.
-// Sandbox pages (?test=shop / ?test=free) keep everything on this device with their own key, as before.
-// The live game has no shop at all until ECO-04 (ECONOMY_ON is false there, and the server refuses money ops).
+// SERVER mode (the live game, npm run dev, previews): the server owns coins, goods, cooler/rod level and ice;
+// this device keeps the cooler and a cache of the last server answer. Guests can visit; trading needs a Player ID.
+// Sandbox pages (?test=shop / ?test=free, dev and preview builds only) keep everything on this device.
 
 import { useSyncExternalStore } from 'react';
 import { attachFishBook, receiveFishBook, resetVerifiedBook } from '../fishing/freeFish';
@@ -15,9 +14,9 @@ import type { Vendor } from './shopCatalog';
 import { REASON_LINES } from './wallet';
 import type { CartLine, CoolerFish, Fail, Wallet } from './wallet';
 
-import { ECONOMY_ON, ECONOMY_SANDBOX as SANDBOX } from './flags';
+import { ECONOMY_SANDBOX as SANDBOX } from './flags';
 
-export { ECONOMY_ON, formatMoney };
+export { formatMoney };
 export type { EconomyStatus, TradeOutcome };
 
 function newOperationId(): string {
@@ -44,7 +43,7 @@ export function registerEconomyTransport(t: Transport | null) { store.setTranspo
 /** Every server answer for a Player ID passes through here (cloud.ts), so coins stay current for free. */
 export function receiveServerView(address: string | null, view: Record<string, unknown>) {
   if (address && typeof import.meta.env !== 'undefined' && import.meta.env.DEV && store.resetDevState(address, view.devFishingResetId)) { resetVerifiedBook(address); resetFishingDeck(); }
-  store.receiveView(address, view);
+  if (store.receiveView(address, view) && address) { resetVerifiedBook(address); resetFishingDeck(); }
   receiveFishBook(address, view);
 }
 /** Switch to a Player ID's cooler + server cache (null = guest). Called by game/saves/cloud.ts. */
@@ -71,9 +70,8 @@ export function reasonLine(r: Fail): string {
   return REASON_LINES[r.reason];
 }
 
-/** Free fishing calls this for every catch. Off in the live game. */
+/** Free fishing calls this for every catch. */
 export function catchToCooler(fishId: string, sizeCm: number | null, stamp?: CatchStamp) {
-  if (!ECONOMY_ON) return null;
   return store.addCatch(fishId, sizeCm, stamp);
 }
 export const sellableFishNow = () => store.sellableFish();
@@ -82,7 +80,7 @@ export const quoteSellNow = (uids: string[]) => store.quoteSell(uids);
 export const quoteBuyNow = (cart: CartLine[], vendor: Vendor) => store.quoteBuy(cart, vendor);
 export const sellToGen = (uids: string[]): Promise<TradeOutcome> => store.sell(uids);
 export const buyFrom = (cart: CartLine[], vendor: Vendor, expectedTotal: number): Promise<TradeOutcome> => store.buy(cart, vendor, expectedTotal);
-export const useBagItem = (uid: string): Promise<TradeOutcome> => store.useItem(uid);
+export const applyBagItem = (uid: string): Promise<TradeOutcome> => store.useItem(uid);
 export const retryTrade = (): Promise<TradeOutcome> => store.retry();
 export const takeBagItem = (uid: string) => store.take(uid);
 

@@ -141,9 +141,11 @@ export function quoteFish(
 }
 
 /** Today's price of a shop item for this player (special discount; the cooler price grows per level). */
-export function itemPrice(id: string, market: MarketDay, coolerLevel: number, coolerPrices: readonly number[]): number | null {
+import { RODS } from './rodConfig.js';
+export function itemPrice(id: string, market: MarketDay, coolerLevel: number, coolerPrices: readonly number[], rodLevel = 0): number | null {
   const it = Object.hasOwn(SHOP_BY_ID, id) ? SHOP_BY_ID[id] : undefined;
   if (!it || it.soon) return null;
+  if (it.use === 'rod_upgrade') return RODS[rodLevel + 1]?.id === id ? it.price : null;
   if (it.use === 'cooler_upgrade') return coolerPrices[coolerLevel] ?? null; // null = already the biggest
   return market.special === id ? Math.round(it.price * SHOP.specialFactor) : it.price;
 }

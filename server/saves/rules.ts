@@ -1,3 +1,4 @@
+import { rodLevelOf } from '../../src/game/economy/rodConfig.js';
 // ID-01 (c) — what a Player ID's save may contain, and which changes the server accepts.
 // Pure functions (no Firebase): server/saves/handlers.ts runs them inside one Firestore transaction.
 // The client is never trusted with totals: it sends small facts (a catch, an end-of-day story state)
@@ -7,7 +8,7 @@ import { ITEMS, ITEM_IDS } from '../../src/game/story/items.js';
 import type { ItemId } from '../../src/game/story/items.js';
 import { isStoryCounter, isStoryFlag } from '../../src/game/story/storyKeys.js';
 
-import { ICE, BAG, COOLER, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
+import { ICE, BAG, COOLER, ECONOMY_EPOCH, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
 import { SHOP_BY_ID, SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
 import { bkkDay } from '../../src/game/economy/market.js';
 import { LIMITS } from './limits.js';
@@ -62,7 +63,9 @@ export interface StorySave { day: number; step: string; revision: number; savedA
 export interface PlayerDoc {
   iceUsedAt: number[];
   coins: number;
+  econEpoch: number;
   coolerLevel: number;
+  rodLevel: number;
   goods: PlayerGoods[];
   econ: PlayerEconomy;
   /** Redemption markers, independent of the Book/day reset; exposed read-only for client filtering. */
@@ -93,7 +96,7 @@ export interface LogEntry {
 
 export function emptyPlayer(now: number): PlayerDoc {
   return {
-    coins: 0, coolerLevel: 0, goods: [], econ: emptyEconomy(now), iceUsedAt: [],
+    econEpoch: ECONOMY_EPOCH, coins: 0, coolerLevel: 0, rodLevel: 0, goods: [], econ: emptyEconomy(now), iceUsedAt: [],
     schemaVersion: 1, createdAt: now, updatedAt: now, revision: 0,
     fishBook: {},
     storyWorlds: {}, ownedCards: {}, communityMemory: {}, opWindow: { start: 0, count: 0 }, writeDay: { day: '', count: 0 },
@@ -108,7 +111,8 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
   return {
     ...base,
     coins: clampedCount(d.coins, ECONOMY_SAVE.maxBalance),
-    coolerLevel: safeCount(d.coolerLevel, COOLER.upgradePrices.length),
+    econEpoch: safeCount(d.econEpoch, Number.MAX_SAFE_INTEGER),
+    coolerLevel: safeCount(d.coolerLevel, COOLER.upgradePrices.length), rodLevel: rodLevelOf(d.rodLevel),
     goods: normalizeGoods(d.goods, now),
     econ: normalizeEconomy(d.econ, now),
     ...(Object.hasOwn(d, 'paidDecks') ? { paidDecks: d.paidDecks } : {}),
@@ -132,7 +136,7 @@ export function playerView(doc: PlayerDoc, now = doc.updatedAt) {
     paidDecks: paid.ok ? paid.windows : null,
     revision: doc.revision, ...verifiedFishBookView(doc.fishBook),
     story: { dalbit: doc.storyWorlds.dalbit ?? null },
-    coins: doc.coins, coolerLevel: doc.coolerLevel, goods: doc.goods, econ: doc.econ, iceUsedAt: doc.iceUsedAt,
+    econEpoch: doc.econEpoch, coins: doc.coins, coolerLevel: doc.coolerLevel, rodLevel: doc.rodLevel, goods: doc.goods, econ: doc.econ, iceUsedAt: doc.iceUsedAt,
   };
 }
 
@@ -184,7 +188,7 @@ function normalizeGoods(raw: unknown, now: number): PlayerGoods[] {
     const g = object(entry);
     if (typeof g.uid !== 'string' || g.uid.length > ECONOMY_SAVE.goodsUidMaxLength || !/^[A-Za-z0-9_-]+$/.test(g.uid) || seen.has(g.uid)) continue;
     const item = typeof g.id === 'string' && Object.hasOwn(SHOP_BY_ID, g.id) ? SHOP_BY_ID[g.id] : undefined;
-    if (!item || item.soon || item.use === 'cooler_upgrade') continue;
+    if (!item || item.soon || (item.use === 'cooler_upgrade' || item.use === 'rod_upgrade')) continue;
     // Preserve legacy keeper stacks if a catalogue edit makes them perishable.
     // New purchases will still create individual food slots; normalization must not lose units.
     const qty = safeCount(g.qty, BAG.maxStack);

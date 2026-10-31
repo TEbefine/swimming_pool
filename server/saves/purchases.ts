@@ -29,7 +29,7 @@ export function parseBuy(body: Record<string, unknown>) {
 
 export function applyBuy(doc: PlayerDoc, cart: CartLine[], vendor: Vendor, expectedTotal: number | undefined, now: number) {
   for (const row of cart) if (!Object.hasOwn(SHOP_BY_ID, row.id)) throw new SaveError(422, REASON_LINES.unknown_item);
-  const wallet = { ...freshWallet(now), coins: doc.coins, coolerLevel: doc.coolerLevel, goods: doc.goods,
+  const wallet = { ...freshWallet(now), coins: doc.coins, coolerLevel: doc.coolerLevel, rodLevel: doc.rodLevel, goods: doc.goods,
     ...doc.econ };
   const { quote } = quoteBuySettled(wallet, cart, vendor, now);
   if (expectedTotal !== undefined && (!quote.problem || quote.problem === 'not_enough_coins' || quote.problem === 'bag_full') && quote.total > expectedTotal) {
@@ -42,7 +42,7 @@ export function applyBuy(doc: PlayerDoc, cart: CartLine[], vendor: Vendor, expec
   const goods = out.wallet.goods.map(g => ({ ...g, expiresAt: existing.get(g.uid)?.expiresAt
     ?? (SHOP_BY_ID[g.id].perishMin === undefined ? null : g.at + SHOP_BY_ID[g.id].perishMin! * 60_000) }));
   return {
-    fields: { coins: balanceAfter, goods, coolerLevel: out.wallet.coolerLevel,
+    fields: { coins: balanceAfter, goods, coolerLevel: out.wallet.coolerLevel, rodLevel: out.wallet.rodLevel,
       econ: { ...doc.econ, boughtToday: out.wallet.boughtToday } },
     changes: { bought: out.lines, spent: out.spent, balanceAfter, vendor, pricedAt: now, marketDay: doc.econ.day,
       expectedTotal: expectedTotal ?? null },

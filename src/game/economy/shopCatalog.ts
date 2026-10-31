@@ -6,11 +6,12 @@
 // Gen = pantry and supplies (and Gen is the one who BUYS your fish).
 // Shop goods can never be sold back to the shop (no buy-low/sell-high loop).
 
-export type ShopSheet = 'sashimi' | 'meals' | 'pantry';
+import { RODS } from './rodConfig.js';
+export type ShopSheet = 'sashimi' | 'meals' | 'pantry' | 'rods';
 export type ShopCategory = 'sashimi' | 'sushi' | 'meal' | 'snack' | 'drink' | 'ingredient' | 'supply' | 'gift';
 export type Vendor = 'minato' | 'gen';
 /** What "Use" does. Items without one are for eating/giving later. */
-export type ItemUse = 'ice' | 'cooler_upgrade';
+export type ItemUse = 'ice' | 'cooler_upgrade' | 'rod_upgrade';
 
 export interface ShopItem {
   id: string;
@@ -47,6 +48,7 @@ const SASHIMI_MIN = 60;
 const MEAL_MIN = 60;
 
 export const SHOP_ITEMS: ShopItem[] = [
+  ...RODS.map((rod, cell): ShopItem => ({...rod, sheet: 'rods', cell, category: 'supply', vendor: 'gen', use: 'rod_upgrade', note: 'Permanent free-fishing rod. Automatically active; larger yellow zone.'})),
   // ---- sheet 1: sashimi (Minato) ------------------------------------------------------------
   { id: 'sashimi_tai', name: 'Sea bream sashimi', sheet: 'sashimi', cell: 0, category: 'sashimi', vendor: 'minato', price: 90, perishMin: SASHIMI_MIN, fromFish: ['red_snapper'], note: 'Tai: the fish of celebrations. Clean and sweet.' },
   { id: 'sashimi_hirame', name: 'Flounder sashimi', sheet: 'sashimi', cell: 1, category: 'sashimi', vendor: 'minato', price: 90, perishMin: SASHIMI_MIN, note: 'Hirame: thin, clear slices. The frilly fin edge is the best part.' },

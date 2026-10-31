@@ -1,3 +1,4 @@
+import { ECONOMY_EPOCH } from '../economy/economyConfig';
 // Fishing IN THE WORLD — Yunseul stands at the end of the pier, swings his bamboo pole, the float lands
 // in the river, and the whole minigame plays on the scene (no separate window).
 //
@@ -12,13 +13,26 @@
 // ✕ / Esc = stop. Drawing is called by the engine every frame through engine.onDrawLayer.
 
 import { useSyncExternalStore } from 'react';
+import { inputTimeMs, newRhythm, rhythmPress, rhythmFill, rhythmAnnouncement, inNetAt, nextReelHint, REEL_RHYTHM, type ReelRhythm, type ReelPosition } from '../fishing/reelRhythm';
+import { startRhythmFeedback } from '../fishing/rhythmFeedback';
+let rhythm: ReelRhythm | null = null;
+let stopRhythmFeedback = () => {};
+let positions: ReelPosition[] = [];
+let perfectPop: { text: string; at: number } | null = null;
+let hintCount = 0;
+let biteTimer: ReturnType<typeof setTimeout> | undefined;
+function samplePosition(at: number) {
+  positions.push({ at, fishY: fs.fishY, netY: fs.netY });
+  while (positions.length > 240) positions.shift();
+}
+
 import { sound } from '../audio';
 import type { GameEngine } from '../Engine';
-import { cast, difficultyOf, isOver, newFishing, press as pressRule, step, TUNING, type CastInfo, type FishingPhase, type FishingState } from './fishing';
+import { cast, netSizeOf, difficultyOf, isOver, newFishing, press as pressRule, step, TUNING, type CastInfo, type FishingPhase, type FishingState } from './fishing';
 import { ITEMS, itemIcon, withArticle, type ItemId } from './items';
 import { addItem, addLedger, getStory, recordSize, setEnergy, setFlag } from './storyStore';
 import { BOTTLE_NOTES, FREE_BY_ID, FREE_TABLE, TIERS, getFishBook, freeIcon, freeTableNow } from '../fishing/freeFish';
-import { catchToCooler, ECONOMY_ON, gameNow, saleProblemNow } from '../economy/walletStore';
+import { catchToCooler, getWallet, getEconomyStatus, gameNow, saleProblemNow } from '../economy/walletStore';
 import { getFishingDeckAddress, reserveFishingCast } from '../fishing/deckClient';
 import { PRACTICE_CATCH, finishFreeCast, prepareFreeCast } from '../fishing/freeCast';
 import type { FreeCast } from '../fishing/freeCast';
@@ -87,6 +101,7 @@ const MISS_SHOW_MS = 1300;
 // ---- view for React (changes only when something visible to the HUD changes) --------------
 export interface FishingView {
   active: boolean;
+  rhythmHint: boolean;
   phase: FishingPhase;
   /** The float is in the water (after the throw). */
   landed: boolean;
@@ -107,7 +122,7 @@ export interface FishingView {
   record: boolean;
 }
 
-const EMPTY: Omit<FishingView, 'active' | 'mode' | 'front'> = { phase: 'ready', landed: false, caught: null, info: null, perfect: false, tired: false, aiming: false, sizeCm: null, record: false };
+const EMPTY: Omit<FishingView, 'active' | 'mode' | 'front'> = { rhythmHint: false, phase: 'ready', landed: false, caught: null, info: null, perfect: false, tired: false, aiming: false, sizeCm: null, record: false };
 let view: FishingView = { active: false, mode: 'story', front: false, ...EMPTY };
 const listeners = new Set<() => void>();
 function emit(patch: Partial<FishingView>) {
@@ -252,6 +267,7 @@ export async function startFishing(e: GameEngine, m: FishingMode = 'story') {
 export function stopFishing() {
   if (!view.active) return;
   held = false;
+  stopRhythmFeedback(); rhythm = null; positions = []; perfectPop = null; clearTimeout(biteTimer);
   fs = newFishing();
   drops = [];
   if (engine) {
@@ -279,6 +295,7 @@ function startAiming(now: number) {
     setPose(hasPoses() ? 'fish_ready' : restPose());
     return;
   }
+  if (mode === 'free') sound.prepareFishingAudio();
   chargeAt = now;
   fs = newFishing();
   if (engine) engine.cameraFocusX = null;
@@ -330,19 +347,32 @@ function throwLine(info: CastInfo) {
   biteSounded = false;
   tension = 0;
   drops = [];
-  freeCast = mode === 'free' && ECONOMY_ON
+  freeCast = mode === 'free' && getEconomyStatus().econEpoch === ECONOMY_EPOCH
     ? prepareFreeCast(info, gameNow(), testHooks.forceFish ? () => null : reserveFishingCast) : null;
   fs = mode === 'free'
-    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), info, rolled: freeCast?.rolled, starred: fish => !!getFishBook().entries[fish]?.starred, forceFish: testHooks.forceFish, hour: bangkokHour() })
+    ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), freePacing: true, rodLevel: getWallet().rodLevel, info, rolled: freeCast?.rolled, starred: fish => !!getFishBook().entries[fish]?.starred, forceFish: testHooks.forceFish, hour: bangkokHour() })
     : cast(Math.random, { firstCatch: !st.flags.first_catch, forceFish: testHooks.forceFish, info });
   testHooks.onCast?.(info);
+  // Release is an input event, so the whoosh is immediate, without a draw-frame wait.
   sound.playEmoteSound('jump'); // the swing whoosh
+  if (mode === 'free') {
+    if (import.meta.env.DEV) console.debug('[free fishing audio]', sound.latencyInfo());
+    clearTimeout(biteTimer);
+    const deadline = landedAt() + fs.biteAt * 1000;
+    const wake = () => {
+      if (!view.active || mode !== 'free' || fs.phase !== 'waiting' || document.hidden) return;
+      const remaining = deadline - performance.now();
+      if (remaining > 0) { biteTimer = setTimeout(wake, Math.ceil(remaining)); return; }
+      update(performance.now());
+    };
+    biteTimer = setTimeout(wake, Math.max(0, Math.ceil(deadline - performance.now())));
+  }
   if (!hasPoses()) e.triggerEmote('jump'); // old fallback: the hop = the throw
   emit({ ...EMPTY, phase: fs.phase });
 }
 
 /** ◯ pressed. */
-export function fishingPress() {
+export function fishingPress(eventTimeMs?: number) {
   if (!view.active) return;
   const now = performance.now();
   if (view.tired || view.aiming) return;
@@ -352,9 +382,35 @@ export function fishingPress() {
     return;
   }
   if (fs.phase === 'waiting' && now < landedAt()) return; // float still in the air
-  const next = pressRule(fs);
+  const inputAt = inputTimeMs(eventTimeMs ?? now, performance.timeOrigin, now);
+  // Advance to the input timestamp where possible. Late events use bounded position history.
+  if (mode === 'free' && (fs.phase === 'reel' || fs.phase === 'waiting' || fs.phase === 'bite') && inputAt > lastTime) {
+    update(Math.min(inputAt, now));
+    if (isOver(fs)) return; // update already completed this cast; never award it twice.
+  }
+  const wasReel = fs.phase === 'reel';
+  let next = pressRule(fs);
+  if (mode === 'free' && wasReel && rhythm) {
+    const judged = rhythmPress(rhythm, inputAt - reelStart, REEL_RHYTHM.rhythmLatencyOffsetMs, inNetAt(positions, inputAt, netSizeOf(fs)));
+    rhythm = judged.state;
+    if (judged.perfect) {
+      if (rhythm.streak >= 2) next = pressRule(fs, REEL_RHYTHM.perfectLift);
+      perfectPop = { text: `Perfect ×${rhythm.streak}`, at: now };
+      sound.rhythmClick(now, true);
+    }
+  }
   if (next.phase === 'reel' && fs.phase === 'bite') {
-    reelStart = now;
+    reelStart = mode === 'free' ? inputAt : now;
+    if (mode === 'free') {
+      rhythm = newRhythm(difficultyOf(next));
+      positions = [{ at: reelStart, fishY: next.fishY, netY: next.netY }]; perfectPop = null;
+      let storage: Storage | null = null;
+      try { storage = localStorage; } catch { /* Blocked storage. */ }
+      const hint = nextReelHint(storage, hintCount); hintCount = hint.count;
+      emit({ rhythmHint: hint.show });
+      stopRhythmFeedback();
+      stopRhythmFeedback = startRhythmFeedback(reelStart, rhythm.interval);
+    }
     leftNet = false;
     prevInNet = true;
     prevFishY = next.fishY;
@@ -372,6 +428,8 @@ export function fishingHold(down: boolean) {
 }
 
 function finish(now: number) {
+  clearTimeout(biteTimer);
+  stopRhythmFeedback();
   endAt = now;
   held = false;
   if (engine) engine.localShakeX = 0;
@@ -398,9 +456,9 @@ function finish(now: number) {
       if (!Object.hasOwn(FISH_BOOK_BY_ID, fish)) info.bookMessage = 'This find can’t be sold or added to your Fish Book.';
       // tell everyone in the room about the big ones (chat bubble over your head)
       const f = FREE_BY_ID[fish];
-      if (TIERS[f.tier].announce) {
-        engine?.sendChat(`caught ${sayName(fish)}! [${TIERS[f.tier].label}]${fs.sizeCm !== null ? ` ${fs.sizeCm} cm` : ''}`);
-      }
+      const rhythmLine = rhythm ? rhythmAnnouncement(rhythm, now - reelStart) : null;
+      const rareLine = TIERS[f.tier].announce ? `caught ${sayName(fish)}! [${TIERS[f.tier].label}]${fs.sizeCm !== null ? ` ${fs.sizeCm} cm` : ''}` : null;
+      if (rhythmLine || rareLine) engine?.sendChat([rhythmLine, rareLine].filter(Boolean).join(' '));
     } else {
       addItem(fish as ItemId);
       if (fs.sizeCm !== null) record = recordSize(fish as ItemId, fs.sizeCm);
@@ -466,7 +524,9 @@ function update(now: number) {
     // the fish can't bite a float in the air
   } else if (fs.phase === 'waiting' || fs.phase === 'bite' || fs.phase === 'reel') {
     const prev = fs.phase;
-    fs = step(fs, dt, Math.random, held);
+    if (mode === 'free' && fs.phase === 'waiting') fs = { ...fs, t: now >= landedAt() + fs.biteAt * 1000 ? fs.biteAt : Math.max(0, (now - landedAt()) / 1000 - dt) };
+    fs = step(fs, dt, Math.random, held, mode === 'free' && rhythm ? { elapsedMs: now - reelStart, intervalMs: rhythm.interval, fillMultiplier: rhythmFill(rhythm, now - reelStart) } : undefined);
+    if (mode === 'free' && prev === 'reel') samplePosition(now);
     if (fs.phase === 'bite' && !biteSounded) {
       biteSounded = true;
       sound.playEmoteSound('surprise');
@@ -831,7 +891,9 @@ function drawTop(ctx: CanvasRenderingContext2D, now: number) {
 
 // ---- the big reel bar (drawn by FishingHud on its own canvas, right side of the screen) ----
 /** Size of the reel-bar canvas in pixels (CSS scales it up, pixelated). Extra margin for the shake/pop. */
-export const REEL_BAR_W = 56;
+export const REEL_BAR_BASE_W = 56;
+export const REEL_BAR_W = 144;
+const REEL_LEFT_PAD = 88;
 export const REEL_BAR_H = 192;
 const BAR_END_MS = 480; // how long the bar stays after the fight (flash on a catch, shake on an escape)
 
@@ -859,7 +921,7 @@ function drawBarFrame(ctx: CanvasRenderingContext2D, now: number) {
 
 /** The casting power gauge: bottom = right by the pier, top = far deep water. */
 function drawPowerGauge(ctx: CanvasRenderingContext2D, now: number, reducedMotion: boolean) {
-  const W = REEL_BAR_W;
+  const W = 56;
   const H = REEL_BAR_H;
   ctx.save();
   const inT = Math.min(1, (now - chargeAt) / 220);
@@ -921,19 +983,20 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedM
   // Advance the timing-critical minigame with the small HUD, without redrawing the whole world.
   // performance.now() is also used by the world; RAF timestamps may be older than a world draw.
   if (view.active && engine && (view.aiming || fs.phase === 'reel')) update(performance.now());
-  const W = REEL_BAR_W;
+  const W = 56;
   const H = REEL_BAR_H;
   ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, W, H);
+  ctx.clearRect(0, 0, REEL_BAR_W, H);
   if (view.aiming) {
-    drawPowerGauge(ctx, now, reducedMotion);
+    ctx.save(); ctx.translate(mode === 'free' ? REEL_LEFT_PAD : 0, 0);
+    drawPowerGauge(ctx, now, reducedMotion); ctx.restore();
     return true;
   }
   const ended = fs.phase === 'caught' || fs.phase === 'escaped';
   if (fs.phase !== 'reel' && !(ended && now - endAt < BAR_END_MS)) return false;
   const endT = ended ? (now - endAt) / BAR_END_MS : 0;
 
-  ctx.save();
+  ctx.save(); ctx.translate(mode === 'free' ? REEL_LEFT_PAD : 0, 0);
   // pop in (overshoot) at the strike; on a catch it swells a little, on an escape it shakes hard
   const inT = Math.min(1, (now - reelStart) / 260);
   let s = reducedMotion ? 1 : easeOutBack(inT);
@@ -975,10 +1038,17 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedM
     px(ctx, col.x + 3 + ((i * 7) % (col.w - 6)), by, 2, 2, 'rgba(242,250,246,0.55)');
   }
 
+  const beatAge = mode === 'free' && rhythm ? (performance.now() - reelStart) % rhythm.interval : Infinity;
+  const beatPulse = beatAge >= 0 && performance.now() - reelStart >= (rhythm?.interval ?? Infinity) ? Math.max(0, 1 - beatAge / 140) : 0;
+
   // the net (hemp mesh) — flashes when the fish swims in
-  const ny = Math.round(col.y + col.h - (fs.netY + TUNING.netSize) * col.h);
-  const nh = Math.round(TUNING.netSize * col.h);
+  const ny = Math.round(col.y + col.h - (fs.netY + netSizeOf(fs)) * col.h);
+  const nh = Math.round(netSizeOf(fs) * col.h);
   px(ctx, col.x, ny, col.w, nh, fs.inNet ? C.netHi : C.net);
+  if (mode === 'free') {
+    ctx.globalAlpha *= .35 + beatPulse * .35;
+    px(ctx, col.x, ny, col.w, nh, '#FFE580'); ctx.globalAlpha = 1;
+  }
   ctx.fillStyle = C.mesh;
   for (let yy = ny + 3; yy < ny + nh - 1; yy += 4) ctx.fillRect(col.x, yy, col.w, 1);
   for (let xx = col.x + 3; xx < col.x + col.w; xx += 4) ctx.fillRect(xx, ny, 1, nh);
@@ -999,10 +1069,17 @@ export function drawReelBar(ctx: CanvasRenderingContext2D, now: number, reducedM
     const cy = col.y + col.h - fs.fishY * col.h;
     const wig = reducedMotion ? 0 : Math.sin(now / 55) * (tension > 0.6 ? 2 : 1);
     ctx.save();
-    ctx.translate(Math.round(col.x + col.w / 2 + wig), Math.round(cy));
+    ctx.translate(Math.round(col.x + col.w / 2 + wig + (!reducedMotion ? beatPulse * 2 : 0)), Math.round(cy));
+    if (beatPulse > 0) ctx.globalAlpha = .75 + beatPulse * .25;
     ctx.rotate(reducedMotion ? 0 : fishTilt);
     drawMysteryFish(ctx, fs.inNet);
     ctx.restore();
+  }
+
+  if (mode === 'free' && perfectPop && performance.now() - perfectPop.at < 700) {
+    ctx.font = '9px "Pool Pixel Default", monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = C.outline; ctx.fillText(perfectPop.text, X - 4, Y + 48);
+    ctx.fillStyle = '#FFE9A8'; ctx.fillText(perfectPop.text, X - 5, Y + 47);
   }
 
   // catch meter (right): red → yellow → green, glows near full, blinks when the line is in danger

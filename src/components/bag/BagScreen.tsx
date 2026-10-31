@@ -11,7 +11,7 @@ import { PixelBackpack } from './PixelBackpack';
 import { PocketBar, pocketName } from './PocketBar';
 import { ItemList } from './ItemList';
 import { ItemActionMenu } from './ItemActionMenu';
-import { bagUsesEconomy, coolerRows, goodsRows } from './economyRows';
+import { bagUsesEconomy, coolerRows, goodsRows, rodRow } from './economyRows';
 import { gameNow, refreshWallet, useWallet } from '../../game/economy/walletStore';
 import './bag.css';
 
@@ -86,7 +86,9 @@ export const BagScreen: React.FC<BagScreenProps> = ({
     return { id, name: item.name, count: story.bag[id] ?? 0, icon: itemIcon(id), note: item.note, meta: bits.join(' · ') };
   });
 
-  if (economy && pocket.id === 'fish') {
+  if (economy && pocket.id === 'key') {
+    rows = [...storyRows('key'), rodRow(wallet)];
+  } else if (economy && pocket.id === 'fish') {
     // What you CARRY: the cooler. Sold or spoiled fish are gone; the Fish Book keeps the collection.
     rows = [...storyRows('fish'), ...coolerRows(wallet, now)];
   } else if (economy && pocket.id === 'items') {

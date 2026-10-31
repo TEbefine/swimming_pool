@@ -14,7 +14,7 @@ interface GameBoyMobileProps {
   playerCount: number;
   chatLog: ChatMessage[];
   onDirectionChange: (dx: number, dy: number) => void;
-  onToggleState: () => void;
+  onToggleState: (eventTimeMs?: number) => void;
   /** ◯ held down / released (e.g. holding lifts the fishing net). */
   onCircleHold?: (down: boolean) => void;
   onActionA: () => void;
@@ -278,11 +278,11 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
   };
 
   // Right: ◯ (Circle) -> Dive / Step Out (Water ⇄ Land)
-  const handlePressCircle = () => {
+  const handlePressCircle = (eventTimeMs?: number) => {
     window.dispatchEvent(new Event('boot:skip')); // ◯ skips the first-open boot intro (no-op otherwise)
     if (identityPress('circle')) return;
     triggerHaptic(18);
-    onToggleState();
+    onToggleState(eventTimeMs);
   };
 
   // Left: ▢ (Square) -> Quick Wave Emote
@@ -588,13 +588,13 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
                       e.preventDefault();
                       if (identityControls && !e.isPrimary) return;
                       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                      handlePressCircle();
+                      handlePressCircle(e.timeStamp);
                       if (!identityControls) onCircleHold?.(true);
                     }}
                     onPointerUp={() => { if (!identityControls) onCircleHold?.(false); }}
                     onPointerCancel={() => { if (!identityControls) onCircleHold?.(false); }}
                     onLostPointerCapture={() => { if (!identityControls) onCircleHold?.(false); }}
-                    onClick={(e) => { if (e.detail === 0) handlePressCircle(); }}
+                    onClick={(e) => { if (e.detail === 0) handlePressCircle(e.timeStamp); }}
                     onContextMenu={(e) => e.preventDefault()}
                     className={faceButtonClass}
                     title={identityControls ? 'Circle (O)' : 'Circle: Pool / Land'}

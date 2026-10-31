@@ -17,6 +17,7 @@ function rig(env = {}, limits = {}) {
   w.handler = createFishingDeckHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ECONOMY_API: 'on', FISHING_DECK_SECRET: SECRET, ...env }, now: () => w.now,
     limiter: new IpLimiter(100), playerLimiter: new IpLimiter(100), ...limits }, {
     // There is deliberately NO database capability in the service interface.
+    readControl: async () => true,
     verifyToken: async token => { w.calls++; if (token !== TOKEN) throw Error('bad token'); return w.claims; },
   });
   return w;

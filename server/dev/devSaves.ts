@@ -41,10 +41,11 @@ export function devSaves(): Plugin {
             if (token !== DEV_TEST_TOKEN) throw new Error('not the dev test token');
             return { uid: DEV_TEST_ADDRESS, walletSignedInAt: Date.now() - 1000, walletLoginOrigin: origin };
           },
+          readControl: async () => true,
           readPlayer: async (address: string) => structuredClone(store.players[address] ?? null),
-          transact: async (address: string, id: string, fn: (p: unknown, l: unknown) => { write: { player: unknown; log: unknown } | null; response: unknown }) => {
+          transact: async (address: string, id: string, fn: (p: unknown, l: unknown, control?: unknown) => { write: { player: unknown; log: unknown } | null; response: unknown }) => {
             const key = `${address}/${id}`;
-            const out = fn(structuredClone(store.players[address] ?? null), structuredClone(store.logs[key] ?? null));
+            const out = fn(structuredClone(store.players[address] ?? null), structuredClone(store.logs[key] ?? null), {open:true});
             if (out.write) { store.players[address] = out.write.player; store.logs[key] = out.write.log; persist(); }
             return out.response;
           },

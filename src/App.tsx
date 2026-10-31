@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { GameEngine } from './game/Engine';
 import type { PlayerState, FloatColor, ChatMessage, ContextActionId, RoomDefinition } from './game/types';
-import { getRoomForToday } from './game/rooms';
+import { getRoomForToday, rememberRoom } from './game/rooms';
 import { HeaderBar } from './components/HeaderBar';
 import { ActionBar } from './components/ActionBar';
 import { ChatBar } from './components/ChatBar';
@@ -40,7 +40,6 @@ import type { OrderLine } from './game/cafe/cafeMenu';
 import { orderCancelled, orderReadBack } from './game/cafe/cafeBarista';
 import { ShopCounter, type ShopInput } from './components/shop/ShopCounter';
 import { WalletChip } from './components/shop/WalletChip';
-import { ECONOMY_ON } from './game/economy/flags';
 import { SHOP_NODE_OPENS, SHOP_NPCS, genScript, minatoScript, shopAfter, type ShopTab, type ShopVisit } from './game/economy/shopTalk';
 import type { Vendor } from './game/economy/shopCatalog';
 import { DpadAdapter } from './components/gameMenu/menuInput';
@@ -353,7 +352,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
   // =========================================================================
   const closeFishing = useCallback(() => stopFishing(), []);
 
-  const handleCircleAction = useCallback(() => {
+  const handleCircleAction = useCallback((eventTimeMs?: number) => {
     if (engineRef.current?.isRoomTransitioning()) return;
     if (enterGameRef.current) {
       enterGameRef.current();
@@ -380,7 +379,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     if (storyPanel) return;
     // Fishing → ◯ casts / strikes / lifts the net
     if (fishingOpen) {
-      fishingPress();
+      fishingPress(eventTimeMs);
       return;
     }
     // If SceneBox is open → confirm travel on currently selected slot
@@ -483,7 +482,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
         if (k === 'e' || k === 'o' || k === ' ') {
           e.preventDefault();
           fishingHold(true);
-          if (!e.repeat) fishingPress();
+          if (!e.repeat) fishingPress(e.timeStamp);
         } else if (k === 'escape' || k === 'x') {
           e.preventDefault();
           stopFishing();
@@ -588,6 +587,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     startupPresentation.current = startupGate;
 
     const engine = new GameEngine(canvasRef.current, currentRoom, playerName, floatColor);
+    rememberRoom(currentRoom.roomId); // even if the player never walks anywhere, "now" counts as a visit
     engineRef.current = engine;
     engine.setPause(identityPaused ? 'identity' : 'input');
     setLocalPlayerId(engine.localPlayer.id);
@@ -623,6 +623,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     engine.onRoomAssetsReady = () => { if (!cancelled) setTransitionReady(true); };
     engine.onRoomChanged = (newRoom) => {
       setCurrentRoom(newRoom);
+      rememberRoom(newRoom.roomId); // a reload soon after starts here again
       setPlayerCountByRoom(engine.getPlayerCountByRoom());
       music.playForRoom(newRoom.roomId);
     };
@@ -974,6 +975,14 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     if (fishingOpen) setFishBookOpen(false);
   }, [fishingOpen]);
   useEffect(() => { setFishBookOpen(false); }, [currentRoom.roomId]);
+  // Resume-last-room: refresh "last seen here" when the page is hidden or closed (long stays in one map).
+  useEffect(() => {
+    const save = () => rememberRoom(currentRoom.roomId);
+    const onHide = () => { if (document.hidden) save(); };
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', onHide);
+    return () => { window.removeEventListener('pagehide', save); document.removeEventListener('visibilitychange', onHide); };
+  }, [currentRoom.roomId]);
 
   // Close the bag when fishing starts; stop fishing if we leave the story room
   useEffect(() => {
@@ -1050,8 +1059,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     />
   ) : null;
 
-  // Coins + cooler in the corner at Quiet Bay and the fish shop (money system on only: npm run dev, ?test=shop|free)
-  const walletChipElement = (ECONOMY_ON && (currentRoom.roomId === 'lake_pier' || currentRoom.roomId === 'fish_shop')
+  // Coins + cooler in the corner at Quiet Bay and the fish shop
+  const walletChipElement = ((currentRoom.roomId === 'lake_pier' || currentRoom.roomId === 'fish_shop')
     && !dialogOpen && !counterOpen && !menu.isOpen && !fishingOpen && !loading) ? (
     <WalletChip compact={effectiveIsMobile} />
   ) : null;

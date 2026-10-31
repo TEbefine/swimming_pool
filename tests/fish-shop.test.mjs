@@ -19,7 +19,7 @@ registerHooks({
     return nextResolve(specifier, context);
   },
 });
-const { ECONOMY_ON } = await import('../src/game/economy/flags.ts');
+const { ECONOMY_SANDBOX } = await import('../src/game/economy/flags.ts');
 const { rooms } = await import('../src/game/rooms/index.ts');
 const { fishShopRoom } = await import('../src/game/rooms/fishShop.ts');
 const { genScript, minatoScript, shopAfter, SHOP_NODE_OPENS, SHOP_NPCS } = await import('../src/game/economy/shopTalk.ts');
@@ -27,10 +27,10 @@ const { genScript, minatoScript, shopAfter, SHOP_NODE_OPENS, SHOP_NPCS } = await
 const inside = (r, x, y) => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height;
 const walkable = (room, x, y) => room.walkableZones.some((z) => inside(z, x, y)) && !room.obstacles.some((o) => inside(o, x, y));
 
-test('live game: no money system, no fish shop room, no path from Quiet Bay', () => {
-  assert.equal(ECONOMY_ON, false);
-  assert.equal(rooms.fish_shop, undefined);
-  assert.deepEqual(rooms.lake_pier.exits, []);
+test('ECO-04 live game: the fish shop room is registered and Quiet Bay\'s left shore leads there; no sandbox', () => {
+  assert.equal(ECONOMY_SANDBOX, false);
+  assert.equal(rooms.fish_shop, fishShopRoom);
+  assert.deepEqual(rooms.lake_pier.exits.map((e) => e.targetRoom), ['fish_shop']);
 });
 
 test('the shop room: spawn, arrival, NPC talk spots and the exit are all on the walkway', () => {

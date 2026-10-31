@@ -1,4 +1,5 @@
 import './register-api-ts.mjs';
+const { ECONOMY_EPOCH: EPOCH } = await import('../src/game/economy/economyConfig.ts');
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -24,7 +25,7 @@ const A = '0x' + 'ab'.repeat(20), B = '0x' + 'cd'.repeat(20);
 const NOW = Date.UTC(2026, 9, 29, 5), SECRET = 'integration-deck-secret-at-least-32-bytes';
 function storage() { const m = new Map(); return { get: k => m.get(k) ?? null, set: (k, v) => m.set(k, v), remove: k => m.delete(k), m }; }
 function card(at = NOW, castIndex = 20) { return { deck: issueFishingDeck(A, at, SECRET), castIndex }; }
-function economy(s, clock) { const e = new EconomyStore({ sandbox: false, storage: s, clock, online: () => true, newOperationId: () => 'op-stage4-000000001' }); e.attach(A); e.receiveView(A, { ...playerView(emptyPlayer(clock()), clock()), redeemFromDeckId: 0 }); return e; }
+function economy(s, clock) { const e = new EconomyStore({ sandbox: false, storage: s, clock, online: () => true, newOperationId: () => 'op-stage4-000000001' }); e.attach(A); if (!s.get(`sp_econ_v2_${A}`)) e.receiveView(A, { ...playerView(emptyPlayer(clock()), clock()), redeemFromDeckId: 0 }); return e; }
 
 test('reservation and both stamps use the economy clock across an edge, despite a different deck offset', async () => {
   const edge = Math.ceil(NOW / FISHING_DECK.windowMs) * FISHING_DECK.windowMs;
@@ -100,7 +101,7 @@ test('pending ice keeps a ticketed fish through apparent spoilage, a new catch a
   const stamp = finishFreeCast(prepared, caughtAt, A);
   assert.ok(stamp.ticket);
   const old = e.addCatch('sardine', 15, stamp); assert.ok(old.ok);
-  const base = { revision: 1, coins: 0, coolerLevel: 0, goods: [{ uid: 'ice-one', id: 'ice_block', qty: 1, at: NOW, expiresAt: null }],
+  const base = { econEpoch: EPOCH, revision: 1, coins: 0, coolerLevel: 0, goods: [{ uid: 'ice-one', id: 'ice_block', qty: 1, at: NOW, expiresAt: null }],
     econ: { day: e.getWallet().day, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [], serverNow: time };
   e.receiveView(A, base);
   let deliver;
@@ -125,25 +126,25 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
   if (!bundle) {
     const { build } = await import('vite');
     const root = fileURLToPath(new URL('../src/', import.meta.url));
-    const built = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.ECONOMY_PREVIEW': 'true', 'import.meta.env.DEV': JSON.stringify(dev) },
+    const built = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.DEV': JSON.stringify(dev) },
       plugins: [{ name: 'session-test-entry', enforce: 'pre', resolveId(id) { if (id === root + 'stage4-test-entry.ts' || id === 'react') return id === 'react' ? '\0react' : '\0session-test'; },
         load(id) { if (id === '\0react') return 'export const useSyncExternalStore = (_, get) => get();';
-          if (id === '\0session-test') return `export * from '${root}game/story/fishingSession.ts'; export * from '${root}game/fishing/deckClient.ts'; export * from '${root}game/economy/walletStore.ts'; export * from '${root}game/fishing/freeFish.ts';`; } }],
+          if (id === '\0session-test') return `export * from '${root}game/story/fishingSession.ts'; export * from '${root}game/fishing/deckClient.ts'; export * from '${root}game/economy/walletStore.ts'; export * from '${root}game/fishing/freeFish.ts'; export {sound} from '${root}game/audio.ts';`; } }],
       build: { minify: false, write: false, lib: { entry: root + 'stage4-test-entry.ts', name: 'Session', formats: ['iife'] } } });
     bundle = (Array.isArray(built) ? built : [built]).flatMap(b => b.output).find(c => c.type === 'chunk' && c.isEntry).code;
     bundles.set(dev, bundle);
   }
   const { createContext, Script } = await import('node:vm');
-  const w = { time: NOW, perf: 1000, failStorage: false, calls: 0, net: .1 };
+  const w = { time: NOW, perf: 1000, timers: [], audio: [], failStorage: false, calls: 0, net: .1 };
   const mem = storage();
   for (const [key, value] of Object.entries(seedStorage)) mem.set(key, value);
   const math = Object.create(Math); math.random = () => .5;
   class ClockDate extends Date { constructor(...args) { super(...(args.length ? args : [w.time])); } static now() { return w.time; } }
   const context = createContext({ atob, btoa, Math: math, Date: ClockDate, structuredClone, URLSearchParams,
-    performance: { now: () => w.perf }, location: { search: '' }, navigator: { onLine: true },
+    performance: { now: () => w.perf, timeOrigin: 1_700_000_000_000 }, location: { search: '' }, navigator: { onLine: true },
     localStorage: { getItem: k => { if (w.failStorage) throw Error('blocked'); return mem.get(k); }, setItem: (k, v) => { if (w.failStorage) throw Error('quota'); mem.set(k, v); }, removeItem: k => mem.remove(k) },
     crypto: { getRandomValues: a => a.fill(4) }, document: { hidden: false, addEventListener() {} }, window: { location: { search: '' }, addEventListener() {}, setTimeout() {} },
-    setTimeout: () => 1, clearTimeout() {}, fetch: async () => ({ json: async () => ({}) }), Image: class { complete = false; },
+    setTimeout: (fn, delay) => { w.timers.push({fn,delay,at:w.perf+delay}); return w.timers.length; }, clearTimeout(id) { if(w.timers[id-1])w.timers[id-1].cancelled=true; }, setInterval: () => 1, clearInterval() {}, fetch: async () => ({ json: async () => ({}) }), Image: class { complete = false; },
   });
   new Script(bundle).runInContext(context); const api = context.Session;
   api.attachWallet(A); api.attachFishBook(A); api.attachFishingDeck(A);
@@ -152,8 +153,9 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
   await api.refreshFishingDeck();
   const engine = { localPlayer: { x: 452, y: 222, facing: 1, currentAction: 'idle' }, getRoom: () => ({ outfit: 'test-stage4' }),
     walkPlayerTo: async () => {}, setDialogFrozen() {}, setPlayerPose() {}, triggerEmote() {}, sendChat() {} };
-  const ctx = new Proxy({ fillRect(x, y, width, height) { if ((this.fillStyle === '#C9A56B' || this.fillStyle === '#DDBB78') && width === 22 && height === 48) w.net = (176 - y) / 160 - .3; } }, { get: (obj, k) => k in obj ? obj[k] : () => {} });
+  const ctx = new Proxy({ fillRect(x, y, width, height) { if ((this.fillStyle === '#C9A56B' || this.fillStyle === '#DDBB78') && width === 22 && height === 32) w.net = (176 - y) / 160 - .2; } }, { get: (obj, k) => k in obj ? obj[k] : () => {} });
   await api.startFishing(engine, 'free');
+  api.sound.playEmoteSound = action => w.audio.push({action,at:w.perf});
   w.api = api; w.mem = mem; w.context = context; w.engine = engine;
   w.throwAt = (distance, sweep = 0) => { w.perf = Math.ceil(w.perf) + 1000; api.fishingPress(); api.fishingHold(true); w.perf += (sweep ? 2 - distance : distance) * TUNING.chargeSweepMs; api.fishingHold(false); };
   w.land = () => {
@@ -163,9 +165,10 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
       if (before.phase === 'bite') api.fishingPress();
       if (before.phase === 'reel') {
         const velocity = (w.net - lastNet) / .02; lastNet = w.net;
-        api.fishingHold(w.net + velocity * .25 < .34);
+        api.fishingHold(w.net + velocity * .25 < .40);
       }
       w.perf += 20; w.time += 20;
+      w.beforeDraw?.();
       api.drawFishing(ctx, 'world', w.perf); api.drawReelBar(ctx, w.perf, true);
       const v = api.useFishingView(); if (['caught', 'escaped', 'stolen', 'scared'].includes(v.phase)) return v;
     }
@@ -208,8 +211,8 @@ test('real DEV reset response clears old v1 cooler/pending/Book/cache revisions 
     [`sp_verified_book_v1_${A}`]: JSON.stringify(oldView),
   } });
   let sends = 0; w.api.registerEconomyTransport(async () => { sends++; throw Error('must not upload old pending'); });
-  assert.equal(w.api.getWallet().coins, 999); assert.equal(w.api.getEconomyStatus().pending.body.operationId, pending.body.operationId);
-  assert.equal(w.api.getFishBook().entries.sardine.starred, true);
+  assert.equal(w.api.getWallet().coins, 0); assert.equal(w.api.getEconomyStatus().pending.body.operationId, pending.body.operationId);
+  assert.equal(w.api.getFishBook().entries.sardine, undefined);
   const reserved = w.api.reserveFishingCast(w.time); assert.equal(reserved.deck.version, 2);
   const fresh = { ...playerView(emptyPlayer(NOW), NOW), redeemFromDeckId: 0, devFishingResetId: 'new-v2-dataset', serverNow: NOW };
   w.api.receiveServerView(A, fresh); await w.api.refreshFishingDeck();
@@ -286,4 +289,48 @@ test('whole loop: real minigame catch → verified Gen sale → Book update; los
   assert.equal((await w.api.retryTrade()).ok, true); assert.deepEqual(sent[1], sent[0]);
   assert.equal(h.logs.size, 2); assert.equal(Object.values(h.players.get(A).fishBook).reduce((n, e) => n + e.sold, 0), 2);
   assert.equal(w.api.getWallet().cooler.length, 0);
+});
+
+
+test('real free session judges a delayed press by event time rather than frame time', async () => {
+  const w = await sessionRig(); w.throwAt(.85);
+  const text=[];
+  const ctx=new Proxy({ fillText(value){text.push(value);} },{get:(o,k)=>k in o?o[k]:()=>{}});
+  for(let n=0;n<1000&&w.api.useFishingView().phase!=='bite';n++){
+    w.perf+=20;w.time+=20;w.api.drawFishing(ctx,'world',w.perf);
+  }
+  assert.equal(w.api.useFishingView().phase,'bite');
+  const epoch=w.perf;w.api.fishingPress(epoch);
+  const ticket=w.api.getFishingDeck();
+  // Actual selected fish determines tempo; accepting any of the five possible beats is
+  // not sufficient here: read the authoritative roll for this reserved index.
+  const rolled=rollDeckCatch({...ticket,castIndex:4,castInfo:{distance:.85,nice:true},castAt:w.time});
+  // The rig's crypto source starts the real deck cursor at index 4.
+  const d=Math.min(5,rolled.baseDiff+(rolled.big?1:0));
+  const interval=60000/[72,80,88,96,104][d-1];
+  w.perf=epoch+interval+350;
+  w.api.fishingPress(epoch+interval);
+  w.api.drawReelBar(ctx,w.perf,true);
+  assert.ok(text.some(t=>String(t).includes('Perfect ×1')),JSON.stringify({d,text}));
+  w.api.stopFishing();
+});
+
+
+test('free cast whoosh is synchronous and bite deadline fires without any draw frame; stop cancels it',async()=>{
+ const w=await sessionRig();w.throwAt(.85);
+ assert.equal(w.audio.at(-1).action,'jump');assert.equal(w.audio.at(-1).at,w.perf);
+ const wake=w.timers.at(-1);assert.ok(wake.delay>0);
+ w.perf=wake.at;wake.fn();
+ assert.equal(w.api.useFishingView().phase,'bite');
+ assert.equal(w.audio.at(-1).action,'surprise');assert.equal(w.audio.at(-1).at,wake.at);
+ const count=w.audio.length;wake.fn();assert.equal(w.audio.length,count,'one bite cue');
+ w.api.stopFishing();assert.ok(wake.cancelled);
+});
+
+
+test('input-time advance that lands a fish awards exactly one catch before the next draw',async()=>{
+ const baseline=await sessionRig();baseline.throwAt(.85);assert.equal(baseline.land().phase,'caught');const finishAt=baseline.perf;
+ const w=await sessionRig();w.throwAt(.85);let fired=false;
+ w.beforeDraw=()=>{if(w.perf===finishAt){fired=true;w.api.fishingPress(w.perf);assert.equal(w.api.useFishingView().phase,'caught');}};
+ assert.equal(w.land().phase,'caught');assert.ok(fired);assert.equal(w.api.getWallet().cooler.length,1);
 });

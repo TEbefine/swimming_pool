@@ -6,6 +6,7 @@ export class SoundManager {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private resumePending: Promise<void> | null = null;
   private listening = false;
+  private gestureWarmUntil = 0;
 
   constructor() {
     try {
@@ -49,7 +50,7 @@ export class SoundManager {
       const resume = ctx.resume();
       this.resumePending = resume;
       void resume.then(() => {
-        if (ctx === this.ctx && (this.muted || document.hidden || (this.sources.size === 0 && !this.isMusicPlaying?.()))) {
+        if (ctx === this.ctx && (this.muted || document.hidden || (this.sources.size === 0 && performance.now() >= this.gestureWarmUntil && !this.isMusicPlaying?.()))) {
           return ctx.suspend();
         }
       }).catch(() => {
@@ -129,6 +130,45 @@ export class SoundManager {
   public toggleMute(): boolean {
     this.setMuted(!this.muted);
     return this.muted;
+  }
+
+  /** Called on the free cast gesture, before release: removes cold-context resume from the whoosh path. */
+  public prepareFishingAudio() {
+    if (!this.canPlay()) return;
+    try {
+      this.gestureWarmUntil = performance.now() + 1500;
+      this.initCtx();
+      this.idleTimer = setTimeout(() => {
+        if (this.sources.size === 0) this.suspend();
+      }, 1500);
+    } catch { /* Audio is optional; an unavailable device must never block a cast. */ }
+  }
+
+  public latencyInfo() {
+    return { state: this.ctx?.state ?? 'uninitialized',
+      baseLatencyMs: typeof this.ctx?.baseLatency === 'number' ? this.ctx.baseLatency * 1000 : null,
+      outputLatencyMs: typeof this.ctx?.outputLatency === 'number' ? this.ctx.outputLatency * 1000 : null };
+  }
+
+  public rhythmClick(performanceMs: number, perfect = false): () => void {
+    if (!this.canPlay()) return () => {};
+    try {
+      this.initCtx();
+      const ctx = this.ctx;
+      if (!ctx || ctx.state !== 'running') return () => {};
+      const output = ctx.getOutputTimestamp?.();
+      const audioAt = output && typeof output.contextTime === 'number' && typeof output.performanceTime === 'number' && output.performanceTime > 0
+        ? output.contextTime + (performanceMs - output.performanceTime) / 1000
+        : ctx.currentTime + (performanceMs - performance.now()) / 1000;
+      const at = Math.max(ctx.currentTime, audioAt);
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.frequency.value = perfect ? 1050 : 650;
+      gain.gain.setValueAtTime(perfect ? .045 : .025, at);
+      gain.gain.exponentialRampToValueAtTime(.001, at + .035);
+      osc.connect(gain); gain.connect(ctx.destination);
+      this.trackSource(osc, gain); osc.start(at); osc.stop(at + .04);
+      return () => { try { osc.stop(); } catch { /* Already ended. */ } };
+    } catch { return () => {}; }
   }
 
   // Water splash sound (noise filtered + bubble drop)

@@ -6,7 +6,7 @@ import type { Request, Response } from '../identity/http.js';
 import { FISHING_DECK, isFishingDeckVersion } from '../../src/game/fishing/deckConfig.js';
 
 interface Claims { uid: string; walletSignedInAt?: unknown; walletLoginOrigin?: unknown }
-interface Services { verifyToken(token: string): Promise<Claims> }
+interface Services { readControl?: () => Promise<boolean>; verifyToken(token: string): Promise<Claims> }
 interface Options { env: NodeJS.ProcessEnv; now?: () => number; limiter?: IpLimiter; playerLimiter?: IpLimiter }
 
 export function fishingDeckSecret(env: NodeJS.ProcessEnv): string {
@@ -67,6 +67,7 @@ export function createFishingDeckHandler({ env, now = Date.now,
       const t = now();
       if (!validSessionClaims(claims, address, origin, t)) throw new LoginError(401, 'Unlock your Player ID for fishing tickets.');
       playerLimiter.check(address, t);
+      if (await services.readControl?.() !== true) { reply(res,403,{error:'The shop is closed today.',shopClosed:true}); return; }
       reply(res, 200, issueFishingDeck(address, t, secret));
     } catch (error) {
       reply(res, error instanceof LoginError ? error.status : 503,
