@@ -77,3 +77,7 @@ coffee, money), without deleting anyone's account. Build it as a single number.
 4. Tell me plainly what to watch in the first week and what would make us flip the kill switch.
 
 Speak English, explain like a teacher, and give me 1–2 good vocabulary words with a short definition.
+
+## Approved ECO-04 corrections — 2026-10-31
+
+Latest owner instructions override older cooler/Book retention text: epoch clears local cooler/caches, rodLevel, paid bits/ice/economy counters and old-format Book that blocks sales, while valid verified Book/story/identity remain. StepA uses epoch1 behind the existing client gate; stepB bump/open follows separate review. New money intents carry epoch; historical exact receipts remain compatible. Runtime config/economy.open is checked in money transactions; loads/decks use a60-second per-instance cache. Main deployment protection is Hobby Vercel Authentication +Standard; audit authorised/bypass paths to old writers. Activation12:00UTC/19:00Bangkok; date not yet approved. No cutoff should be generated/pinned or live switch flipped until then. See ECO-04-stepA-review.md.

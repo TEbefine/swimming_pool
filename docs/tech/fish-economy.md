@@ -421,3 +421,7 @@ Validation:293 unit/integration tests (8 new), TypeScript/build/four compiled AP
 ## Free rod progression
 
 Server rodLevel0..3, missing defaults Bamboo. Gen shop.buy next rod only; costs600/1800/4500, no goods slot. KEY pocket derives current gear. Net20/24/27/30%, fill.28 free-only, per-cast snapshot; no ticket/roll/Book/price/cap effect. Catalogue52 entries; compact economy budget including rodLevel5353 bytes. Review: ../ai/ECO-03-rods-review.md.
+
+## ECO-04 stepA
+
+Epoch1 lazy reset, new money-intent epoch, historical receipt compatibility and runtime config/economy.open implemented with client gate retained. Money3 reads/2 writes; warm load1 read, warm deck0; on-demand per-instance60s control refresh adds1 read. Concurrent reset closes the balance once in the existing log. Valid verified Book/story/identity preserved, legacy Book repaired. Detailed reset fields, Hobby Standard Protection steps and release boundaries: ../ai/ECO-04-stepA-review.md. Activation12UTC/19Bangkok, date pending; no production changes.

@@ -24,7 +24,7 @@ const A = '0x' + 'ab'.repeat(20), B = '0x' + 'cd'.repeat(20);
 const NOW = Date.UTC(2026, 9, 29, 5), SECRET = 'integration-deck-secret-at-least-32-bytes';
 function storage() { const m = new Map(); return { get: k => m.get(k) ?? null, set: (k, v) => m.set(k, v), remove: k => m.delete(k), m }; }
 function card(at = NOW, castIndex = 20) { return { deck: issueFishingDeck(A, at, SECRET), castIndex }; }
-function economy(s, clock) { const e = new EconomyStore({ sandbox: false, storage: s, clock, online: () => true, newOperationId: () => 'op-stage4-000000001' }); e.attach(A); e.receiveView(A, { ...playerView(emptyPlayer(clock()), clock()), redeemFromDeckId: 0 }); return e; }
+function economy(s, clock) { const e = new EconomyStore({ sandbox: false, storage: s, clock, online: () => true, newOperationId: () => 'op-stage4-000000001' }); e.attach(A); if (!s.get(`sp_econ_v2_${A}`)) e.receiveView(A, { ...playerView(emptyPlayer(clock()), clock()), redeemFromDeckId: 0 }); return e; }
 
 test('reservation and both stamps use the economy clock across an edge, despite a different deck offset', async () => {
   const edge = Math.ceil(NOW / FISHING_DECK.windowMs) * FISHING_DECK.windowMs;
@@ -100,7 +100,7 @@ test('pending ice keeps a ticketed fish through apparent spoilage, a new catch a
   const stamp = finishFreeCast(prepared, caughtAt, A);
   assert.ok(stamp.ticket);
   const old = e.addCatch('sardine', 15, stamp); assert.ok(old.ok);
-  const base = { revision: 1, coins: 0, coolerLevel: 0, goods: [{ uid: 'ice-one', id: 'ice_block', qty: 1, at: NOW, expiresAt: null }],
+  const base = { econEpoch: 1, revision: 1, coins: 0, coolerLevel: 0, goods: [{ uid: 'ice-one', id: 'ice_block', qty: 1, at: NOW, expiresAt: null }],
     econ: { day: e.getWallet().day, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [], serverNow: time };
   e.receiveView(A, base);
   let deliver;
@@ -210,8 +210,8 @@ test('real DEV reset response clears old v1 cooler/pending/Book/cache revisions 
     [`sp_verified_book_v1_${A}`]: JSON.stringify(oldView),
   } });
   let sends = 0; w.api.registerEconomyTransport(async () => { sends++; throw Error('must not upload old pending'); });
-  assert.equal(w.api.getWallet().coins, 999); assert.equal(w.api.getEconomyStatus().pending.body.operationId, pending.body.operationId);
-  assert.equal(w.api.getFishBook().entries.sardine.starred, true);
+  assert.equal(w.api.getWallet().coins, 0); assert.equal(w.api.getEconomyStatus().pending.body.operationId, pending.body.operationId);
+  assert.equal(w.api.getFishBook().entries.sardine, undefined);
   const reserved = w.api.reserveFishingCast(w.time); assert.equal(reserved.deck.version, 2);
   const fresh = { ...playerView(emptyPlayer(NOW), NOW), redeemFromDeckId: 0, devFishingResetId: 'new-v2-dataset', serverNow: NOW };
   w.api.receiveServerView(A, fresh); await w.api.refreshFishingDeck();

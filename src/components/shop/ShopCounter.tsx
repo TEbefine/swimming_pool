@@ -123,6 +123,8 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
     return () => { window.clearInterval(t); window.clearTimeout(msgTimer.current); };
   }, []);
 
+  useEffect(() => { if (econ.shopOpen === false) setMsg({text:'The shop is closed today.',tone:'no'}); }, [econ.shopOpen]);
+
   const say = (text: string, tone: 'ok' | 'no' = 'ok') => {
     setMsg({ text, tone });
     window.clearTimeout(msgTimer.current);

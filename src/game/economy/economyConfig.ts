@@ -92,3 +92,6 @@ export const ICE = {
 export const SALE = {
   clockSkewMs: 10_000,
 } as const;
+
+/** Step A only: activation bump belongs to reviewed step B. */
+export const ECONOMY_EPOCH = 1;

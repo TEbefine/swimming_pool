@@ -21,6 +21,7 @@ const env = await initializeTestEnvironment({ projectId: 'demo-lumen-bay', fires
 } });
 try {
   await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'config/economy'), {open:true});
     await setDoc(doc(context.firestore(), 'players/alice'), { test: true });
     await setDoc(doc(context.firestore(), 'players/bob'), { test: true });
     await setDoc(doc(context.firestore(), 'usedNonces/test'), { usedAt: 1 });
@@ -78,13 +79,14 @@ try {
       const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ECONOMY_API: 'on' },
         now: () => now, limiter: new IpLimiter(1000), playerLimiter: new IpLimiter(1000), playerDaily: new DailyLimiter(1000) }, services);
       const call = async body => {
+        body={econEpoch:1,...body};
         const req = { method: 'POST', body, socket: { remoteAddress: '127.0.0.1' },
           headers: { origin, 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.9', authorization: 'Bearer emulator-test-token-0123456789' } };
         const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v; }, end(v) { this.body = JSON.parse(v); } };
         await handler(req, res); return res;
       };
       const ref = db.doc(`players/${address}`);
-      await ref.set({ coins: 30 });
+      await ref.set({...emptyPlayer(now), coins: 30 });
       const race = await Promise.all([1,2].map(i => call({op:'shop.buy',operationId:`op-buy-race-00000${i}`,vendor:'gen',cart:[{id:'nori',qty:1}],expectedTotal:30})));
       assert.deepEqual(race.map(r=>r.statusCode).sort(),[200,422]);
       let saved=(await ref.get()).data();
@@ -290,6 +292,21 @@ try {
       const winner=answers[0].statusCode===200?a:b;assert.equal((await h.call(winner)).statusCode,200);
       assert.equal((await h.saved()).coins,1400);assert.equal((await h.logsOnServer()).length,1);
       const owner=env.authenticatedContext(h.address).firestore();await assertFails(setDoc(doc(owner,`players/${h.address}`),{rodLevel:3},{merge:true}));
+    });
+  });
+  await test('epoch concurrent first sales close once; a warm advisory cache cannot authorize a closed shop',async()=>{
+    await fixture(async h=>{
+      const control=h.db.doc('config/economy');await control.set({open:true});
+      await h.ref.set({...emptyPlayer(h.clock),econEpoch:0,coins:300,rodLevel:3,coolerLevel:2,fishBook:{kinds:['sardine']}});
+      assert.equal((await h.call({op:'load'})).body.coins,0);assert.equal((await h.saved()).coins,300,'load writes nothing');
+      const a=fixtureCatch(h.address,h.clock),b=fixtureCatch(h.address,h.clock,{startIndex:a.ticket.castIndex+1});
+      const id=operationId();const results=await Promise.all([h.sell([a],id),h.sell([b])]);assert.ok(results.every(r=>r.statusCode===200));
+      const saved=await h.saved();assert.equal(saved.econEpoch,1);assert.equal(saved.rodLevel,0);assert.equal(saved.coolerLevel,0);
+      assert.equal((await h.logsOnServer()).filter(l=>l.changes.epoch?.reason==='epoch').length,1);
+      await control.set({open:false});const before=await h.snapshotOnServer();
+      const rejected=await h.call({op:'shop.buy',operationId:operationId(),vendor:'gen',cart:[{id:'ice_block',qty:1}]});assert.equal(rejected.statusCode,403);assert.equal(rejected.body.shopClosed,true);
+      assert.deepEqual(await h.snapshotOnServer(),before);assert.equal((await h.sell([a],id)).statusCode,200);assert.deepEqual(await h.snapshotOnServer(),before);
+      await control.set({open:true});
     });
   });
 } finally { await env.cleanup(); }

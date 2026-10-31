@@ -8,7 +8,7 @@ import { ITEMS, ITEM_IDS } from '../../src/game/story/items.js';
 import type { ItemId } from '../../src/game/story/items.js';
 import { isStoryCounter, isStoryFlag } from '../../src/game/story/storyKeys.js';
 
-import { ICE, BAG, COOLER, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
+import { ICE, BAG, COOLER, ECONOMY_EPOCH, ECONOMY_SAVE, SELL, SHOP } from '../../src/game/economy/economyConfig.js';
 import { SHOP_BY_ID, SHOP_ITEMS } from '../../src/game/economy/shopCatalog.js';
 import { bkkDay } from '../../src/game/economy/market.js';
 import { LIMITS } from './limits.js';
@@ -63,6 +63,7 @@ export interface StorySave { day: number; step: string; revision: number; savedA
 export interface PlayerDoc {
   iceUsedAt: number[];
   coins: number;
+  econEpoch: number;
   coolerLevel: number;
   rodLevel: number;
   goods: PlayerGoods[];
@@ -95,7 +96,7 @@ export interface LogEntry {
 
 export function emptyPlayer(now: number): PlayerDoc {
   return {
-    coins: 0, coolerLevel: 0, rodLevel: 0, goods: [], econ: emptyEconomy(now), iceUsedAt: [],
+    econEpoch: ECONOMY_EPOCH, coins: 0, coolerLevel: 0, rodLevel: 0, goods: [], econ: emptyEconomy(now), iceUsedAt: [],
     schemaVersion: 1, createdAt: now, updatedAt: now, revision: 0,
     fishBook: {},
     storyWorlds: {}, ownedCards: {}, communityMemory: {}, opWindow: { start: 0, count: 0 }, writeDay: { day: '', count: 0 },
@@ -110,6 +111,7 @@ export function normalizePlayer(raw: unknown, now: number): PlayerDoc {
   return {
     ...base,
     coins: clampedCount(d.coins, ECONOMY_SAVE.maxBalance),
+    econEpoch: safeCount(d.econEpoch, Number.MAX_SAFE_INTEGER),
     coolerLevel: safeCount(d.coolerLevel, COOLER.upgradePrices.length), rodLevel: rodLevelOf(d.rodLevel),
     goods: normalizeGoods(d.goods, now),
     econ: normalizeEconomy(d.econ, now),
@@ -134,7 +136,7 @@ export function playerView(doc: PlayerDoc, now = doc.updatedAt) {
     paidDecks: paid.ok ? paid.windows : null,
     revision: doc.revision, ...verifiedFishBookView(doc.fishBook),
     story: { dalbit: doc.storyWorlds.dalbit ?? null },
-    coins: doc.coins, coolerLevel: doc.coolerLevel, rodLevel: doc.rodLevel, goods: doc.goods, econ: doc.econ, iceUsedAt: doc.iceUsedAt,
+    econEpoch: doc.econEpoch, coins: doc.coins, coolerLevel: doc.coolerLevel, rodLevel: doc.rodLevel, goods: doc.goods, econ: doc.econ, iceUsedAt: doc.iceUsedAt,
   };
 }
 

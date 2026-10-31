@@ -52,6 +52,8 @@ export interface PendingTrade {
   at: number;
 }
 export interface EconomyStatus {
+  econEpoch: number | null;
+  shopOpen: boolean | null;
   /** Server mode (false = sandbox page). */
   server: boolean;
   signedIn: boolean;
@@ -69,6 +71,8 @@ interface ServerEconomy {
   salePolicy: SalePolicy | null;
   revision: number;
   coins: number;
+  econEpoch: number;
+  shopOpen?: boolean;
   coolerLevel: number;
   rodLevel: number;
   goods: ServerGoods[];
@@ -81,7 +85,7 @@ export const TRADE_LINES = {
   uncertain: 'No answer came back. It may have gone through: tap Retry to check.',
   pendingFirst: 'Finish the last trade first: tap Retry.',
   signin: 'Coins live on your Player ID. Unlock it first.',
-  closed: "The shop isn't open yet.",
+  closed: "The shop is closed today.",
 } as const;
 
 /** "120 coins" / "1 coin". */
@@ -105,6 +109,8 @@ export function parseServerEconomy(v: unknown): ServerEconomy | null {
   const e = r.econ as Record<string, unknown>;
   return {
     salePolicy: parseSalePolicy((r.salePolicy ?? r) as Record<string, unknown>),
+    shopOpen: typeof r.shopOpen === 'boolean' ? r.shopOpen : undefined,
+    econEpoch: isNum(r.econEpoch) ? r.econEpoch : 0,
     revision: r.revision,
     coins: Math.max(0, Math.floor(r.coins)),
     rodLevel: rodLevelOf(r.rodLevel),
@@ -138,6 +144,7 @@ interface ErrorLike { status?: number; message?: string; data?: Record<string, u
 export class EconomyStore {
   private deps: StoreDeps;
   private scope: string | null = null;
+  private epochConfirmed = false;
   private transport: Transport | null = null;
   // sandbox
   private local: Wallet;
@@ -174,7 +181,7 @@ export class EconomyStore {
   getWallet(): Wallet { return this.wallet; }
   getStatus(): EconomyStatus { return this.status; }
   private makeStatus(): EconomyStatus {
-    return { server: !this.deps.sandbox, signedIn: this.scope !== null, busy: this.busy, pending: this.pending };
+    return { econEpoch: this.snap?.econEpoch ?? null, shopOpen: this.snap?.shopOpen ?? null, server: !this.deps.sandbox, signedIn: this.scope !== null, busy: this.busy, pending: this.pending };
   }
   private emit() {
     this.wallet = this.derive();
@@ -209,7 +216,7 @@ export class EconomyStore {
   /** Switch to a Player ID (null = guest). Sandbox pages ignore this. */
   attach(address: string | null) {
     if (this.deps.sandbox || address === this.scope) return;
-    this.scope = address;
+    this.scope = address; this.epochConfirmed = false;
     this.loadScope();
     this.emit();
   }
@@ -251,10 +258,19 @@ export class EconomyStore {
     }
     const next = parseServerEconomy(view);
     if (!next) return;
-    if (this.snap && next.revision < this.snap.revision) return; // a slow, older answer never overwrites a newer one
+    if (this.epochConfirmed && this.snap && next.econEpoch < this.snap.econEpoch) return;
+    const changedEpoch = next.econEpoch > (this.snap?.econEpoch ?? 0) || (!this.epochConfirmed && !!this.snap && next.econEpoch !== this.snap.econEpoch);
+    const resetProjections = changedEpoch || (!this.epochConfirmed && !!this.snap && next.revision < this.snap.revision);
+    if (changedEpoch) {
+      this.cooler = []; this.write(this.key('cooler'), []);
+      // Pending request bytes remain available only for explicit receipt reconciliation via Retry.
+    }
+    if (this.epochConfirmed && !changedEpoch && this.snap && next.revision < this.snap.revision) return; // a slow, older answer never overwrites a newer one
+    this.epochConfirmed = true;
     this.snap = next;
     this.write(this.key('econ'), next);
     this.emit();
+    return resetProjections;
   }
 
   /** Drop spoiled fish / expired goods and roll the day. Call when a shop, the bag or the cooler opens. */
@@ -334,7 +350,7 @@ export class EconomyStore {
       return refused(selected ? this.saleProblem(selected) ?? REASON_LINES.nothing_selected : REASON_LINES.nothing_selected);
     }
     const catches = fish.map((c) => ({ fish: c.fishId, sizeCm: c.sizeCm, caughtAt: c.caughtAt, ...(c.ticket ? { ticket: c.ticket } : {}) }));
-    return this.send({ op: 'shop.sell', body: { op: 'shop.sell', operationId: this.deps.newOperationId(), catches }, uids: fish.map((c) => c.uid), tickets: fish.map((c) => c.ticket ?? null), vendor: 'gen', at: this.now() });
+    return this.send({ op: 'shop.sell', body: { econEpoch: this.snap?.econEpoch ?? 0, op: 'shop.sell', operationId: this.deps.newOperationId(), catches }, uids: fish.map((c) => c.uid), tickets: fish.map((c) => c.ticket ?? null), vendor: 'gen', at: this.now() });
   }
 
   /** `expectedTotal` = the total the Pay bar showed. The server never charges more than that. */
@@ -350,7 +366,7 @@ export class EconomyStore {
     const q = this.quoteBuy(cart, vendor);
     if (q.problem) return failLine({ ok: false, wallet: this.wallet, reason: q.problem, item: q.problemItem });
     const clean = cart.filter((l) => l.qty > 0).map(({ id, qty }) => ({ id, qty }));
-    return this.send({ op: 'shop.buy', body: { op: 'shop.buy', operationId: this.deps.newOperationId(), vendor, cart: clean, expectedTotal }, vendor, at: this.now() });
+    return this.send({ op: 'shop.buy', body: { econEpoch: this.snap?.econEpoch ?? 0, op: 'shop.buy', operationId: this.deps.newOperationId(), vendor, cart: clean, expectedTotal }, vendor, at: this.now() });
   }
 
   async useItem(uid: string): Promise<TradeOutcome> {
@@ -367,7 +383,7 @@ export class EconomyStore {
     if (this.wallet.iceUsedAt.length >= ICE.maxEvents) return refused('Enough ice for now. Try again a little later.');
     const block = this.blocked('gen');
     if (block) return block;
-    return this.send({ op: 'bag.use', body: { op: 'bag.use', operationId: this.deps.newOperationId(), uid }, at: this.now() });
+    return this.send({ op: 'bag.use', body: { econEpoch: this.snap?.econEpoch ?? 0, op: 'bag.use', operationId: this.deps.newOperationId(), uid }, at: this.now() });
   }
 
   /** Resend the trade whose answer never came, byte for byte (same operationId). */

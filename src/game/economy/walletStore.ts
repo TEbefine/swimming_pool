@@ -44,7 +44,7 @@ export function registerEconomyTransport(t: Transport | null) { store.setTranspo
 /** Every server answer for a Player ID passes through here (cloud.ts), so coins stay current for free. */
 export function receiveServerView(address: string | null, view: Record<string, unknown>) {
   if (address && typeof import.meta.env !== 'undefined' && import.meta.env.DEV && store.resetDevState(address, view.devFishingResetId)) { resetVerifiedBook(address); resetFishingDeck(); }
-  store.receiveView(address, view);
+  if (store.receiveView(address, view) && address) { resetVerifiedBook(address); resetFishingDeck(); }
   receiveFishBook(address, view);
 }
 /** Switch to a Player ID's cooler + server cache (null = guest). Called by game/saves/cloud.ts. */
