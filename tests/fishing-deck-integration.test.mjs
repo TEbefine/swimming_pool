@@ -1,4 +1,5 @@
 import './register-api-ts.mjs';
+const { ECONOMY_EPOCH: EPOCH } = await import('../src/game/economy/economyConfig.ts');
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -100,7 +101,7 @@ test('pending ice keeps a ticketed fish through apparent spoilage, a new catch a
   const stamp = finishFreeCast(prepared, caughtAt, A);
   assert.ok(stamp.ticket);
   const old = e.addCatch('sardine', 15, stamp); assert.ok(old.ok);
-  const base = { econEpoch: 1, revision: 1, coins: 0, coolerLevel: 0, goods: [{ uid: 'ice-one', id: 'ice_block', qty: 1, at: NOW, expiresAt: null }],
+  const base = { econEpoch: EPOCH, revision: 1, coins: 0, coolerLevel: 0, goods: [{ uid: 'ice-one', id: 'ice_block', qty: 1, at: NOW, expiresAt: null }],
     econ: { day: e.getWallet().day, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [], serverNow: time };
   e.receiveView(A, base);
   let deliver;
@@ -125,7 +126,7 @@ async function sessionRig({ withDeck = true, dev = false, seedStorage = {} } = {
   if (!bundle) {
     const { build } = await import('vite');
     const root = fileURLToPath(new URL('../src/', import.meta.url));
-    const built = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.ECONOMY_PREVIEW': 'true', 'import.meta.env.DEV': JSON.stringify(dev) },
+    const built = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.DEV': JSON.stringify(dev) },
       plugins: [{ name: 'session-test-entry', enforce: 'pre', resolveId(id) { if (id === root + 'stage4-test-entry.ts' || id === 'react') return id === 'react' ? '\0react' : '\0session-test'; },
         load(id) { if (id === '\0react') return 'export const useSyncExternalStore = (_, get) => get();';
           if (id === '\0session-test') return `export * from '${root}game/story/fishingSession.ts'; export * from '${root}game/fishing/deckClient.ts'; export * from '${root}game/economy/walletStore.ts'; export * from '${root}game/fishing/freeFish.ts'; export {sound} from '${root}game/audio.ts';`; } }],

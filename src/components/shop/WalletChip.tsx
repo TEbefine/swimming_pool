@@ -4,7 +4,7 @@ import { refreshWallet, useWallet } from '../../game/economy/walletStore';
 import './shop.css';
 
 // A small chip in the corner at Quiet Bay and the fish shop: your coins and how full the cooler is
-// (ECO-01). Only rendered where the money system is on (App checks ECONOMY_ON).
+// (ECO-01). App renders it at Quiet Bay and the fish shop.
 export const WalletChip: React.FC<{ compact: boolean }> = ({ compact }) => {
   const w = useWallet();
   // fish spoil while you walk around: re-check every 10 s

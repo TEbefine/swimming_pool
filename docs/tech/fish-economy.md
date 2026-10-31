@@ -55,22 +55,21 @@ Tuning (unit test prints it): **≈ 23 coins per catch** on average → a full s
 | `src/game/economy/shopCatalog.ts` | 48 goods, vendors, prices, perish times, limits, freshwater list |
 | `src/game/economy/market.ts` | Bangkok day, daily market (seeded), freshness, size, glut, fish quote, item price — pure |
 | `src/game/economy/wallet.ts` | the wallet: addCatch, quoteSell/sellFish, quoteBuy/buy, useGoods (ice), takeGoods (gifts), settle, parseWallet — pure, all-or-nothing |
-| `src/game/economy/walletStore.ts` | device storage per Player ID, `useWallet()`, actions, `ECONOMY_ON` gate, dev console `__shop` |
-| `src/game/economy/flags.ts` | `ECONOMY_ON` (dev or `?test=shop|free`), safe under plain Node |
+| `src/game/economy/walletStore.ts` | cooler + server cache per Player ID, `useWallet()`, actions, dev console `__shop` (`npm run dev` only) |
+| `src/game/economy/flags.ts` | `ECONOMY_SANDBOX` (`?test=shop|free` on dev/Preview builds only; ECO-04 removed `ECONOMY_ON`), safe under plain Node |
 | `src/game/economy/shopTalk.ts` | Gen's and Minato's talk (built fresh: today's wanted fish, special, your cooler), which node opens which counter tab, the line after you leave |
 | `src/components/shop/ShopCounter.tsx` + `shop.css` | the counter screen: Sell fish (price in parts, freshness countdown) · Supplies / Sashimi / Meals (cart + Pay) · My bag (use ice) |
 | `src/components/shop/WalletChip.tsx` | coins + cooler chip at Quiet Bay and the shop |
 | `src/game/rooms/fishShop.ts`, `fishShopLayout.ts` | the room; `scripts/process_fish_shop.py` keys its sky |
 | `tests/economy.test.mjs` | 24 tests incl. limits, exploits, broken saves, tuning band, icons exist |
-| `tests/fish-shop.test.mjs` | the live game has no shop/exit/money; room geometry; every talk choice, pose and line length |
+| `tests/fish-shop.test.mjs` | the shop room + Quiet Bay exit are registered (ECO-04); room geometry; every talk choice, pose and line length |
 | wiring | `fishingSession.ts` (catch → cooler), `cloud.ts` (wallet follows the Player ID) |
 
 Failures return a reason code; `REASON_LINES` gives a line in a character's voice (never an error pop-up).
 
 ## 7. Safety: test never touches live
-- `ECONOMY_ON = import.meta.env.DEV || ?test=shop|free`. In the live game the cooler stays empty and no money exists yet.
-- Sandbox pages use their own wallet (`sp_wallet_test`). The dev console `__shop` exists only in `npm run dev`.
-- The shop room, the path to it from Quiet Bay and the coin chip are only registered when `ECONOMY_ON`.
+- ECO-04: the shop room, the Quiet Bay path and the coin chip are in every build. Whether Gen trades is the server's call only (`ECONOMY_API` + Firestore `config/economy.open`).
+- Sandbox pages (`?test=shop|free`) use their own device wallet **only in `npm run dev` and Vercel Preview builds**; in production `?test=` never makes test coins. The dev console `__shop` exists only in `npm run dev` (checked on the compiled bundle by `tests/eco04-production.test.mjs`).
 - Try it: `npm run dev` → Quiet Bay → catch fish → walk off the LEFT shore → talk to Gen ("Sell my fish") or Minato ("See the menu"). Console helpers still work: `__shop.coins(500)`, `__shop.reset()`.
 
 ## 8. Steps
@@ -264,8 +263,8 @@ Code: `src/game/economy/economyStore.ts` (logic, injected storage/clock/transpor
 5. No answer / 5xx → it may have gone through. Pending stays; **Retry** resends the same bytes. The server's log replays the first result, so it can never pay or charge twice.
 
 ### Server switch and preview
-- `ECONOMY_API=on` must be set for the server to accept money ops. Production: OFF until ECO-04.
-- The game shows the shop only in `npm run dev`, sandbox pages, and Vercel **Preview** builds with `VITE_ECONOMY_PREVIEW=1`.
+- `ECONOMY_API=on` must be set for the server to accept money ops, AND Firestore `config/economy.open` must be true.
+- (Before ECO-04 step B the game showed the shop only on Preview builds with `VITE_ECONOMY_PREVIEW=1`. That gate is gone; the variable is unused and can be deleted. Opening checklist: `docs/ai/ECO-04-activation.md`.)
 
 ### Vercel setup (Teera, once)
 In Vercel → project **swimming_pool** → Settings → Environment Variables:
@@ -425,3 +424,12 @@ Server rodLevel0..3, missing defaults Bamboo. Gen shop.buy next rod only; costs6
 ## ECO-04 stepA
 
 Epoch1 lazy reset, new money-intent epoch, historical receipt compatibility and runtime config/economy.open implemented with client gate retained. Money3 reads/2 writes; warm load1 read, warm deck0; on-demand per-instance60s control refresh adds1 read. Concurrent reset closes the balance once in the existing log. Valid verified Book/story/identity preserved, legacy Book repaired. Detailed reset fields, Hobby Standard Protection steps and release boundaries: ../ai/ECO-04-stepA-review.md. Activation12UTC/19Bangkok, date pending; no production changes.
+
+## ECO-04 step B — the shop opens (2026-10-31, Claude)
+
+- `ECONOMY_EPOCH = 2`: the one planned wipe of ECO-02/03 test money. Every future bump needs a NEW `FISHING_DECK_REDEEM_FROM_DECK_ID`, or tickets from the window just before the reset could be sold twice (paid bits are cleared by the reset).
+- Client gate removed: `fish_shop` is always registered, Quiet Bay's left shore always leads there, the coin chip and cooler Bag are always on, the fishing deck is fetched for any unlocked Player ID. Guests can walk in and fish (practice catches without tickets); trading needs a Player ID.
+- `flags.ts` keeps only `ECONOMY_SANDBOX = (DEV || ECONOMY_TEST_PAGES) && ?test=shop|free`; `vite.config.ts` sets `ECONOMY_TEST_PAGES` from `VERCEL_ENV === 'preview'`.
+- `npm run eco:cutoff -- YYYY-MM-DD` prints the cutoff for 12:00 UTC on that day and refuses past/impossible dates.
+- Tests follow `ECONOMY_EPOCH` instead of literal 1. New `tests/eco04-production.test.mjs`: production `?test=` never sandboxes, the compiled wallet has no `__shop`/gate, the cutoff script matches `deckConfig`.
+- Activation, kill switch and first-week numbers: `docs/ai/ECO-04-activation.md`.

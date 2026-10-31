@@ -1,4 +1,5 @@
 import './register-api-ts.mjs';
+const { ECONOMY_EPOCH: EPOCH } = await import('../src/game/economy/economyConfig.ts');
 import { fixtureCatch, saleEnv } from './fishing-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,7 +41,7 @@ function harness(start = NOON, realPlayerLimits = false, envOverride = env) {
     setClock: v => { clock = v; }, tick: ms => { clock += ms; }, now: () => clock,
     setClaims: v => { claims = v; },
     call: async (body, o = {}) => {
-      if (['shop.sell','shop.buy','bag.use'].includes(body?.op)) body={econEpoch:1,...body};
+      if (['shop.sell','shop.buy','bag.use'].includes(body?.op)) body={econEpoch:EPOCH,...body};
       const headers = { origin, 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.7', authorization: `Bearer ${TOKEN}`, ...o.headers };
       const req = { method: o.method ?? 'POST', body, headers, socket: { remoteAddress: '127.0.0.1' } };
       const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v; }, end(v) { this.body = JSON.parse(v); } };
@@ -71,7 +72,7 @@ test('load returns an empty save for a new Player ID and rejects extra fields', 
   const h = harness();
   const res = await h.call({ op: 'load' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body, { revision: 0, paidDecks: [], redeemFromDeckId: 0, fishBook: {}, totalKinds: 27, story: { dalbit: null }, econEpoch: 1, shopOpen: true, coins: 0, coolerLevel: 0, rodLevel: 0, goods: [], iceUsedAt: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} }, serverNow: NOON });
+  assert.deepEqual(res.body, { revision: 0, paidDecks: [], redeemFromDeckId: 0, fishBook: {}, totalKinds: 27, story: { dalbit: null }, econEpoch: EPOCH, shopOpen: true, coins: 0, coolerLevel: 0, rodLevel: 0, goods: [], iceUsedAt: [], econ: { day: Math.floor((NOON + 7 * 3600_000) / 86400_000), soldToday: {}, earnedToday: 0, boughtToday: {} }, serverNow: NOON });
   assert.equal(h.players.size, 0, 'load creates no document');
   assert.equal(h.logs.size, 0);
   assert.equal((await h.call({ op: 'load', catches: [] })).statusCode, 400);

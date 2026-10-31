@@ -40,7 +40,6 @@ import type { OrderLine } from './game/cafe/cafeMenu';
 import { orderCancelled, orderReadBack } from './game/cafe/cafeBarista';
 import { ShopCounter, type ShopInput } from './components/shop/ShopCounter';
 import { WalletChip } from './components/shop/WalletChip';
-import { ECONOMY_ON } from './game/economy/flags';
 import { SHOP_NODE_OPENS, SHOP_NPCS, genScript, minatoScript, shopAfter, type ShopTab, type ShopVisit } from './game/economy/shopTalk';
 import type { Vendor } from './game/economy/shopCatalog';
 import { DpadAdapter } from './components/gameMenu/menuInput';
@@ -1060,8 +1059,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
     />
   ) : null;
 
-  // Coins + cooler in the corner at Quiet Bay and the fish shop (money system on only: npm run dev, ?test=shop|free)
-  const walletChipElement = (ECONOMY_ON && (currentRoom.roomId === 'lake_pier' || currentRoom.roomId === 'fish_shop')
+  // Coins + cooler in the corner at Quiet Bay and the fish shop
+  const walletChipElement = ((currentRoom.roomId === 'lake_pier' || currentRoom.roomId === 'fish_shop')
     && !dialogOpen && !counterOpen && !menu.isOpen && !fishingOpen && !loading) ? (
     <WalletChip compact={effectiveIsMobile} />
   ) : null;

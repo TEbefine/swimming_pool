@@ -84,12 +84,13 @@ test('malformed/other-owner cache and responses are ignored; returned decks cann
   w.storage.set(`sp_fishing_deck_v1_${A}`, '{bad json'); w.store.attach(null); w.store.attach(A); assert.equal(w.store.getDeck(), null);
 });
 
-test('the actual compiled client fetches only in an economy preview, never production or sandbox', async () => {
+test('the actual compiled client fetches in production and previews; only a preview sandbox page skips it', async () => {
   const { build } = await import('vite');
   const { createContext, Script } = await import('node:vm');
   const { fileURLToPath } = await import('node:url');
-  for (const [preview, search, expected] of [[false, '', 0], [true, '', 1], [true, '?test=free', 0]]) {
-    const bundle = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.ECONOMY_PREVIEW': JSON.stringify(preview) },
+  // production ?test=free is NOT a sandbox (ECO-04): it fetches like the real game.
+  for (const [preview, search, expected] of [[false, '', 1], [false, '?test=free', 1], [true, '', 1], [true, '?test=free', 0]]) {
+    const bundle = await build({ configFile: false, logLevel: 'silent', define: { 'import.meta.env.ECONOMY_TEST_PAGES': JSON.stringify(preview) },
       build: { minify: false, write: false, lib: { entry: fileURLToPath(new URL('../src/game/fishing/deckClient.ts', import.meta.url)), name: 'DeckClient', formats: ['iife'] } } });
     const chunk = (Array.isArray(bundle) ? bundle : [bundle]).flatMap(output => output.output).find(item => item.type === 'chunk' && item.isEntry);
     const storage = new Map(); let calls = 0;

@@ -21,7 +21,7 @@ import { CURRENCY, ICE } from './economyConfig.js';
 import type { Vendor } from './shopCatalog.js';
 import { SHOP_BY_ID } from './shopCatalog.js';
 import {
-  REASON_LINES, addCatch, buy, fishIceMin, freshWallet, iceHelps, parseWallet, quoteBuy, quoteSell, sellFish, settle, takeGoods, useGoods,
+  REASON_LINES, addCatch, buy, fishIceMin, freshWallet, iceHelps, parseWallet, quoteBuy, quoteSell, sellFish, settle, takeGoods, useGoods as spendGoods,
 } from './wallet.js';
 import type { BuyLine, CartLine, CoolerFish, Fail, SellLine, Wallet } from './wallet.js';
 import { buyReceipt, sellReceipt } from './receipt.js';
@@ -371,7 +371,7 @@ export class EconomyStore {
 
   async useItem(uid: string): Promise<TradeOutcome> {
     if (this.deps.sandbox) {
-      const r = useGoods(this.local, uid, { now: this.now() });
+      const r = spendGoods(this.local, uid, { now: this.now() });
       if (!r.ok) { this.setLocal(r.wallet); return failLine(r); }
       this.setLocal(r.wallet);
       return done(ICE_LINE, null, { });

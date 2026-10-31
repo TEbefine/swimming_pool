@@ -4,8 +4,7 @@ import { FISH_SHOP_EXIT, GEN_POST, GEN_SPOT, MINATO_SPOT, MINATO_STROLL, fishSho
 
 // Harbour Fish Shop (ECO-01) — reached from Quiet Bay's left shore. Gen (74, the founder) buys your
 // fish and sells pantry/supplies; his grandson Minato (23, former idol) sells sashimi, meals, drinks.
-// The money system is OFF in the live game (game/economy/flags.ts), and so is this room: it is only
-// registered when ECONOMY_ON (rooms/index.ts). Docs: docs/tech/fish-economy.md,
+// Open to everyone since ECO-04; the server decides whether Gen trades today. Docs: docs/tech/fish-economy.md,
 // claude.ai Project characters/shop-chef-minato.md. Dev test: ?room=fish_shop.
 export const fishShopRoom: RoomDefinition = {
   roomId: 'fish_shop',

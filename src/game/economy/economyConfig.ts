@@ -93,5 +93,11 @@ export const SALE = {
   clockSkewMs: 10_000,
 } as const;
 
-/** Step A only: activation bump belongs to reviewed step B. */
-export const ECONOMY_EPOCH = 1;
+/**
+ * The economy season. Raising it resets every player's coins, goods, cooler/rod levels, paid tickets, ice and
+ * counters (lazily, on their next save) and clears phone caches. Fish Book, story, cards and identity stay.
+ * 2 = ECO-04 opening: wipes the ECO-02/03 test money. EVERY future bump also needs a NEW
+ * FISHING_DECK_REDEEM_FROM_DECK_ID (the new season's first full window), or tickets caught just before the reset
+ * could be sold twice (their paid bits were cleared).
+ */
+export const ECONOMY_EPOCH = 2;

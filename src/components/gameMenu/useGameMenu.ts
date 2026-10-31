@@ -15,7 +15,7 @@ import { OPTION_ROWS } from '../startMenu/optionRows';
 import { MenuStore, type MenuContext, type MenuHost, type MenuInput, type MenuState, type Sfx } from './menuModel';
 import { DpadAdapter, KeyGate, menuInputFromKey } from './menuInput';
 import { bagUsesEconomy, rodRow, coolerIds, coolerRows, goodsIds, goodsRows, COOLER_PREFIX, GOODS_PREFIX } from '../bag/economyRows';
-import { gameNow, getWallet, refreshWallet, useBagItem } from '../../game/economy/walletStore';
+import { gameNow, getWallet, refreshWallet, applyBagItem } from '../../game/economy/walletStore';
 import { SHOP_BY_ID } from '../../game/economy/shopCatalog';
 
 /** What the App must do when the menu hands control to something else. */
@@ -124,7 +124,7 @@ export function useGameMenu(callbacks: GameMenuCallbacks, playerState: PlayerSta
           if (!row) return "You don't have that any more.";
           if (action !== 'use') return `${row.name}: ${row.note}`;
           // The server spends the ice (dev / preview) or the device does (sandbox). The answer arrives later.
-          void useBagItem(itemId.slice(GOODS_PREFIX.length)).then((r) => {
+          void applyBagItem(itemId.slice(GOODS_PREFIX.length)).then((r) => {
             storeRef.current?.showFeedback(r.ok ? r.message : r.message || 'Not now.');
             storeRef.current?.refresh();
           });

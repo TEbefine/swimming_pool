@@ -11,7 +11,7 @@ import type { ShopItem, Vendor } from '../../game/economy/shopCatalog';
 import type { CartLine, SellLine } from '../../game/economy/wallet';
 import { coolerSlots, goodsFreshRatio, goodsLeftMin } from '../../game/economy/wallet';
 import {
-  buyFrom, gameNow, saleProblemNow, sellableFishNow, quoteBuyNow, quoteSellNow, reasonLine, refreshWallet, retryTrade, sellToGen, syncEconomy, useBagItem, useEconomyStatus, useWallet,
+  buyFrom, gameNow, saleProblemNow, sellableFishNow, quoteBuyNow, quoteSellNow, reasonLine, refreshWallet, retryTrade, sellToGen, syncEconomy, applyBagItem, useEconomyStatus, useWallet,
 } from '../../game/economy/walletStore';
 import type { TradeOutcome } from '../../game/economy/walletStore';
 import { iceMinutesFor } from '../../game/economy/market';
@@ -231,12 +231,12 @@ export const ShopCounter: React.FC<Props> = ({ vendor, tab: firstTab, compact, i
   const iceCooler = async () => {
     const g = iceStacks[0];
     if (!g) return;
-    settleTrade(await useBagItem(g.uid));
+    settleTrade(await applyBagItem(g.uid));
   };
   const tapGoods = async (uid: string) => {
     const g = wallet.goods.find((x) => x.uid === uid);
     if (!g) return;
-    if (SHOP_BY_ID[g.id]?.use === 'ice') { settleTrade(await useBagItem(uid)); return; }
+    if (SHOP_BY_ID[g.id]?.use === 'ice') { settleTrade(await applyBagItem(uid)); return; }
     sfx.no();
     say('Eating and giving gifts come next. Keep it for now!', 'no');
   };

@@ -32,7 +32,7 @@ import { cast, netSizeOf, difficultyOf, isOver, newFishing, press as pressRule, 
 import { ITEMS, itemIcon, withArticle, type ItemId } from './items';
 import { addItem, addLedger, getStory, recordSize, setEnergy, setFlag } from './storyStore';
 import { BOTTLE_NOTES, FREE_BY_ID, FREE_TABLE, TIERS, getFishBook, freeIcon, freeTableNow } from '../fishing/freeFish';
-import { catchToCooler, getWallet, getEconomyStatus, ECONOMY_ON, gameNow, saleProblemNow } from '../economy/walletStore';
+import { catchToCooler, getWallet, getEconomyStatus, gameNow, saleProblemNow } from '../economy/walletStore';
 import { getFishingDeckAddress, reserveFishingCast } from '../fishing/deckClient';
 import { PRACTICE_CATCH, finishFreeCast, prepareFreeCast } from '../fishing/freeCast';
 import type { FreeCast } from '../fishing/freeCast';
@@ -347,7 +347,7 @@ function throwLine(info: CastInfo) {
   biteSounded = false;
   tension = 0;
   drops = [];
-  freeCast = mode === 'free' && ECONOMY_ON && getEconomyStatus().econEpoch === ECONOMY_EPOCH
+  freeCast = mode === 'free' && getEconomyStatus().econEpoch === ECONOMY_EPOCH
     ? prepareFreeCast(info, gameNow(), testHooks.forceFish ? () => null : reserveFishingCast) : null;
   fs = mode === 'free'
     ? cast(Math.random, { table: testHooks.forceFish ? FREE_TABLE : freeTableNow(), freePacing: true, rodLevel: getWallet().rodLevel, info, rolled: freeCast?.rolled, starred: fish => !!getFishBook().entries[fish]?.starred, forceFish: testHooks.forceFish, hour: bangkokHour() })

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './register-api-ts.mjs';
+const { ECONOMY_EPOCH: EPOCH } = await import('../src/game/economy/economyConfig.ts');
 import { fixtureCatch } from './fishing-fixtures.mjs';
 import { saleHarness, NOON, operationId } from './sale-harness.mjs';
 const { makeSaveServices } = await import('../server/saves/admin.ts');
@@ -79,7 +80,7 @@ try {
       const handler = createItemsHandler({ env: { VERCEL: '1', VERCEL_URL: 'test-lumen-bay.vercel.app', ECONOMY_API: 'on' },
         now: () => now, limiter: new IpLimiter(1000), playerLimiter: new IpLimiter(1000), playerDaily: new DailyLimiter(1000) }, services);
       const call = async body => {
-        body={econEpoch:1,...body};
+        body={econEpoch:EPOCH,...body};
         const req = { method: 'POST', body, socket: { remoteAddress: '127.0.0.1' },
           headers: { origin, 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.9', authorization: 'Bearer emulator-test-token-0123456789' } };
         const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v; }, end(v) { this.body = JSON.parse(v); } };
@@ -301,7 +302,7 @@ try {
       assert.equal((await h.call({op:'load'})).body.coins,0);assert.equal((await h.saved()).coins,300,'load writes nothing');
       const a=fixtureCatch(h.address,h.clock),b=fixtureCatch(h.address,h.clock,{startIndex:a.ticket.castIndex+1});
       const id=operationId();const results=await Promise.all([h.sell([a],id),h.sell([b])]);assert.ok(results.every(r=>r.statusCode===200));
-      const saved=await h.saved();assert.equal(saved.econEpoch,1);assert.equal(saved.rodLevel,0);assert.equal(saved.coolerLevel,0);
+      const saved=await h.saved();assert.equal(saved.econEpoch,EPOCH);assert.equal(saved.rodLevel,0);assert.equal(saved.coolerLevel,0);
       assert.equal((await h.logsOnServer()).filter(l=>l.changes.epoch?.reason==='epoch').length,1);
       await control.set({open:false});const before=await h.snapshotOnServer();
       const rejected=await h.call({op:'shop.buy',operationId:operationId(),vendor:'gen',cart:[{id:'ice_block',qty:1}]});assert.equal(rejected.statusCode,403);assert.equal(rejected.body.shopClosed,true);

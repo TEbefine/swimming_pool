@@ -3,6 +3,7 @@
 // the cooler keeps exactly the fish the server did not take, old device coins are never imported,
 // older answers never overwrite newer ones, and answers for another Player ID are ignored.
 import './register-api-ts.mjs';
+const { ECONOMY_EPOCH: EPOCH } = await import('../src/game/economy/economyConfig.ts');
 import { fixtureCatch, saleEnv } from './fishing-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,7 +24,7 @@ const MIN = 60_000;
 /** The real server handler + an in-memory Firestore; `serverAhead` makes the server clock run ahead. */
 function world({ economyApi = 'on' } = {}) {
   const w = { clock: NOON, serverAhead: 0, players: new Map(), logs: new Map(), sent: [], online: true, loseAnswers: 0 };
-  const set=w.players.set.bind(w.players);w.players.set=(k,v)=>set(k,{econEpoch:1,...v});
+  const set=w.players.set.bind(w.players);w.players.set=(k,v)=>set(k,{econEpoch:EPOCH,...v});
   const services = {
     verifyToken: async (t) => { if (t !== TOKEN) throw new Error('bad'); return { uid: w.who, walletSignedInAt: NOON - 30 * MIN, walletLoginOrigin: origin }; },
     readControl: async () => true,
@@ -241,10 +242,10 @@ test('old device coins are never imported; new epoch also retires the old cooler
 test('an older answer never overwrites a newer one; answers for another Player ID are ignored', async () => {
   const w = world();
   const s = phone(w);
-  s.receiveView(ADDRESS, { econEpoch: 1, revision: 5, coins: 300, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [] });
-  s.receiveView(ADDRESS, { econEpoch: 1, revision: 4, coins: 10, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [] });
+  s.receiveView(ADDRESS, { econEpoch: EPOCH, revision: 5, coins: 300, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [] });
+  s.receiveView(ADDRESS, { econEpoch: EPOCH, revision: 4, coins: 10, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [] });
   assert.equal(s.getWallet().coins, 300);
-  s.receiveView(OTHER, { econEpoch: 1, revision: 9, coins: 7, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [] });
+  s.receiveView(OTHER, { econEpoch: EPOCH, revision: 9, coins: 7, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [] });
   assert.equal(s.getWallet().coins, 300);
   // a slow sale answer that arrives after switching Player ID changes nothing for the new ID
   catchAt(w, s, 2 * MIN);
@@ -435,7 +436,7 @@ test('invalid roll drops only that fish; no partial payment and the rest can sti
 test('missing policy, pre-cutoff, expired windows and duplicate indices are never sent; exact pending Retry ignores new filters', async () => {
   const { FISHING_DECK: C } = await import('../src/game/fishing/deckConfig.ts');
   const w = world(), s = phone(w), uid = catchAt(w, s, 1000), fish = s.getWallet().cooler[0];
-  const initial = { econEpoch: 1, revision: 10, coins: 0, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [], paidDecks: [] };
+  const initial = { econEpoch: EPOCH, revision: 10, coins: 0, coolerLevel: 0, goods: [], econ: { day: 1, soldToday: {}, earnedToday: 0, boughtToday: {} }, iceUsedAt: [], paidDecks: [] };
   s.receiveView(ADDRESS, initial); assert.equal((await s.sell([uid])).ok, false); assert.equal(w.sent.length, 0);
   s.receiveView(ADDRESS, { ...initial, redeemFromDeckId: fish.ticket.deckId + 1 }); assert.equal((await s.sell([uid])).ok, false); assert.equal(w.sent.length, 0);
   s.receiveView(ADDRESS, { ...initial, redeemFromDeckId: 0 });
@@ -450,7 +451,7 @@ test('missing policy, pre-cutoff, expired windows and duplicate indices are neve
 test('dev reset token clears only local game economy/pending state once; production stores ignore it', async () => {
   const storage = memoryStorage({ identity_vault: 'keep' }), w = world();
   const make = enabled => { const s = new EconomyStore({ sandbox: false, allowDevReset: enabled, storage, clock: () => w.clock, online: () => true, newOperationId: () => 'op-reset-pending-00001' }); s.attach(ADDRESS); return s; };
-  let s = make(true); s.receiveView(ADDRESS, { econEpoch: 1, revision: 1, coins: 99, coolerLevel: 0, goods: [], econ: { day: 1 }, paidDecks: [], redeemFromDeckId: 0 });
+  let s = make(true); s.receiveView(ADDRESS, { econEpoch: EPOCH, revision: 1, coins: 99, coolerLevel: 0, goods: [], econ: { day: 1 }, paidDecks: [], redeemFromDeckId: 0 });
   s.addCatch('sardine', 15); assert.equal(s.resetDevState(ADDRESS, 'reset-a'), true); assert.equal(s.getWallet().cooler.length, 0); assert.equal(s.getWallet().coins, 0);
   s.addCatch('sardine', 15); assert.equal(s.resetDevState(OTHER, 'foreign-reset'), false); assert.equal(s.resetDevState(ADDRESS, 'reset-a'), false); assert.equal(s.getWallet().cooler.length, 1);
   s = make(true); assert.equal(s.resetDevState(ADDRESS, 'reset-a'), false); assert.equal(s.resetDevState(ADDRESS, 'reset-b'), true); assert.equal(s.getWallet().cooler.length, 0);
@@ -464,13 +465,13 @@ test('dev reset token clears only local game economy/pending state once; product
 test('new epoch overrides older revision, clears cooler/cache, quarantines exact pending bytes and ignores stale epoch answers',async()=>{
  const w=world(),storage=memoryStorage(),s=phone(w,storage);catchAt(w,s,MIN);w.loseAnswers=1;
  await s.sell(s.getWallet().cooler.map(c=>c.uid));const pending=structuredClone(s.getStatus().pending.body);
- const current={...playerView(emptyPlayer(w.clock),w.clock),econEpoch:2,revision:0,redeemFromDeckId:0};
+ const current={...playerView(emptyPlayer(w.clock),w.clock),econEpoch:EPOCH+1,revision:0,redeemFromDeckId:0};
  s.receiveView(ADDRESS,current);assert.equal(s.getWallet().cooler.length,0);assert.equal(s.getWallet().coins,0);assert.deepEqual(s.getStatus().pending.body,pending);
- s.receiveView(ADDRESS,{...current,econEpoch:1,revision:999,coins:999});assert.equal(s.getWallet().coins,0);assert.equal(s.getStatus().econEpoch,2);
+ s.receiveView(ADDRESS,{...current,econEpoch:EPOCH,revision:999,coins:999});assert.equal(s.getWallet().coins,0);assert.equal(s.getStatus().econEpoch,EPOCH+1);
 });
 
 test('an edited cached epoch/revision cannot outrank the first authoritative server load',()=>{
  const w=world();const fresh={...playerView(emptyPlayer(w.clock),w.clock),redeemFromDeckId:0};
  const storage=memoryStorage({[`sp_econ_v2_${ADDRESS}`]:JSON.stringify({...fresh,econEpoch:999,revision:999,coins:999999})});
- const s=phone(w,storage);assert.equal(s.getWallet().coins,0);assert.equal(s.getStatus().econEpoch,1);
+ const s=phone(w,storage);assert.equal(s.getWallet().coins,0);assert.equal(s.getStatus().econEpoch,EPOCH);
 });

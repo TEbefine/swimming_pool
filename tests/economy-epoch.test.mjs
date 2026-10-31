@@ -1,4 +1,5 @@
 import './register-api-ts.mjs';
+const { ECONOMY_EPOCH: EPOCH } = await import('../src/game/economy/economyConfig.ts');
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {saleHarness,operationId} from './sale-harness.mjs';
@@ -20,8 +21,8 @@ test('epoch resets only economic fields and old-format Book; strict verified Boo
 });
 test('old Book reset permits a verified sale, load writes nothing, closing entry occurs once and runtime closure ignores warm cached status',async()=>{
  const h=saleHarness();h.players.set(h.address,{...emptyPlayer(h.clock),econEpoch:0,coins:300,fishBook:{kinds:['sardine']}});
- const before=h.snapshot();for(let i=0;i<2;i++){const r=await h.call({op:'load'});assert.equal(r.body.coins,0);assert.equal(r.body.econEpoch,1);}assert.deepEqual(h.snapshot(),before);
- const c=fixtureCatch(h.address,h.clock),id=operationId();assert.equal((await h.sell([c],id)).statusCode,200);assert.equal(h.players.get(h.address).econEpoch,1);assert.equal(h.logs.get(`${h.address}/${id}`).changes.epoch.reason,'epoch');
+ const before=h.snapshot();for(let i=0;i<2;i++){const r=await h.call({op:'load'});assert.equal(r.body.coins,0);assert.equal(r.body.econEpoch,EPOCH);}assert.deepEqual(h.snapshot(),before);
+ const c=fixtureCatch(h.address,h.clock),id=operationId();assert.equal((await h.sell([c],id)).statusCode,200);assert.equal(h.players.get(h.address).econEpoch,EPOCH);assert.equal(h.logs.get(`${h.address}/${id}`).changes.epoch.reason,'epoch');
  h.control.open=false;const snap=h.snapshot();assert.equal((await h.sell([c],id)).statusCode,200);assert.deepEqual(h.snapshot(),snap);assert.equal((await h.call({op:'shop.buy',operationId:operationId(),vendor:'gen',cart:[{id:'ice_block',qty:1}]})).statusCode,403);assert.deepEqual(h.snapshot(),snap);
 });
 test('historical no-epoch receipt replays while closed with fresh zero balance; old uncommitted request cannot spend',async()=>{

@@ -1,4 +1,5 @@
 import './register-api-ts.mjs';
+const { ECONOMY_EPOCH: EPOCH } = await import('../src/game/economy/economyConfig.ts');
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
@@ -100,7 +101,7 @@ test('fresh real Vite dev middleware issues and sells in the current window with
       const roll = rollDeckCatch({ ...deck, castIndex, castInfo, castAt });
       if (roll.fish === 'sardine') { c = { fish: roll.fish, sizeCm: roll.sizeCm, caughtAt: Date.now(), ticket: { version: deck.version, deckId: deck.deckId, castIndex, castInfo, castAt } }; break; }
     }
-    assert.ok(c); const body = { econEpoch:1, op: 'shop.sell', operationId: 'op-fresh-dev-sale-0001', catches: [c] };
+    assert.ok(c); const body = { econEpoch:EPOCH, op: 'shop.sell', operationId: 'op-fresh-dev-sale-0001', catches: [c] };
     const first = await post('/api/items', body); assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.equal(first.body.redeemFromDeckId, deck.deckId); assert.ok(first.body.devFishingResetId);
     assert.deepEqual(first.body.fishBook.sardine, { best: c.sizeCm, starred: false });

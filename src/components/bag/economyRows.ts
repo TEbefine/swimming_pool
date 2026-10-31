@@ -1,12 +1,11 @@
 import { rodOf } from '../../game/economy/rodConfig';
-// ECO-02(d) Bag: when the money system is on, the Bag shows what you really CARRY.
+// ECO-02(d) Bag: outside the story, the Bag shows what you really CARRY.
 // - FISH  = the fish in your cooler right now (sold or spoiled fish are gone). The Fish Book keeps the collection.
 // - ITEMS = story items + things you bought at the shop (ice can be used from here).
 // Row ids carry a prefix so the menu model can tell them apart from story items: "cooler:<uid>" / "goods:<uid>".
 // The menu model (useGameMenu) and the screen (BagScreen) both build their rows from THESE functions, so the
 // cursor and the drawing always agree.
 
-import { ECONOMY_ON } from '../../game/economy/flags';
 import { freshnessOf, iceMinutesFor } from '../../game/economy/market';
 import { SHOP_BY_ID, shopIcon } from '../../game/economy/shopCatalog';
 import { goodsLeftMin } from '../../game/economy/wallet';
@@ -17,9 +16,9 @@ import { freeIcon } from '../../game/fishing/freeFish';
 export const COOLER_PREFIX = 'cooler:';
 export const GOODS_PREFIX = 'goods:';
 
-/** The Bag uses the cooler/goods view (not the Fish Book list) in free-fishing rooms when the economy is on. */
+/** The Bag uses the cooler/goods view (not the Fish Book list) in free-fishing rooms. */
 export function bagUsesEconomy(isStoryRoom: boolean): boolean {
-  return ECONOMY_ON && !isStoryRoom;
+  return !isStoryRoom;
 }
 
 export const coolerIds = (w: Wallet) => w.cooler.map((c) => COOLER_PREFIX + c.uid);

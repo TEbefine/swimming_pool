@@ -1,4 +1,5 @@
 import './register-api-ts.mjs';
+const { ECONOMY_EPOCH: EPOCH } = await import('../src/game/economy/economyConfig.ts');
 import { saleEnv } from './fishing-fixtures.mjs';
 const { createItemsHandler, DailyLimiter } = await import('../server/saves/handlers.ts');
 const { IpLimiter } = await import('../server/identity/http.ts');
@@ -25,7 +26,7 @@ export function saleHarness({ address = ADDRESS, start = NOON, services, env = {
   };
   const handler = createItemsHandler({ env: h.env, now: () => h.clock, limiter: new IpLimiter(1e6), playerLimiter: new IpLimiter(1e6), playerDaily: new DailyLimiter(1e6) }, h.services);
   h.call = async body => {
-    if (['shop.sell','shop.buy','bag.use'].includes(body.op) && !Object.hasOwn(body,'econEpoch')) body={...body,econEpoch:1};
+    if (['shop.sell','shop.buy','bag.use'].includes(body.op) && !Object.hasOwn(body,'econEpoch')) body={...body,econEpoch:EPOCH};
     const req = { method: 'POST', body, headers: { origin: ORIGIN, 'content-type': 'application/json', authorization: 'Bearer emulator-test-token-0123456789', 'x-forwarded-for': '192.0.2.9' }, socket: { remoteAddress: '127.0.0.1' } };
     const res = { statusCode: 0, headers: {}, setHeader(k, v) { this.headers[k] = v; }, end(v) { this.body = JSON.parse(v); } };
     await handler(req, res); return res;
