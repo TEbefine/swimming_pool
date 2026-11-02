@@ -28,12 +28,14 @@ export const ShellTopBand: React.FC<{ status: ShellStatus; roomName?: string; wo
   );
 };
 
-export type CreditScene = 'design' | 'fishing' | 'battle';
+export type CreditScene = 'design' | 'fishing' | 'battle' | 'grass';
 
 const CREDITS: Record<CreditScene, { part: string; source: string }> = {
   design: { part: 'design', source: 'Game Boy · Nintendo' },
   fishing: { part: 'fishing', source: 'Stardew Valley' },
   battle: { part: 'battle', source: 'Pokémon' },
+  // Whisker Woods: walking in tall grass to meet wild animals (WOODS-01)
+  grass: { part: 'tall grass', source: 'Pokémon' },
 };
 
 // 7×6 pixel heart. Dusty rainbow in 45° stripes falling top-left → bottom-right (colour = floor((x + y) / 2)).

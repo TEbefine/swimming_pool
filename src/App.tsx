@@ -15,6 +15,7 @@ import { SceneBox } from './components/SceneBox';
 import { GameMenu } from './components/gameMenu/GameMenu';
 import { useGameMenu } from './components/gameMenu/useGameMenu';
 import { StoryHud } from './components/StoryHud';
+import { encounterScript } from './game/world/encounter';
 import { FishingHud } from './components/FishingHud';
 import { FishBook } from './components/FishBook';
 import { drawFishing, isFishing, fishingHold, fishingPress, startFishing, stopFishing, useFishingView } from './game/story/fishingSession';
@@ -643,6 +644,12 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
       return false;
     };
 
+    // Whisker Woods (WOODS-01): a wild animal jumps out of the tall grass. Battles come later;
+    // until then a short talk box says what happened.
+    engine.onEncounter = () => {
+      if (!cancelled) openDialog('grass', encounterScript());
+    };
+
     // onInteract: open dialog when NPC talk is triggered, or start fishing
     engine.onInteract = (targetId: string, actionId?: ContextActionId) => {
       // Direct fishing interaction
@@ -1163,7 +1170,7 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
           hideStatusBadge={dialogOpen || counterOpen || menu.isOpen || isShutDownScreen}
           isPoweredOff={isShutDownScreen}
           status={isShutDownScreen ? 'standby' : loading || transitionRoom ? 'loading' : 'ready'}
-          creditScene={fishingOpen ? 'fishing' : 'design'}
+          creditScene={fishingOpen ? 'fishing' : currentRoom.grass?.length ? 'grass' : 'design'}
           dialogOpen={dialogOpen}
           onDirectionChange={(dx, dy) => {
             if (loading || engineRef.current?.isRoomTransitioning()) {

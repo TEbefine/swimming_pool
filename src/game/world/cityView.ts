@@ -37,6 +37,10 @@ export const ROOM_LIGHTS: Record<string, { x: number; y: number; radius: number;
     { x: 555, y: 58, radius: 140, color: [255, 214, 150] },
     { x: 978, y: 58, radius: 120, color: [255, 214, 150] },
   ],
+  // Whisker Woods: the town street lamp at the start of the path
+  woods_1: [
+    { x: 81, y: 306, radius: 70, color: [255, 214, 150] },
+  ],
   town: [
     { x: 268, y: 225, radius: 80, color: [255, 214, 150] },   // street lamp left
     { x: 773, y: 225, radius: 80, color: [255, 214, 150] },   // street lamp right

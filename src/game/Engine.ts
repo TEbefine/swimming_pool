@@ -18,6 +18,8 @@ import { CITY, ROOM_LIGHTS, bangkokHour, skyAt } from './world/cityView';
 import { MoversManager } from './world/movers';
 import { renderAmbient } from './world/ambient';
 import { drawFisherProps } from './world/bayLife';
+import { COVER, GRASS_ASSETS, GrassField, hashString as grassSeed, type GrassWalker } from './world/grassField';
+import { ENCOUNTER, EncounterRoller } from './world/encounter';
 import { getTonightGenre } from './rooms/club';
 import { FrameBudget, LOW_POWER_QUERY, prefersLowPower } from './frameBudget';
 import { ImageLoader, releaseSprite, spriteReady, type Sprite } from './imageLoader';
@@ -448,6 +450,16 @@ export class GameEngine {
   public onDrawLayer?: (ctx: CanvasRenderingContext2D, layer: 'world' | 'top', time: number) => void;
   /** Extra sideways shake of the local player's sprite in px (e.g. straining on a fishing rod). Feet stay put. */
   public localShakeX = 0;
+
+  // Tall grass (WOODS-01): tufts planted in code, random animal encounters while walking in it
+  private grass: GrassField | null = null;
+  private encounterRoll = new EncounterRoller();
+  /** performance.now() when the encounter flash started, or -1 */
+  private encounterStart = -1;
+  private encounterZone = '';
+  private grassPrev = { x: 0, y: 0 };
+  /** A wild animal appeared (after the flash). The battle screen plugs in here later. */
+  public onEncounter?: (info: { roomId: string; zoneId: string }) => void;
   /** Phone camera: look at this x instead of the player (e.g. halfway to a fishing float). null = follow the player. */
   public cameraFocusX: number | null = null;
 
@@ -547,7 +559,18 @@ export class GameEngine {
   // MERGED DATA (obstacles, seats, interactions from room + elements)
   // =========================================================================
 
+  /** Plant this room's tall grass (same seed → the same grass for every player). */
+  private setupGrass() {
+    const zones = this.room.grass;
+    this.grass = zones?.length ? new GrassField(zones, grassSeed(this.room.roomId)) : null;
+    this.encounterStart = -1;
+    const now = typeof performance !== 'undefined' ? performance.now() : 0;
+    this.encounterRoll.reset(now);
+    if (this.localPlayer) this.grassPrev = { x: this.localPlayer.x, y: this.localPlayer.y };
+  }
+
   private buildMergedData() {
+    this.setupGrass();
     this.mergedObstacles = [...this.room.obstacles];
     // Plain room seats (no furniture): sort by their own spot
     this.mergedSeats = (this.room.seats ?? []).map((st) => ({ ...st, pose: 'sit' as const, sortY: st.y }));
@@ -917,6 +940,9 @@ export class GameEngine {
     }
     for (const asset of new Set(room.elements?.map((el) => el.asset))) {
       jobs.push(loadInto(asset, asset, this.elementImages));
+    }
+    if (room.grass?.length) {
+      for (const asset of GRASS_ASSETS) jobs.push(loadInto(asset, asset, this.elementImages));
     }
     if (room.roomId === 'club') {
       jobs.push(loadInto('club_stage_banner', `/sprites/banners/banner_${getTonightGenre()}.webp`, this.elementImages));
@@ -1759,6 +1785,7 @@ export class GameEngine {
     this.updateFade(dt);
     this.updateLocalPlayer(dt);
     this.updateRemotePlayers(dt);
+    this.updateGrass();
     this.updateParticles(dt);
     if (this.room.view) {
       const hour = bangkokHour(undefined, this.room.view.fixedHour);
@@ -1766,6 +1793,45 @@ export class GameEngine {
       this.movers.update(dt, sky.night, this.moverSprites);
     }
   }
+
+  /** Tall grass: bend tufts around everyone walking through it; roll for a wild animal (local player). */
+  private updateGrass() {
+    const grass = this.grass;
+    if (!grass) return;
+    const now = performance.now();
+    const me = this.localPlayer;
+    const walkers: GrassWalker[] = [{ id: me.id, x: me.x, y: me.y }];
+    for (const r of this.remotePlayers.values()) {
+      if ((r.data.roomId || 'poolside') === this.room.roomId) walkers.push({ id: r.data.id, x: r.data.x, y: r.data.y });
+    }
+    grass.update(now, walkers);
+
+    if (this.encounterStart >= 0) {
+      if (now - this.encounterStart >= ENCOUNTER.flashMs) {
+        this.encounterStart = -1;
+        this.onEncounter?.({ roomId: this.room.roomId, zoneId: this.encounterZone });
+      }
+      return;
+    }
+    const moved = Math.hypot(me.x - this.grassPrev.x, me.y - this.grassPrev.y);
+    this.grassPrev = { x: me.x, y: me.y };
+    if (this.roomLoading || this.fadeDirection !== 'none' || this.dialogFrozen || this.menuFrozen || !this.onEncounter) return;
+    const zone = grass.zoneAt(me.x, me.y);
+    // a big jump = teleport / respawn, not walking
+    if (this.encounterRoll.step(moved > 60 ? 0 : moved, !!zone && me.state === 'land', now) && zone) {
+      this.encounterStart = now;
+      this.encounterZone = zone.id;
+      this.clearKeys();
+      this.virtualDpad = { dx: 0, dy: 0 };
+      this.clickTarget = null;
+      this.isMoving = false;
+      me.currentAction = this.idlePose();
+      this.broadcastState();
+    }
+  }
+
+  /** True while the wild-animal flash plays (input is locked). */
+  public isEncounterActive(): boolean { return this.encounterStart >= 0; }
 
   private updateSkyAndCityCache(hour: number) {
     const currentMinute = Math.floor(hour * 60);
@@ -1844,7 +1910,7 @@ export class GameEngine {
   private updateLocalPlayer(dt: number) {
     // If seated, dialog frozen, menu open, or fading out, don't process movement
     // Multiplayer note: The world does NOT pause: other players and NPCs keep moving.
-    if (this.seatedIndex >= 0 || this.dialogFrozen || this.menuFrozen || this.walkToActive || this.roomLoading || this.fadeDirection === 'out') return;
+    if (this.seatedIndex >= 0 || this.dialogFrozen || this.menuFrozen || this.walkToActive || this.roomLoading || this.fadeDirection === 'out' || this.encounterStart >= 0) return;
 
     let dx = 0;
     let dy = 0;
@@ -2610,8 +2676,19 @@ export class GameEngine {
       const capturedH = h;
       const capturedAir = air;
       const showTag = !tagBudget || tagBudget.has(player.id);
+      // Standing in tall grass: tufts just in front draw behind you, then a small cover hides the legs
+      const inGrass = !!this.grass && player.state === 'land' && air === 0 && !!this.grass.zoneAt(player.x, player.y);
+      const baseSortY = this.sortYFor(player);
+      if (inGrass) {
+        const grass = this.grass!;
+        const moving = player === this.localPlayer ? this.isMoving : player.currentAction.startsWith('walk');
+        drawFns.push({
+          y: baseSortY + COVER.skip + 0.01,
+          draw: () => grass.drawFeetCover(ctx, capturedX, capturedPlayer.y, time, moving, (k) => this.elementImages.get(k)),
+        });
+      }
       drawFns.push({
-        y: this.sortYFor(player),
+        y: inGrass ? baseSortY + COVER.skip : baseSortY,
         draw: () => {
           // Quiet Bay: a bucket (+ cooler box, + lantern at night) next to anyone fishing; friends' lines
           const fishing = !!this.room.fishing && capturedPlayer.currentAction.startsWith('fish_');
@@ -2622,6 +2699,11 @@ export class GameEngine {
           overlayFns.push(() => this.renderPlayerOverlay(capturedPlayer, capturedDrawY, capturedH, showTag));
         }
       });
+    }
+
+    // 6e. Tall grass rows + leaf bits (WOODS-01)
+    if (this.grass) {
+      this.grass.collect(v, time, (y, draw) => drawFns.push({ y, draw }), ctx, (k) => this.elementImages.get(k));
     }
 
     // Sort by y ascending and draw
@@ -2671,7 +2753,30 @@ export class GameEngine {
       ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(1, Math.max(0, this.fadeAlpha))})`;
       ctx.fillRect(v.x, v.y, v.w, v.h);
     }
+
+    // 10. Wild animal: three white flashes, then the screen closes from top and bottom
+    if (this.encounterStart >= 0) this.renderEncounterFlash(time - this.encounterStart);
     ctx.restore();
+  }
+
+  /** Encounter transition (battle screens of handheld RPGs flash, then close). t = ms since it started. */
+  private renderEncounterFlash(t: number) {
+    const ctx = this.ctx;
+    const v = this.view;
+    const flashEnd = ENCOUNTER.flashMs * 0.5;
+    if (t < flashEnd) {
+      const phase = Math.floor(t / (flashEnd / 6));
+      if (phase % 2 === 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fillRect(v.x, v.y, v.w, v.h);
+      }
+      return;
+    }
+    const k = Math.min(1, (t - flashEnd) / (ENCOUNTER.flashMs - flashEnd));
+    const band = Math.ceil((v.h / 2) * k);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(v.x, v.y, v.w, band);
+    ctx.fillRect(v.x, v.y + v.h - band, v.w, band);
   }
 
   /** Ids of the `n` players closest to the local player (always including the local player). */
