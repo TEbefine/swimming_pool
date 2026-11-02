@@ -19,8 +19,8 @@ async function collect(directory) {
     else files[path] = new FileFsRef({ fsPath: join(root, path) });
   }
 }
-for (const path of ['api', 'server/identity', 'server/saves', 'server/fishing']) await collect(path);
-for (const path of ['package.json', 'tsconfig.json', 'src/identity/loginMessage.ts', 'src/game/fishing/freeFishCatalog.ts', 'src/game/fishing/fishBookConfig.ts', 'src/game/fishing/deckRollV1.ts', 'src/game/fishing/deckKernelV1.ts', 'src/game/fishing/deckRollV2.ts', 'src/game/fishing/deckRoll.ts', 'src/game/fishing/catchTicket.ts', 'src/game/story/items.ts', 'src/game/story/storyKeys.ts', 'src/game/economy/economyConfig.ts', 'src/game/economy/market.ts', 'src/game/economy/shopCatalog.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
+for (const path of ['api', 'server/identity', 'server/saves', 'server/fishing', 'server/aiNews']) await collect(path);
+for (const path of ['package.json', 'tsconfig.json', 'src/game/content/aiNewsShape.ts', 'src/identity/loginMessage.ts', 'src/game/fishing/freeFishCatalog.ts', 'src/game/fishing/fishBookConfig.ts', 'src/game/fishing/deckRollV1.ts', 'src/game/fishing/deckKernelV1.ts', 'src/game/fishing/deckRollV2.ts', 'src/game/fishing/deckRoll.ts', 'src/game/fishing/catchTicket.ts', 'src/game/story/items.ts', 'src/game/story/storyKeys.ts', 'src/game/economy/economyConfig.ts', 'src/game/economy/market.ts', 'src/game/economy/shopCatalog.ts']) files[path] = new FileFsRef({ fsPath: join(root, path) });
 files['src/game/fishing/deckConfig.ts'] = new FileFsRef({ fsPath: join(root, 'src/game/fishing/deckConfig.ts') });
 const regionConfig = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
 assert.deepEqual(regionConfig.regions, ['sin1']);
@@ -37,6 +37,16 @@ assert.equal(typeof module.default, 'function');
 assert.deepEqual(module.config.regions, ['sin1']);
 const headers = {};
 const res = { statusCode: 0, setHeader(k, v) { headers[k] = v; }, end(body) { this.body = body; } };
+if (process.argv[1].endsWith('/api/ai-news.js')) {
+  // No key → 401 before any feed, Gemini or Firestore call (no credentials in this process).
+  await module.default({ method: 'GET', query: {}, headers: {} }, res);
+  assert.equal(res.statusCode, 401);
+  assert.deepEqual(JSON.parse(res.body), { error: 'Unauthorized' });
+  assert.equal(headers['Cache-Control'], 'no-store');
+  await module.default({ method: 'GET', query: { key: 'guess' }, headers: { authorization: 'Bearer guess' } }, res);
+  assert.equal(res.statusCode, 401);
+  process.exit(0);
+}
 await module.default({ method: 'GET' }, res);
 assert.equal(res.statusCode, 405);
 assert.deepEqual(JSON.parse(res.body), { error: process.argv[1].endsWith('/api/items.js') ? 'Use POST to save.' : process.argv[1].endsWith('/api/fishing-deck.js') ? 'Use POST for fishing tickets.' : 'Use POST to sign in.' });
@@ -67,7 +77,7 @@ if (process.argv[1].endsWith('/api/login.js')) {
 }
 `;
 try {
-  for (const entrypoint of ['api/nonce.ts', 'api/login.ts', 'api/items.ts', 'api/fishing-deck.ts']) {
+  for (const entrypoint of ['api/nonce.ts', 'api/login.ts', 'api/items.ts', 'api/fishing-deck.ts', 'api/ai-news.ts']) {
     const diagnostics = [];
     const originalError = console.error;
     console.error = (...args) => { diagnostics.push(args.join(' ')); originalError(...args); };
@@ -93,11 +103,11 @@ try {
     assert.ok(!/from\s+['"][^'"]+\.ts['"]/.test(source), 'Emitted handler must not import TypeScript source');
     // Fresh Node process, isolated traced output, no source-resolution hook or Firebase credentials.
     const env = { ...process.env, VERCEL: '1', VERCEL_REGION: 'sin1' };
-    delete env.FIREBASE_SERVICE_ACCOUNT; delete env.NONCE_SECRET; delete env.NODE_OPTIONS; delete env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete env.FIREBASE_SERVICE_ACCOUNT; delete env.NONCE_SECRET; delete env.NODE_OPTIONS; delete env.GOOGLE_APPLICATION_CREDENTIALS; delete env.NEWS_ADMIN_KEY; delete env.CRON_SECRET; delete env.GEMINI_API_KEY;
     const nodeArgs = ['--no-experimental-require-module', '--input-type=module', '-e', childProgram, emitted];
     const smoke = spawnSync(process.execPath, nodeArgs, { env, encoding: 'utf8', timeout: 30_000 });
     assert.equal(smoke.status, 0, `${entrypoint}: compiled import/GET failed\n${smoke.stderr}`);
-    assert.match(smoke.stdout, /identity-api status=405 region=sin1/);
+    if (entrypoint !== 'api/ai-news.ts') assert.match(smoke.stdout, /identity-api status=405 region=sin1/);
     if (entrypoint === 'api/nonce.ts') {
       const broken = source.replace(/(from\s+['"][^'"]+)\.js(['"])/, '$1.ts$2');
       assert.notEqual(broken, source, 'negative fixture must reproduce a .ts runtime import');
@@ -106,6 +116,6 @@ try {
       assert.notEqual(failure.status, 0, 'compiled smoke must reject the original broken import');
       assert.match(failure.stderr, /ERR_MODULE_NOT_FOUND/);
     }
-    console.log(`PASS: Vercel-built ${entrypoint.replace(/\.ts$/, '.js')} imports with require(ESM) disabled and GET returns 405 JSON; emitted region sin1${entrypoint === 'api/login.ts' ? '; Admin/JWKS RSA key verification passes' : ''}.`);
+    console.log(`PASS: Vercel-built ${entrypoint.replace(/\.ts$/, '.js')} imports with require(ESM) disabled and ${entrypoint === 'api/ai-news.ts' ? 'unauthenticated GET returns 401' : 'GET returns 405'} JSON; emitted region sin1${entrypoint === 'api/login.ts' ? '; Admin/JWKS RSA key verification passes' : ''}.`);
   }
 } finally { await rm(temporary, { recursive: true, force: true }); }

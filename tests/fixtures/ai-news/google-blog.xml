@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>The Keyword</title>
+    <link>https://blog.google/</link>
+    <item>
+      <title><![CDATA[Gemini 4 Flash: our fastest model yet]]></title>
+      <link>https://blog.google/technology/google-deepmind/gemini-4-flash/</link>
+      <description><![CDATA[<p>Gemini 4 Flash is rolling out today in the Gemini app &amp; AI Studio.</p>]]></description>
+      <pubDate>Sun, 01 Nov 2026 16:00:00 +0000</pubDate>
+      <guid>https://blog.google/technology/google-deepmind/gemini-4-flash/</guid>
+    </item>
+    <item>
+      <title>Students get Google AI Pro free for a year</title>
+      <link>https://blog.google/products/gemini/students-free-ai-pro/</link>
+      <description>College students in more countries can sign up for free.</description>
+      <pubDate>Sun, 01 Nov 2026 09:30:00 +0000</pubDate>
+    </item>
+    <item>
+      <title>Our new office in Bangkok</title>
+      <link>https://blog.google/inside-google/company-announcements/bangkok-office/</link>
+      <description>We are opening an office.</description>
+      <pubDate>Sun, 01 Nov 2026 08:00:00 +0000</pubDate>
+    </item>
+    <item>
+      <title>An old post</title>
+      <link>https://blog.google/products/search/old-post/</link>
+      <description>Too old for today.</description>
+      <pubDate>Tue, 27 Oct 2026 10:00:00 +0000</pubDate>
+    </item>
+    <item>
+      <title>Off-domain link</title>
+      <link>https://example.com/fake-google-news</link>
+      <pubDate>Sun, 01 Nov 2026 10:00:00 +0000</pubDate>
+    </item>
+  </channel>
+</rss>

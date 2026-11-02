@@ -11,6 +11,16 @@ service cloud.firestore {
         allow write: if false;
       }
     }
+    // AI News NPCs: today's lines are public to read; only /api/ai-news (firebase-admin) writes them.
+    // aiNewsTest = preview/dev copy. aiNewsMeta (told-URL list) falls through to the deny-all below.
+    match /aiNews/{docId} {
+      allow get: if true; // single-doc reads only, no listing
+      allow write: if false;
+    }
+    match /aiNewsTest/{docId} {
+      allow get: if true; // single-doc reads only, no listing
+      allow write: if false;
+    }
     match /{document=**} {
       allow read, write: if false;
     }

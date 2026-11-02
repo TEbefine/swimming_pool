@@ -12,6 +12,8 @@ export default defineConfig(({ command }) => ({
     // ECO-04: the shop is live everywhere. Sandbox test wallets (?test=shop|free) only on preview builds
     // (and npm run dev); a production build can't turn them on.
     'import.meta.env.ECONOMY_TEST_PAGES': JSON.stringify(process.env.VERCEL_ENV === 'preview'),
+    // AI News NPCs: only a production build reads the production doc; previews and npm run dev read aiNewsTest.
+    'import.meta.env.AI_NEWS_COLLECTION': JSON.stringify(process.env.VERCEL_ENV === 'production' ? 'aiNews' : 'aiNewsTest'),
   },
   plugins: [
     react(),

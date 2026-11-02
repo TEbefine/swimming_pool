@@ -1,0 +1,114 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title>Anthropic News</title>
+    <link>https://www.anthropic.com/news</link>
+    <description>Latest updates from Anthropic's newsroom</description>
+    <atom:link href="https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml" rel="self"/>
+    <docs>http://www.rssboard.org/rss-specification</docs>
+    <generator>python-feedgen</generator>
+    <image>
+      <url>https://www.anthropic.com/images/icons/apple-touch-icon.png</url>
+      <title>Anthropic News</title>
+      <link>https://www.anthropic.com/news</link>
+    </image>
+    <language>en</language>
+    <lastBuildDate>Thu, 29 Oct 2026 00:52:59 +0000</lastBuildDate>
+    <item>
+      <title>AI for Science expands to foundations and research institutions</title>
+      <link>https://www.anthropic.com/news/ai-for-science-expands-foundations-research-institutions</link>
+      <description>We’re highlighting 20 scientific foundations, institutions, and research groups around the world that we’ve partnered with in an expansion of our AI for Science program.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/ai-for-science-expands-foundations-research-institutions</guid>
+      <category>News</category>
+      <pubDate>Wed, 28 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Early progress on accelerating drug development with Claude</title>
+      <link>https://www.anthropic.com/research/early-progress-drug-development</link>
+      <description>We're at the start of a major effort to speed up drug development with Claude. Over the past several months, our scientists have engaged in deep research partnerships with six organizations developing new medicines.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/research/early-progress-drug-development</guid>
+      <category>News</category>
+      <pubDate>Tue, 27 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Expanding our partnership with GSA to bring Claude to all levels of government</title>
+      <link>https://www.anthropic.com/news/expanding-partnership-gsa</link>
+      <description>We are expanding our partnership with the General Services Administration (GSA) through a new agreement that gives government partners a 40% discount on Claude Enterprise, Claude for Government, and the Claude API.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/expanding-partnership-gsa</guid>
+      <category>News</category>
+      <pubDate>Tue, 27 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Anthropic files S-1 with the SEC for proposed initial public offering</title>
+      <link>https://www.anthropic.com/news/s1-sec</link>
+      <description>Today, Anthropic, PBC filed a registration statement on Form S-1 with the U.S. Securities and Exchange Commission relating to its proposed initial public offering of its Class A common stock.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/s1-sec</guid>
+      <category>News</category>
+      <pubDate>Mon, 26 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Open call for guest investigators in the life sciences</title>
+      <link>https://www.anthropic.com/news/open-call-guest-investigators-life-sciences</link>
+      <description>Today, we’re inviting members of the life sciences community to apply to work with us on special projects.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/open-call-guest-investigators-life-sciences</guid>
+      <category>News</category>
+      <pubDate>Thu, 22 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Donating Agent Skills to the Agentic AI Foundation</title>
+      <link>https://www.anthropic.com/news/donating-agent-skills-to-the-agentic-ai-foundation</link>
+      <description>We’re donating Agent Skills, the open standard that gives AI agents specialized knowledge and workflows, to the Agentic AI Foundation. More than 70 agent platforms, including ChatGPT, Cursor, GitHub Copilot, and VS Code, have integrated Agent Skills since we published the standard in December 2025.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/donating-agent-skills-to-the-agentic-ai-foundation</guid>
+      <category>News</category>
+      <pubDate>Thu, 22 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Physicist Christopher Stubbs joins Anthropic's Long-Term Benefit Trust</title>
+      <link>https://www.anthropic.com/news/christopher-stubbs-joins-long-term-benefit-trust</link>
+      <description>Dr. Christopher Stubbs, an experimental physicist and former Dean of Science at Harvard University, has joined Anthropic’s Long-Term Benefit Trust. He brings to the Trust decades of scientific expertise across observational cosmology and precision measurement.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/christopher-stubbs-joins-long-term-benefit-trust</guid>
+      <category>News</category>
+      <pubDate>Wed, 21 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Investing in the public benefit</title>
+      <link>https://www.anthropic.com/news/public-benefit-fund</link>
+      <description>We’re committing a portion of Anthropic’s shares to the Anthropic Public Benefit Fund, a new entity with a structure that increases the stake as the company grows.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/public-benefit-fund</guid>
+      <category>News</category>
+      <pubDate>Sun, 18 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>An update on independent evaluators</title>
+      <link>https://www.anthropic.com/news/an-update-on-independent-evaluators</link>
+      <description>To evaluate the safety of our systems, Anthropic is giving employee-like access to a team from METR, a nonprofit that evaluates frontier AI models, and we're in early discussions with several other organizations, including Hugging Face.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/an-update-on-independent-evaluators</guid>
+      <category>News</category>
+      <pubDate>Thu, 15 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Anthropic opens Singapore office and signs MOU with the Government of Singapore</title>
+      <link>https://www.anthropic.com/news/singapore-office-opening</link>
+      <description>Anthropic has opened an office in Singapore and signed an MOU with the country’s government to advance safe, responsible AI adoption.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/singapore-office-opening</guid>
+      <category>News</category>
+      <pubDate>Wed, 14 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Preparing for the 2026 US midterms</title>
+      <link>https://www.anthropic.com/news/2026-us-midterms</link>
+      <description>Earlier this year, we shared an update on our election safeguards. Here, we outline how we’ve continued to strengthen these safeguards ahead of this year’s US midterms.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/2026-us-midterms</guid>
+      <category>News</category>
+      <pubDate>Wed, 14 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+<item>
+      <title>Strengthening our defenses against distillation attacks</title>
+      <link>https://www.anthropic.com/news/distillation-defenses</link>
+      <description>Illicit distillation allows model developers to copy frontier AI capabilities without creating proportionally robust safeguards. Here, we describe how we’ve reduced the rate of distillation by more than 90%.</description>
+      <guid isPermaLink="false">https://www.anthropic.com/news/distillation-defenses</guid>
+      <category>News</category>
+      <pubDate>Mon, 12 Oct 2026 00:00:00 +0000</pubDate>
+    </item>
+  </channel>
+</rss>
