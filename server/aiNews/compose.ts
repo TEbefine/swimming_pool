@@ -15,6 +15,12 @@ const PERSONA: Record<NewsNpc, string> = {
   clara: 'Clara: gentle and bookish. She likes to explain why something matters. A big fan of Anthropic and Claude.',
 };
 
+const FALLBACK_HOOK: Record<NewsNpc, string> = {
+  tycoon: 'Hot news from Google, young friend!',
+  nova: 'OpenAI dropped something new.',
+  clara: 'Anthropic shared something new.',
+};
+
 const FALLBACK_WHY: Record<NewsNpc, string> = {
   tycoon: 'Read the source, young friend. Knowledge pays!',
   nova: 'Check the source. Try it yourself.',
@@ -42,7 +48,7 @@ export function templateNews(npc: NewsNpc, items: FeedItem[]): NpcNews | null {
   if (!best) return null;
   return {
     hasNews: true,
-    hook: `Fresh from ${COMPANY_NAME[NPC_COMPANY[npc]]} today!`,
+    hook: FALLBACK_HOOK[npc],
     more: toPages(best.title, 2),
     why: [FALLBACK_WHY[npc]],
     source: sourceOf(best),
@@ -117,8 +123,9 @@ export function validateOutput(out: unknown, items: FeedItem[]): NpcNews | 'quie
   if (o.hasNews === false) return 'quiet';
   if (o.hasNews !== true) return null;
   const byUrl = new Map(items.map((it) => [normalizeUrl(it.url), it]));
-  const chosen = typeof o.url === 'string' ? byUrl.get(normalizeUrl(o.url)) : undefined;
-  if (!chosen || chosen.url !== o.url?.trim()) return null;
+  // Same article = same normalized url (www, trailing slash, query may differ); the source keeps the item's real url.
+  const chosen = typeof o.url === 'string' ? byUrl.get(normalizeUrl(o.url.trim())) : undefined;
+  if (!chosen) return null;
   const pages = (v: unknown, min: number, max: number) =>
     Array.isArray(v) && v.length >= min && v.length <= max && v.every((p) => typeof p === 'string' && fitsPage(p)) ? (v as string[]).map((p) => p.trim()) : null;
   const hook = typeof o.hook === 'string' && fitsPage(o.hook) ? o.hook.trim() : null;
@@ -150,12 +157,21 @@ export async function callGemini(cfg: GeminiConfig, prompt: string): Promise<unk
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.apiKey },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 1024, responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
+      generationConfig: { temperature: 0.4, maxOutputTokens: 4096, responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA,
+        // Gemini 3 counts thinking tokens inside maxOutputTokens: keep thinking low so the JSON isn't cut.
+        thinkingConfig: { thinkingLevel: 'low' } },
     }),
   });
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
-  const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+  const data = await res.json() as {
+    candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
+    promptFeedback?: { blockReason?: string };
+  };
+  const first = data.candidates?.[0];
+  // Anything but a normal stop (MAX_TOKENS, SAFETY, …) means the JSON may be cut: the note shows the reason.
+  const finish = first?.finishReason ?? (data.promptFeedback?.blockReason ? `BLOCKED_${data.promptFeedback.blockReason}` : 'NO_CANDIDATE');
+  if (finish !== 'STOP') throw new Error(finish);
+  const text = first?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? '').join('') ?? '';
   return JSON.parse(text);
 }
 

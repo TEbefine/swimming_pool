@@ -69,19 +69,36 @@ export function parseNewsDoc(doc: unknown, now: Date = new Date()): Partial<Reco
 
 let cache: { date: string; news: Partial<Record<NewsNpc, NpcNews>> } | null = null;
 let loading: Promise<void> | null = null;
+let lastReadAt = -Infinity;
 
-/** Called when the town loads. Reads the doc at most once per session; never throws. */
-export function loadAiNewsOnce(): Promise<void> {
+/** No news yet (or the news isn't today's)? Read again, but at most once per 10 minutes. */
+export const NEWS_RETRY_MS = 10 * 60_000;
+
+function hasTodaysNews(now: Date): boolean {
+  return !!cache && cache.date === bangkokDate(now) && Object.keys(cache.news).length > 0;
+}
+
+/**
+ * Called when the town loads and when a news NPC is talked to. Never throws, never polls:
+ * - today's news already cached → no read (one read per session when news is found);
+ * - otherwise one read, then at most one more every 10 minutes (e.g. UPDATE NOW was pressed later).
+ */
+export function loadAiNewsOnce(now: Date = new Date()): Promise<void> {
   if (loading) return loading;
+  if (hasTodaysNews(now) || now.getTime() - lastReadAt < NEWS_RETRY_MS) return Promise.resolve();
+  lastReadAt = now.getTime();
   loading = (async () => {
     try {
       const res = await fetch(DOC_URL, { signal: AbortSignal.timeout(6000), cache: 'no-store' });
       if (!res.ok) throw new Error(String(res.status));
       const json = await res.json() as { fields?: Record<string, FsValue> };
       const doc = fromFirestore({ mapValue: { fields: json.fields ?? {} } });
-      cache = { date: bangkokDate(), news: parseNewsDoc(doc) };
+      cache = { date: bangkokDate(now), news: parseNewsDoc(doc, now) };
     } catch {
-      cache = { date: bangkokDate(), news: {} };
+      // Keep news we already have; a failed retry must not wipe it.
+      if (!hasTodaysNews(now)) cache = { date: bangkokDate(now), news: {} };
+    } finally {
+      loading = null;
     }
   })();
   return loading;
@@ -93,10 +110,11 @@ export function newsFor(npc: string, now: Date = new Date()): NpcNews | null {
   return cache.news[npc as NewsNpc] ?? null;
 }
 
-/** Test hook. */
+/** Test hook: set the cache (null = forget everything, including the last read time). */
 export function setAiNewsCache(news: Partial<Record<NewsNpc, NpcNews>> | null, now: Date = new Date()): void {
   cache = news ? { date: bangkokDate(now), news } : null;
-  loading = news ? Promise.resolve() : null;
+  loading = null;
+  lastReadAt = news ? now.getTime() : -Infinity;
 }
 
 export const NEWS_MENU: DialogChoice[] = [
@@ -110,7 +128,11 @@ export const NEWS_MENU: DialogChoice[] = [
 export function withAiNews(npcId: string, script: DialogScript, now: Date = new Date()): DialogScript {
   if (!(NEWS_NPCS as readonly string[]).includes(npcId)) return script;
   const n = newsFor(npcId, now);
-  if (!n || !n.source) return script;
+  if (!n || !n.source) {
+    // Quiet for this talk; if there's no news for today at all, check again (throttled) for the next talk.
+    void loadAiNewsOnce(now);
+    return script;
+  }
   const date = shortDate(n.source.publishedAt);
   const nodes: Record<string, DialogNode> = {
     ...script.nodes,

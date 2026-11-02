@@ -105,6 +105,13 @@ test('Gemini output is checked in code', () => {
   assert.equal(v.mini, good.mini);
   assert.equal(compose.validateOutput({ hasNews: false }, items), 'quiet');
   assert.equal(compose.validateOutput({ ...good, url: 'https://blog.google/made-up/' }, items), null, 'url must be an input url');
+  // Same article with www / no trailing slash / query is accepted; the source keeps the item's real url.
+  for (const variant of ['https://www.blog.google/technology/google-deepmind/gemini-4-flash', 'https://blog.google/technology/google-deepmind/gemini-4-flash/?utm=x', ' https://BLOG.google/technology/google-deepmind/gemini-4-flash/ ']) {
+    const v2 = compose.validateOutput({ ...good, url: variant }, items);
+    assert.ok(v2, variant);
+    assert.equal(v2.source.url, 'https://blog.google/technology/google-deepmind/gemini-4-flash/');
+  }
+  assert.equal(compose.validateOutput({ ...good, url: 'https://blog.google/technology/google-deepmind/gemini-4' }, items), null, 'a different path is not the same article');
   assert.equal(compose.validateOutput({ ...good, hook: 'x'.repeat(49) }, items), null, 'hook ≤ 48');
   assert.equal(compose.validateOutput({ ...good, more: ['a', 'b', 'c'] }, items), null, '≤ 2 pages');
   assert.equal(compose.validateOutput({ ...good, more: ['One page here.', 'Two pages here.'] }, items), null, 'more + mini ≤ 2 pages');
@@ -117,9 +124,12 @@ test('Gemini output is checked in code', () => {
 
 test('template fallback skips company business', () => {
   const t = compose.templateNews('tycoon', items);
-  assert.equal(t.hook, 'Fresh from Google today!');
+  assert.equal(t.hook, 'Hot news from Google, young friend!');
   assert.deepEqual(t.more, ['Gemini 4 Flash: our fastest model yet']);
   assert.equal(t.usedTemplate, true);
+  assert.equal(compose.templateNews('nova', items).hook, 'OpenAI dropped something new.');
+  assert.equal(compose.templateNews('clara', items).hook, 'Anthropic shared something new.');
+  for (const npc of ['tycoon', 'nova', 'clara']) assert.ok(shape.fitsRows(compose.templateNews(npc, items).hook), npc);
   assert.equal(compose.templateNews('tycoon', [items[2]]), null, 'office news is not worth telling');
   assert.ok(shape.fitsPage(compose.templateNews('nova', items).hook));
   assert.match(compose.buildPrompt('nova', items), /never "We launched/);
@@ -133,7 +143,7 @@ const FIXTURE_BY_URL = {
   'https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml': 'anthropic-olshansk.xml',
   'https://www.anthropic.com/news': 'anthropic-news.html',
 };
-function fakeFetch({ gemini, failAnthropicRss = false } = {}) {
+function fakeFetch({ gemini, failAnthropicRss = false, finishReason = 'STOP' } = {}) {
   const calls = [];
   const f = async (url, init = {}) => {
     calls.push(url);
@@ -141,10 +151,12 @@ function fakeFetch({ gemini, failAnthropicRss = false } = {}) {
       assert.ok(init.headers['x-goog-api-key']);
       const body = JSON.parse(init.body);
       assert.equal(body.generationConfig.responseMimeType, 'application/json');
+      assert.equal(body.generationConfig.maxOutputTokens, 4096);
+      assert.deepEqual(body.generationConfig.thinkingConfig, { thinkingLevel: 'low' });
       const prompt = body.contents[0].parts[0].text;
       const out = gemini(prompt);
       if (out instanceof Error) throw out;
-      return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: typeof out === 'string' ? out : JSON.stringify(out) }] } }] }) };
+      return { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason, content: { parts: [{ text: 'thinking…', thought: true }, { text: typeof out === 'string' ? out : JSON.stringify(out) }] } }] }) };
     }
     if (url === 'https://deepmind.google/blog/rss.xml') { const e = new Error('timed out'); e.name = 'TimeoutError'; throw e; }
     if (failAnthropicRss && url.includes('Olshansk')) return { ok: false, status: 503, text: async () => '' };
@@ -252,7 +264,7 @@ test('job: production collections; Gemini failure → headline template; HTML fa
   assert.match(doc.status.anthropic.message, /Olshansk.*HTTP 503/);
   // Oct 29: only the Oct 27 Google post is fresh; Gemini failed → headline template
   assert.equal(doc.npcs.tycoon.usedTemplate, true);
-  assert.equal(doc.npcs.tycoon.hook, 'Fresh from Google today!');
+  assert.equal(doc.npcs.tycoon.hook, 'Hot news from Google, young friend!');
   assert.deepEqual(doc.npcs.tycoon.more, ['An old post']);
   assert.match(summary.npcs.tycoon.note, /bad JSON/);
   // Anthropic Oct 28 post is fresh; Gemini failed → template, but "AI for Science expands…" is research → quiet
@@ -267,12 +279,26 @@ test('job: Gemini invalid output → template from headline', async () => {
   await handler.runAiNews({ env: { GEMINI_API_KEY: 'g' }, store: mem.store, fetcher: fakeFetch({ gemini: bad }), now: () => NOW });
   const t = mem.db.aiNewsTest.today.npcs.tycoon;
   assert.equal(t.usedTemplate, true);
-  assert.equal(t.hook, 'Fresh from Google today!');
+  assert.equal(t.hook, 'Hot news from Google, young friend!');
   assert.deepEqual(t.more, ['Gemini 4 Flash: our fastest model yet']);
   const n = mem.db.aiNewsTest.today.npcs.nova;
   assert.equal(n.usedTemplate, true);
-  assert.equal(n.hook, 'Fresh from OpenAI today!');
+  assert.equal(n.hook, 'OpenAI dropped something new.');
   assert.deepEqual(n.more, ['Introducing GPT-6 mini']);
+});
+
+test('job: finishReason other than STOP → template, note names the reason', async () => {
+  const mem = memoryStore();
+  const summary = await handler.runAiNews({ env: { GEMINI_API_KEY: 'g' }, store: mem.store, fetcher: fakeFetch({ gemini: () => '{"hasNews": tr', finishReason: 'MAX_TOKENS' }), now: () => NOW });
+  assert.equal(summary.npcs.tycoon.note, 'template (MAX_TOKENS)');
+  assert.equal(summary.npcs.tycoon.usedTemplate, true);
+  assert.equal(summary.npcs.nova.note, 'template (MAX_TOKENS)');
+  // No candidate at all (prompt blocked) is also reported.
+  const blocked = async (url, init) => url.startsWith('https://generativelanguage')
+    ? { ok: true, status: 200, json: async () => ({ promptFeedback: { blockReason: 'SAFETY' } }) }
+    : fakeFetch({ gemini: () => good })(url, init);
+  const s2 = await handler.runAiNews({ env: { GEMINI_API_KEY: 'g' }, store: memoryStore().store, fetcher: blocked, now: () => NOW });
+  assert.equal(s2.npcs.tycoon.note, 'template (BLOCKED_SAFETY)');
 });
 
 // ---- game side ----
@@ -305,8 +331,11 @@ test('client: dialog — news day menu and quiet day fallback', async () => {
   assert.equal(dialogues.nova.nodes.news.lines[2].text, '{promptTrick}');
   assert.equal(dialogues.envoy.nodes.greet.choices[0].next, 'news', 'Envoy unchanged');
 
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
   client.setAiNewsCache(null);
   assert.equal(client.withAiNews('tycoon', dialogues.tycoon, NOW), dialogues.tycoon, 'not loaded → quiet day');
+  await client.loadAiNewsOnce(NOW);
   const n = compose.validateOutput(good, items);
   client.setAiNewsCache({ tycoon: n }, NOW);
   const s = client.withAiNews('tycoon', dialogues.tycoon, NOW);
@@ -320,5 +349,60 @@ test('client: dialog — news day menu and quiet day fallback', async () => {
   assert.equal(client.withAiNews('envoy', dialogues.envoy, NOW), dialogues.envoy);
   assert.equal(client.withAiNews('tycoon', dialogues.tycoon, new Date('2026-11-02T18:00:00Z')), dialogues.tycoon, 'after Bangkok midnight → quiet');
   assert.equal(dialogues.tycoon.nodes.news.lines[0].text, 'Quiet day at Google, young friend.', 'base script not mutated');
+  await client.loadAiNewsOnce(new Date('2026-11-02T18:00:00Z'));
   client.setAiNewsCache(null);
+  globalThis.fetch = realFetch;
+});
+
+test('client: no news → re-read at most once per 10 minutes; news found → no more reads', async () => {
+  const { dialogues } = await import('../src/game/content/dialogues.ts');
+  const realFetch = globalThis.fetch;
+  const docJson = (withNews) => ({ fields: {
+    date: { stringValue: '2026-11-02' },
+    npcs: { mapValue: { fields: withNews ? { tycoon: { mapValue: { fields: {
+      hasNews: { booleanValue: true }, hook: { stringValue: 'Gold news, young friend!' },
+      more: { arrayValue: { values: [{ stringValue: 'More.' }] } }, why: { arrayValue: { values: [{ stringValue: 'Why.' }] } },
+      source: { mapValue: { fields: { url: { stringValue: 'https://blog.google/a/' }, domain: { stringValue: 'blog.google' }, title: { stringValue: 'A' }, publishedAt: { stringValue: '2026-11-02T01:00:00Z' } } } },
+    } } } } : {} } },
+  } });
+  let reads = 0;
+  let published = false;
+  globalThis.fetch = async (url) => {
+    assert.match(url, /firestore\.googleapis\.com\/v1\/projects\/lumen-bay\/databases\/\(default\)\/documents\/aiNewsTest\/today$/);
+    reads++;
+    return { ok: true, status: 200, json: async () => docJson(published) };
+  };
+  try {
+    client.setAiNewsCache(null);
+    const t0 = NOW.getTime();
+    const at = (min) => new Date(t0 + min * 60_000);
+    await client.loadAiNewsOnce(at(0)); // town load
+    assert.equal(reads, 1);
+    published = true; // UPDATE NOW pressed after the town loaded
+    // Talks within 10 minutes: quiet, no extra reads.
+    assert.equal(client.withAiNews('tycoon', dialogues.tycoon, at(1)), dialogues.tycoon);
+    await client.loadAiNewsOnce(at(9));
+    assert.equal(reads, 1);
+    // First talk after 10 minutes: still quiet for THIS talk, but it starts one read...
+    assert.equal(client.withAiNews('tycoon', dialogues.tycoon, at(11)), dialogues.tycoon);
+    assert.equal(client.withAiNews('tycoon', dialogues.tycoon, at(11)), dialogues.tycoon, 'in-flight read is shared');
+    await client.loadAiNewsOnce(at(11));
+    assert.equal(reads, 2);
+    // ...and the next talk shows the news.
+    assert.equal(client.withAiNews('tycoon', dialogues.tycoon, at(12)).nodes.news.lines[0].text, 'Gold news, young friend!');
+    // News found: quiet NPCs never trigger more reads, even much later the same day.
+    assert.equal(client.withAiNews('nova', dialogues.nova, at(60)), dialogues.nova);
+    await client.loadAiNewsOnce(at(120));
+    assert.equal(reads, 2);
+    // A failed retry after midnight doesn't throw; the old day's news is not shown.
+    globalThis.fetch = async () => { reads++; throw new Error('offline'); };
+    const tomorrow = new Date('2026-11-02T18:00:00Z');
+    assert.equal(client.withAiNews('tycoon', dialogues.tycoon, tomorrow), dialogues.tycoon);
+    await client.loadAiNewsOnce(tomorrow);
+    assert.equal(reads, 3);
+    assert.equal(client.newsFor('tycoon', tomorrow), null);
+  } finally {
+    client.setAiNewsCache(null);
+    globalThis.fetch = realFetch;
+  }
 });

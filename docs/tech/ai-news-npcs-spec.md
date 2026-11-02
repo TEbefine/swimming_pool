@@ -101,3 +101,14 @@ Decisions worth knowing:
 - Collection choice is fixed at build time from Vercel's `VERCEL_ENV` (vite.config.ts `AI_NEWS_COLLECTION`), not from the URL.
 - The game reads the doc when the town room loads; if the player talks before it arrives, it's a quiet day for that talk.
   After Bangkok midnight in a long session the cached news stops counting as today's.
+
+### Phase 1 follow-up
+- Gemini call: `maxOutputTokens` 4096 and `thinkingConfig: { thinkingLevel: 'low' }` (Gemini 3 counts thinking tokens
+  inside the output limit). Any `finishReason` other than `STOP` (or a blocked prompt) falls back to the template and
+  the admin note shows the reason, e.g. "template (MAX_TOKENS)".
+- Template hooks are in character: Ledger "Hot news from Google, young friend!", Nova "OpenAI dropped something new.",
+  Clara "Anthropic shared something new."
+- Gemini's url is accepted when it is the same article as an input item after normalizing (www, trailing slash, query,
+  case); the source always stores the item's real url.
+- Game: if there is no news for today in the cache, talking to a news NPC starts one more read of the doc, at most once
+  every 10 minutes. That talk is still quiet; the next one shows the news. Once news is found, no more reads that day.
