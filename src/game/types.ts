@@ -1,3 +1,5 @@
+import type { GrassZoneDef } from './world/grassField';
+
 export type PlayerState = 'land' | 'water';
 
 export type LandAction = 
@@ -134,6 +136,8 @@ export interface RoomDefinition {
   npcs?: NpcDef[];
   interactables?: Interactable[];
   elements?: ElementDef[];
+  /** Tall grass planted in code (world/grassField.ts): sways, bends when walked through, random animals. */
+  grass?: GrassZoneDef[];
   actorScale?: number;
   /** What the player wears here: sprites in public/sprites/outfits/<outfit>/ ('swim' = the base swimsuit art). */
   outfit: 'swim' | 'cafe' | 'pajamas' | 'town' | 'dalbit' | 'jinbei' | 'angler';

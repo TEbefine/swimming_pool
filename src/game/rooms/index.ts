@@ -11,6 +11,7 @@ import { dalbitMarketRoom } from './dalbitMarket';
 import { lakePierRoom } from './lakePier';
 import { arrivalHallRoom } from './arrivalHall';
 import { fishShopRoom } from './fishShop';
+import { woodsRoom } from './woods';
 
 export const rooms: Record<string, RoomDefinition> = {
   town: townRoom,
@@ -25,6 +26,7 @@ export const rooms: Record<string, RoomDefinition> = {
   lake_pier: lakePierRoom,
   arrival_hall: arrivalHallRoom,
   fish_shop: fishShopRoom, // ECO-04: open to everyone (the server decides if Gen is trading today)
+  woods_1: woodsRoom, // tall grass + random animal encounters (WOODS-01)
 };
 
 /** All room IDs in display order for the scene selector. */
