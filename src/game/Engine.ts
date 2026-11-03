@@ -422,6 +422,16 @@ export class GameEngine {
   private lightsCanvas: HTMLCanvasElement | null = null;
   private lightsKey = '';
   private shadowCache = new Map<string, HTMLCanvasElement>();
+  /** iPhone Safari can silently empty decoded images (ImageBitmaps) when it runs short of graphics
+   *  memory — e.g. while a big photo portrait is on screen. They still "exist" but draw nothing, so
+   *  the room goes black behind the talk box. One known-solid pixel of the room painting is checked
+   *  now and then; if it reads back empty, every image is decoded again. */
+  private artProbe: { img: Sprite; x: number; y: number } | null = null;
+  private artProbeCanvas: CanvasRenderingContext2D | null = null;
+  private nextArtCheckAt = 0;
+  private lastArtRecoverAt = -Infinity;
+  private artRecovering = false;
+  private renderErrorLogged = false;
   private chatTimeout: number | null = null;
   private running: boolean = false;
   private identityPaused = false;
@@ -887,6 +897,7 @@ export class GameEngine {
     releaseSprite(this.bgImage);
     this.bgImage = null;
     this.openArea = null;
+    this.artProbe = null;
     this.lightsKey = '';
     this.lastRenderAt = 0;
     this.throttle.reset(performance.now());
@@ -903,7 +914,7 @@ export class GameEngine {
     jobs.push(this.imageLoader.load(room.backgroundImage, signal).then((img) => {
       if (signal.aborted) { releaseSprite(img); return; }
       this.bgImage = img;
-      this.measureOpenArea(img);
+      this.inspectBackground(img);
     }));
     jobs.push((async () => {
       // The shared manifest contains both land and water dictionaries.
@@ -1030,6 +1041,8 @@ export class GameEngine {
     this.heartbeatId = null;
     if (document.hidden || !this.running || this.identityPaused) return;
     this.startHeartbeat();
+    // Coming back from the background (or the Home Screen): Safari may have dropped decoded images.
+    this.nextArtCheckAt = performance.now() + 500;
     // Never replay time spent in the background or create multiple frame loops.
     this.frameBudget.reset(performance.now());
     this.throttle.reset(performance.now());
@@ -1764,7 +1777,18 @@ export class GameEngine {
       }
     }
     this.updateCameraAndView(dt);
-    this.render();
+    this.checkArt(workStart);
+    try {
+      this.render();
+    } catch (e) {
+      // One bad image must never stop the game loop (the screen would freeze on a half frame).
+      // Reset the drawing state (an unfinished save()/clip would otherwise stick to every next frame).
+      const w = this.canvas.width;
+      this.canvas.width = 0;
+      this.canvas.width = w;
+      if (!this.renderErrorLogged) { console.error('[render] frame failed:', e); this.renderErrorLogged = true; }
+      this.nextArtCheckAt = 0;
+    }
 
     const workEnd = performance.now();
     const work = workEnd - workStart;
@@ -2482,10 +2506,12 @@ export class GameEngine {
     return { canvas: this.lightsCanvas, x: x0, y: y0 };
   }
 
-  /** Find the see-through part of the room painting once, when it loads. */
-  private measureOpenArea(img: Sprite | null) {
+  /** When the room painting loads, read it once: find its see-through part (windows / open sky)
+   *  and remember one solid pixel for the lost-art check. */
+  private inspectBackground(img: Sprite | null) {
     this.openArea = null;
-    if (!img || !this.room.view) return;
+    this.artProbe = null;
+    if (!img) return;
     try {
       const w = Math.min(img.width, 1024);
       const h = Math.min(img.height, 576);
@@ -2494,15 +2520,97 @@ export class GameEngine {
       c.height = h;
       const g = c.getContext('2d', { willReadFrequently: true })!;
       g.drawImage(img, 0, 0, w, h);
-      const area = findOpenArea(g.getImageData(0, 0, w, h).data, w, h);
-      const kx = WORLD_W / w;
-      const ky = WORLD_H / h;
-      this.openArea = area
-        ? { x: Math.floor(area.x * kx), y: Math.floor(area.y * ky), w: Math.ceil(area.w * kx), h: Math.ceil(area.h * ky) }
-        : { x: 0, y: 0, w: 0, h: 0 };
+      const data = g.getImageData(0, 0, w, h).data;
+      if (this.room.view) {
+        const area = findOpenArea(data, w, h);
+        const kx = WORLD_W / w;
+        const ky = WORLD_H / h;
+        this.openArea = area
+          ? { x: Math.floor(area.x * kx), y: Math.floor(area.y * ky), w: Math.ceil(area.w * kx), h: Math.ceil(area.h * ky) }
+          : { x: 0, y: 0, w: 0, h: 0 };
+      }
+      // A fully solid pixel inside a solid 3×3 patch, searched from the lower middle outwards
+      // (the floor is never see-through), so scaling can't blur it against a window.
+      const solid = (x: number, y: number) => {
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if (data[((y + dy) * w + (x + dx)) * 4 + 3] !== 255) return false;
+        }
+        return true;
+      };
+      search: for (let y = Math.floor(h * 0.8); y > 1; y -= 7) {
+        for (let x = Math.floor(w / 2), step = 0; x > 1 && x < w - 2; step++, x += (step % 2 ? step : -step) * 5) {
+          if (solid(x, y)) {
+            this.artProbe = { img, x: Math.round(x * img.width / w), y: Math.round(y * img.height / h) };
+            break search;
+          }
+        }
+      }
       c.width = c.height = 0;
     } catch {
       this.openArea = null; // unreadable: draw the whole sky as before
+    }
+    this.nextArtCheckAt = performance.now() + 1500;
+  }
+
+  /** True when the room painting has gone blank (its known-solid pixel reads back empty). */
+  private isArtLost(): boolean {
+    const probe = this.artProbe;
+    if (!probe || probe.img !== this.bgImage) return false;
+    try {
+      if (!this.artProbeCanvas) {
+        const c = document.createElement('canvas');
+        c.width = c.height = 1;
+        this.artProbeCanvas = c.getContext('2d', { willReadFrequently: true });
+        if (!this.artProbeCanvas) return false;
+      }
+      const g = this.artProbeCanvas;
+      g.clearRect(0, 0, 1, 1);
+      g.drawImage(probe.img, probe.x, probe.y, 1, 1, 0, 0, 1, 1);
+      return g.getImageData(0, 0, 1, 1).data[3] < 128;
+    } catch {
+      return true; // a detached image throws when drawn: it is lost too
+    }
+  }
+
+  /** Check the art every few seconds (cheap: one pixel). Also called right after a talk opens/closes. */
+  private checkArt(now: number, force = false) {
+    if (!force && now < this.nextArtCheckAt) return;
+    this.nextArtCheckAt = now + 2500;
+    if (this.artRecovering || this.roomLoading || this.fadeDirection !== 'none' || !this.isAssetsLoaded) return;
+    if (!this.isArtLost()) return;
+    // Never spin: at most one rebuild every 4 seconds.
+    if (now - this.lastArtRecoverAt < 4000) return;
+    this.lastArtRecoverAt = now;
+    void this.recoverLostArt();
+  }
+
+  /** Decode every image of the current room again and redraw all cached bitmaps (sky, city,
+   *  lights, name tags, shadows). The room, NPCs, player and dialog state are untouched. */
+  private async recoverLostArt() {
+    if (this.destroyed || this.artRecovering) return;
+    console.warn('[art] room images went blank (graphics memory was reclaimed) — reloading them');
+    this.artRecovering = true;
+    try {
+      this.labels.clear();
+      this.promptLabel = null;
+      this.shadowCache.clear();
+      this.lightsCanvas = null;
+      this.lightsKey = '';
+      this.lastSkyRebuildMinute = -1;
+      this.lastCityRoomId = '';
+      releaseSprite(this.cityImage);
+      this.cityImage = null;
+      this.moverSprites.forEach(releaseSprite);
+      this.moverSprites.clear();
+      // loadAssets() keeps the shared land set; it may be blank too, so drop it as well.
+      for (const [key, img] of this.sprites) { releaseSprite(img); this.sprites.delete(key); }
+      await this.loadAssets();
+    } catch (e) {
+      console.error('[art] reload failed:', e);
+    } finally {
+      this.artRecovering = false;
+      this.lastActiveTime = performance.now();
+      this.nextArtCheckAt = performance.now() + 2500;
     }
   }
 
@@ -3260,6 +3368,9 @@ export class GameEngine {
   /** Freeze local movement (called when dialog opens). */
   public setDialogFrozen(frozen: boolean, npcId?: string) {
     this.dialogFrozen = frozen;
+    // Opening or closing a talk (big photo portrait) is when phones reclaim graphics memory:
+    // look at the room art again shortly after.
+    this.nextArtCheckAt = Math.min(this.nextArtCheckAt, performance.now() + 700);
     const targetNpcId = npcId ?? this.dialogNpcId;
     this.dialogNpcId = frozen ? (npcId ?? this.dialogNpcId) : null;
 
