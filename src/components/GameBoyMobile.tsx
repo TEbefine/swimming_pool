@@ -349,7 +349,7 @@ export const GameBoyMobile: React.FC<GameBoyMobileProps> = ({
     <div
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
-      className={`relative w-full h-[100dvh] max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none gameboy-body border-x-4 border-t-4 border-b-8 border-[var(--gb-edge)] shadow-2xl ${identityControls ? 'identity-shell' : ''}`}
+      className={`relative w-full h-[100dvh] max-w-md mx-auto flex flex-col justify-between overflow-hidden select-none gameboy-body border-x-4 border-t-0 sm:border-t-4 border-b-8 border-[var(--gb-edge)] shadow-2xl ${identityControls ? 'identity-shell' : ''}`}
       style={{
         WebkitTouchCallout: 'none',
         WebkitUserSelect: 'none',
