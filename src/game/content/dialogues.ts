@@ -33,6 +33,8 @@ export interface DialogChoice {
   label: string;
   /** Target node id. */
   next: string;
+  /** Also open this link in a new tab (AI News "SOURCE"). */
+  href?: string;
 }
 
 /** A single node in a dialog graph. */
@@ -279,19 +281,20 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'I own half of it, you know. The other half owns my heart.', pose: 'talk', face: 'neutral' },
         ],
         choices: [
-          { label: 'AI tip', next: 'tip' },
+          { label: 'AI NEWS', next: 'news' },
           { label: 'Your secret?', next: 'secret' },
           { label: 'Bye', next: 'bye' },
         ],
       },
-      tip: {
+      // AI NEWS on a quiet day (aiNewsNpcs.ts replaces this node when today's Google news is in).
+      news: {
         lines: [
-          { text: 'Ah, today\'s AI news. Let me see...', pose: 'thinking', face: 'thinking' },
+          { text: 'Quiet day at Google, young friend.', pose: 'thinking', face: 'thinking' },
+          { text: 'So here\'s a tip worth gold!', pose: 'happy', face: 'grin' },
           { text: '{aiTip}', pose: 'talk', face: 'explain' },
-          { text: 'A good question is worth more than gold!', pose: 'happy', face: 'grin' },
         ],
         choices: [
-          { label: 'AI tip', next: 'tip' },
+          { label: 'AI NEWS', next: 'news' },
           { label: 'Your secret?', next: 'secret' },
           { label: 'Bye', next: 'bye' },
         ],
@@ -302,7 +305,7 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Knowledge grows like interest. Start small, start today.', pose: 'talk', face: 'explain' },
         ],
         choices: [
-          { label: 'AI tip', next: 'tip' },
+          { label: 'AI NEWS', next: 'news' },
           { label: 'Bye', next: 'bye' },
         ],
       },
@@ -326,19 +329,20 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "I'm Nova. I know every trick for talking to AI.", pose: 'idle', face: 'neutral' },
         ],
         choices: [
-          { label: 'Prompt trick', next: 'trick' },
+          { label: 'AI NEWS', next: 'news' },
           { label: 'Why the shades?', next: 'shades' },
           { label: 'Bye', next: 'bye' },
         ],
       },
-      trick: {
+      // AI NEWS on a quiet day (aiNewsNpcs.ts replaces this node when today's OpenAI news is in).
+      news: {
         lines: [
-          { text: "Okay, today's trick. Don't tell the old man.", pose: 'thinking', face: 'thinking' },
+          { text: 'Nothing new from OpenAI today.', pose: 'thinking', face: 'thinking' },
+          { text: 'Lucky you. Prompt trick time.', pose: 'happy', face: 'grin' },
           { text: '{promptTrick}', pose: 'talk', face: 'explain' },
-          { text: 'Try it once today. You\'ll see.', pose: 'happy', face: 'grin' },
         ],
         choices: [
-          { label: 'Prompt trick', next: 'trick' },
+          { label: 'AI NEWS', next: 'news' },
           { label: 'Why the shades?', next: 'shades' },
           { label: 'Bye', next: 'bye' },
         ],
@@ -349,7 +353,7 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "Real secret: I don't. I just ask better questions.", pose: 'talk', face: 'explain' },
         ],
         choices: [
-          { label: 'Prompt trick', next: 'trick' },
+          { label: 'AI NEWS', next: 'news' },
           { label: 'Bye', next: 'bye' },
         ],
       },
@@ -373,19 +377,20 @@ export const dialogues: Record<string, DialogScript> = {
           { text: "I'm Clara. I love helping people think things through.", pose: 'idle', face: 'neutral' },
         ],
         choices: [
-          { label: 'Thinking habit', next: 'habit' },
+          { label: 'AI NEWS', next: 'news' },
           { label: "What's the book?", next: 'book' },
           { label: 'Bye', next: 'bye' },
         ],
       },
-      habit: {
+      // AI NEWS on a quiet day (aiNewsNpcs.ts replaces this node when today's Anthropic news is in).
+      news: {
         lines: [
-          { text: "Let me think... here's one I like.", pose: 'thinking', face: 'thinking' },
+          { text: 'No new posts from Anthropic yet.', pose: 'thinking', face: 'thinking' },
+          { text: 'Shall I share a thinking habit?', pose: 'happy', face: 'idea' },
           { text: '{thinkingHabit}', pose: 'talk', face: 'explain' },
-          { text: "AI is a great helper. But the thinking? That part is yours.", pose: 'happy', face: 'idea' },
         ],
         choices: [
-          { label: 'Thinking habit', next: 'habit' },
+          { label: 'AI NEWS', next: 'news' },
           { label: "What's the book?", next: 'book' },
           { label: 'Bye', next: 'bye' },
         ],
@@ -396,7 +401,7 @@ export const dialogues: Record<string, DialogScript> = {
           { text: 'Small notes, every day. They add up, you know?', pose: 'happy', face: 'smile' },
         ],
         choices: [
-          { label: 'Thinking habit', next: 'habit' },
+          { label: 'AI NEWS', next: 'news' },
           { label: 'Bye', next: 'bye' },
         ],
       },

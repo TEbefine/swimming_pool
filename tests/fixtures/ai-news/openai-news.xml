@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>OpenAI News</title>
+    <link>https://openai.com/news</link>
+    <item>
+      <title><![CDATA[Introducing GPT-6 mini]]></title>
+      <link>https://openai.com/index/introducing-gpt-6-mini/</link>
+      <description><![CDATA[GPT-6 mini is now available in ChatGPT for all users.]]></description>
+      <category>Product</category>
+      <pubDate>Mon, 02 Nov 2026 01:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title><![CDATA[OpenAI raises new funding]]></title>
+      <link>https://openai.com/index/new-funding/</link>
+      <description><![CDATA[Company business.]]></description>
+      <pubDate>Sun, 01 Nov 2026 12:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

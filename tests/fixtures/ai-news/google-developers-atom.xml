@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Google Developers Blog</title>
+  <link href="https://developers.googleblog.com/" rel="alternate"/>
+  <entry>
+    <title type="html">Try the new Gemini API &amp;quot;Live&amp;quot; mode</title>
+    <link href="https://developers.googleblog.com/en/gemini-api-live-mode/" rel="alternate"/>
+    <link href="https://developers.googleblog.com/feeds/123/comments" rel="replies"/>
+    <id>tag:developers.googleblog.com,2026:live-mode</id>
+    <published>2026-11-01T20:00:00Z</published>
+    <updated>2026-11-01T21:00:00Z</updated>
+    <summary type="html">&lt;p&gt;Developers can try Live mode today.&lt;/p&gt;</summary>
+  </entry>
+</feed>

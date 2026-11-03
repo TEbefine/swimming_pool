@@ -91,6 +91,12 @@ const CHARS_PER_SEC = 40;
 const PORTRAIT_REV = '2026-10-19';
 const TIP_LS_KEY = 'pixel_pool_tip_read';
 
+/** AI News "OPEN LINK": official https source in a new tab (the game keeps running here). */
+function openLink(href: string): void {
+  if (!/^https:\/\//.test(href)) return;
+  try { window.open(href, '_blank', 'noopener,noreferrer'); } catch { /* popup blocked: nothing to do */ }
+}
+
 /** Mark today's tip as read in localStorage. */
 function markTipRead(): void {
   try {
@@ -538,6 +544,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
 
     const choice = node.choices[choiceIndex];
     if (choice) {
+      if (choice.href) openLink(choice.href);
       goToNode(choice.next);
     }
   }, [showChoices, node, choiceIndex, goToNode]);
@@ -772,6 +779,7 @@ export const DialogBox: React.FC<DialogBoxProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   setChoiceIndex(idx);
+                  if (choice.href) openLink(choice.href);
                   goToNode(choice.next);
                 }}
                 style={{

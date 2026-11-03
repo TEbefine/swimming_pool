@@ -173,6 +173,21 @@ html, body {
 
 /* Classic Game Boy Handheld Styling */
 
+/* Phone: the area behind the iPhone status bar shows the page background, not the shell.
+   Paint it the colour of the shell's top band (--gb-ridge) so the bar and the device are
+   one surface — no navy band, no seam. Keep in sync with the theme-color tags in index.html.
+   Desktop (no handheld shell) keeps the dark backdrop. */
+html:has(.gameboy-body),
+html:has(.gameboy-body) body {
+  background-color: #cfcfc6;
+}
+@media (prefers-color-scheme: dark) {
+  html:has(.gameboy-body),
+  html:has(.gameboy-body) body {
+    background-color: #101114;
+  }
+}
+
 /* ---- Shell theme tokens ---------------------------------------------------
    Light = the classic DMG grey (unchanged). Dark = a "black edition" shell that
    follows the phone's system appearance, so the device blends into the iPhone

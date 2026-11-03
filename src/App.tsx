@@ -24,6 +24,7 @@ import { isStoryRoom, storyDialog, storyExitBlock, onStoryNode, onStoryRoomEnter
 import { TradePanel } from './components/TradePanel';
 import type { ItemId } from './game/story/items';
 import { dialogues } from './game/content/dialogues';
+import { loadAiNewsOnce, withAiNews } from './game/content/aiNewsNpcs';
 import type { DialogScript } from './game/content/dialogues';
 import { LoadingScene } from './components/LoadingScene';
 import { RoomTransition } from './components/roomTransition/RoomTransition';
@@ -68,6 +69,8 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
   // Room state stored in React state (runtime room travel)
   const [currentRoom, setCurrentRoom] = useState<RoomDefinition>(() => getRoomForToday());
+  // AI News NPCs live in town: read today's news doc once per session when the town loads (no polling).
+  useEffect(() => { if (currentRoom.roomId === 'town') void loadAiNewsOnce(); }, [currentRoom.roomId]);
 
   // Startup mode:
   // - Long absence (or first open ever): Game Boy is shut down ("PRESS START TO OPEN"),
@@ -213,8 +216,10 @@ export const App: React.FC<AppProps> = ({ devOverlay, onEngineReady, onOpenIdent
 
   /** Open a dialog with the given NPC without moving the player. */
   const openDialog = useCallback((npcId: string, scriptOverride?: DialogScript) => {
-    const script = scriptOverride ?? dialogues[npcId];
-    if (!script) return;
+    const base = scriptOverride ?? dialogues[npcId];
+    if (!base) return;
+    // Sir Ledger / Nova / Clara: today's AI news (read once on town load) or the quiet-day tip
+    const script = scriptOverride ? base : withAiNews(npcId, base);
     const engine = engineRef.current;
     if (!engine) return;
 
