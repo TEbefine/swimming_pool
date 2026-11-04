@@ -1,7 +1,7 @@
 {
   "id": "barista",
-  "displayName": null,
-  "role": "Caf\u00e9 host and keeper of the daily tip",
+  "displayName": "Pan",
+  "role": "Café host and keeper of the daily tip",
   "room": "cafe",
   "status": "identity-approved",
   "look": {
