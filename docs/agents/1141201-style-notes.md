@@ -15,3 +15,6 @@
 - Glamour or model poses for ordinary people.
 
 ## Notes
+- Common cards capture the moment with the best normal feeling; Pan's moment is her FIRST CUP SOLD, not just brewing. (2026-11-04)
+- Ground Pan's setting in Lumen Bay near today's café; check the café map, avoid generic cities and rooftops. (2026-11-04)
+- Catch the real moment, never a camera pose: Pan's eyes on the customer, nervous and happy. (2026-11-04)
