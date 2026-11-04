@@ -278,6 +278,7 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 6. **Test-only things never reach the real game**: test IDs, test saves, test badges/tools/hooks must be guarded (e.g. `import.meta.env.DEV`, `?test=`) so they have no effect and leave no trace in the production build — check the built bundle when adding one.
 
 ## Log
+- 2026-11-04 · Claude · AG-01: 1141201 simplified (Teera): `common card <npc>` → 3 ideas + Midjourney prompts at once, `improve` = ChatGPT detail fix, `note:` = style notes (docs/agents/1141201-style-notes.md), `done` = hand-off. Old Pan-only prompt removed.
 - 2026-11-04 · Claude · AG-01: Pan (barista) story LOCKED and saved (story.md, profile name, character.json displayName); Sun got Gemini proposals; Gemini story workbook added to docs/stories/; 1141201 Card Team rulebook + ChatGPT prompt for SAP-B002 The First Cup.
 - 2026-11-04 · Claude · AG-01 core: world.md (two layers), Spirit = Creator, Yunseul = Dalbit only; spirit story → draft.
 - 2026-11-04 · Claude · AG-01: started agent teams. 1141336 Story Team rulebook (docs/agents/), 24 NPC story files gathered from repo + claude.ai Project docs (docs/characters/<id>/story.md, status gathered), story index + Dalbit canon (docs/stories/). No code changed.

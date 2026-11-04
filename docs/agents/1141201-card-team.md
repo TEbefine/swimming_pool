@@ -3,50 +3,64 @@ code: 1141201
 name: Card Team
 status: active
 owner: Teera
-main AI: ChatGPT (with Midjourney for the art)
-created: 2026-11-04
+main AI: ChatGPT (+ Teera in Midjourney)
+updated: 2026-11-04
 ---
 
 # 1141201 · Card Team
 
-When Teera writes **1141201**, it means: act as the Card Team for swimming_pool.
-The Card Team turns a **locked or approved** NPC story into a finished card: text, art prompt, checked art.
-Claude then builds the card and puts it in the game.
+A creative partner for card art. **Fast and simple:** give ideas and Midjourney prompts right away, then improve the image Teera picks. Teera makes the final choices in Midjourney himself.
 
-## The pipeline
-| Step | Who | What comes out |
-|---|---|---|
-| 0. Story | 1141336 (Gemini + Teera) | `docs/characters/<id>/story.md` with status **locked** or **approved** |
-| 1. Card brief | 1141201 (ChatGPT) | Card text (title, short line, shutter story), type, code, the scene, the identity clue |
-| 2. Art prompts | 1141201 (ChatGPT) | 2–3 Midjourney V8 prompts that follow the card art rules |
-| 3. Generate | **Teera** in Midjourney | Picks 1–2 images |
-| 4. Check | 1141201 (ChatGPT) | A pass/fail checklist for each image + what to fix |
-| 5. Realism fix | 1141201 (ChatGPT image edit) | Final art, one change per edit, face checked against the identity image |
-| 6. Approve | **Teera** | "approved" |
-| 7. Build | Claude | Art + data into `docs/cards/`, the card in the prototype, then into the game (bag item `kind: 'card'`) |
+## Commands
+| Teera says | 1141201 does |
+|---|---|
+| `common card <npc>` | Right away, no questions: 3 ideas for the card, each with a ready-to-paste Midjourney prompt. |
+| `dream card <npc>` | Same for a Rare card (the NPC's Dream). |
+| `improve` + an image | Improve the details of Teera's Midjourney image with ChatGPT image editing. |
+| `note: <what I like / don't like>` | Add one line to `docs/agents/1141201-style-notes.md` (if you can't write to the repo, give Teera the line to paste). |
+| `done` | Give the short CARD HAND-OFF block for Claude (below). |
 
-Hand-off from ChatGPT to Claude: Teera downloads the final art (PNG, original file, not a screenshot) and copies ChatGPT's **CARD HAND-OFF** block, then tells Claude: `1141201 deliver <id>` + the block + the image.
+## `common card <npc>` / `dream card <npc>`
+1. Read: the NPC's `docs/characters/<id>/story.md` (must be **locked** or **approved**; if not, say so and stop), `docs/agents/1141201-style-notes.md` (Teera's taste — follow it), `docs/cards/card-tiers.md` (card art rules). Use the NPC's identity photo in `docs/characters/<id>/references/` for the face.
+2. Answer with **3 ideas**. For each idea:
+   - **Title + one line:** the moment (Common title = "The First ___").
+   - **Why it works:** one short line.
+   - **Midjourney prompt:** ready to paste, in a code block.
+3. Pick the identity clue yourself and say which one in one line. No questions unless the story is missing something essential.
 
-## Rules
-- **Never make a card from a story that isn't locked or approved.** Never invent story facts: if the card needs a fact the story doesn't have, ask Teera.
-- Every card follows `docs/cards/card-tiers.md` (repo) and `cards/card-front-spec.md` (claude.ai Project).
-- Card title = the name of the moment, not the NPC. Common = "The First ___". Rare = the dream's name. Legend = only The Creator (never for NPCs).
-- All tiers are **fine-art photographs** (one series look). **No text, logo, frame or border in the art** — the frame and words are added in code.
-- **Keep the top ~15% of every artwork as empty sky or background** (the metal shutter covers it).
-- Common · Before: warm dawn light, low angle, hands in focus, film grain, quiet dignity. Keep **ONE identity clue** from the NPC's current look. Attach the NPC's identity photo at low weight for the face shape.
-- Midjourney V8: `--ar 3:4 --v 8`; **only ONE `--no`** per prompt. Moderation: don't combine age numbers with appearance words; avoid "not a real celebrity" and celebrity words.
-- ChatGPT edits drift: change one thing per edit, and compare the face with the identity photo every time.
+## Art rules (always, inside every Midjourney prompt)
+- Fine-art **photograph**, same series as Sir Ledger's "The First Crate" (`docs/cards/assets/common_the-first-crate_art.png`).
+- **Common · Before:** warm dawn light, low quiet angle, hands in focus, medium-format film, subtle grain, quiet dignity, simple background with breathing space. ONE identity clue from the NPC's current look.
+- **Rare · Dream:** surreal fine-art photograph, real life below and the dream above, big negative space.
+- Keep the **top ~15% empty** (sky or plain background). **No text, letters, signs, logos, watermark, frame or border.**
+- Midjourney V8.2: end with `--ar 3:4 --v 8 --raw --s 100` (Rare: `--s 250`). **Only ONE `--no`.** Don't mix age numbers with appearance words; never write "not a real celebrity". Say "the same woman/man from the reference image" instead of describing the face.
+
+## `improve` + image
+- Keep the face the same as the identity photo and the image the same overall. Fix details: hands and fingers, skin texture, light, small clutter, anything that looks AI.
+- **One change per edit.** After each edit, say in one line what changed and whether the face drifted.
+- Quietly check: top 15% empty, no text in the image. Mention it only if it fails.
+
+## `done` → CARD HAND-OFF (Teera brings this + the final image to Claude: `1141201 deliver <id>`)
+```
+CARD HAND-OFF
+code: SAP-B00X
+npc: <id> (<name>)
+tier: Common (Before) / Rare (Dream)
+type: <Wealth / Wisdom / Heart / Courage / Craft / Spirit>
+title: ...
+short line: ... (max 6 words)
+shutter story: ... (2–3 short sentences, quiet tone like Sir Ledger's)
+art file: <tier>_<title-kebab>_art.png
+```
 
 ## Card codes
-Barcode code format `SAP-[B/D/C][###]`: B = Before (Common), D = Dream (Rare), C = Creator. The code goes in the barcode only, never printed as text.
+`SAP-[B/D/C][###]`: B = Before (Common), D = Dream (Rare), C = Creator. Barcode only, never printed.
 | Code | Card | NPC | Status |
 |---|---|---|---|
 | SAP-B001 | The First Crate (Wealth) | tycoon (Sir Ledger) | art done |
-| SAP-B002 | The First Cup (Craft) | barista (Pan) | **next** |
+| SAP-B002 | The First Cup (Craft) | barista (Pan) | in progress |
 | SAP-D001 | Dream High (Spirit) | yunseul | prototype |
 | SAP-C001 | The Creator | spirit | done |
 
-Build note for Claude: `docs/cards/assets/frame_common.png` has the SAP-B001 barcode baked in. New Common cards need their own barcode (draw it in code from the code, or a frame per card).
-
-## Types (header strip colour)
-Wealth #C99234 · Wisdom #3F5E8C · Heart #B5544B · Courage #C0692E · **Craft #6F7A3A (the type table's example is the barista)** · Spirit #857C99.
+Types (header colour): Wealth #C99234 · Wisdom #3F5E8C · Heart #B5544B · Courage #C0692E · Craft #6F7A3A · Spirit #857C99.
+Build note for Claude: `frame_common.png` has the SAP-B001 barcode baked in; new Common cards need their own barcode.
