@@ -259,6 +259,13 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 ## W-01 · World
 - Lumen Bay plan, Dalbit market art. Docs: `docs/world/*`.
 
+## AG-01 · Agent teams (started 2026-11-04)
+- Teams are called by short codes; rulebooks live in `docs/agents/` so any AI can follow them.
+- **1141336 = Story Team** (active): keeps every NPC's story in `docs/characters/<id>/story.md`, index in `docs/stories/README.md`, Dalbit canon in `docs/stories/dalbit.md`. **Teera is the author**; the team keeps files, finds gaps, proposes ideas in a Proposals section, never decides canon.
+- **1141201 = Card Team** (planned): makes cards only from stories marked approved or locked.
+- Status ladder for stories: gathered → draft → approved → locked.
+- **Core (Teera, 2026-11-04): `docs/stories/world.md`.** Lumen Bay = the real world (talk, chat, real-world updates). Other worlds open through **the Creator = the Spirit NPC** (Teera's bridge to the worlds inside him; not a god, a creator to talk with; the app's forecaster). In story worlds the player is the main character; Dalbit (hero Yunseul) is just one world, unfinished.
+
 ---
 
 ## Rules for any AI
@@ -270,6 +277,8 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 6. **Test-only things never reach the real game**: test IDs, test saves, test badges/tools/hooks must be guarded (e.g. `import.meta.env.DEV`, `?test=`) so they have no effect and leave no trace in the production build — check the built bundle when adding one.
 
 ## Log
+- 2026-11-04 · Claude · AG-01 core: world.md (two layers), Spirit = Creator, Yunseul = Dalbit only; spirit story → draft.
+- 2026-11-04 · Claude · AG-01: started agent teams. 1141336 Story Team rulebook (docs/agents/), 24 NPC story files gathered from repo + claude.ai Project docs (docs/characters/<id>/story.md, status gathered), story index + Dalbit canon (docs/stories/). No code changed.
 - 2026-10-31 · Codex · ECO-04 stepA: merged updated main PR24 before building. Epoch1 lazy reset/old-Book repair/closing entry, epoch-bound new intents and exact historical Retry, cache invalidation/quarantined pending. Transactional runtime control +60s advisory load/deck cache; client gate unchanged.330 tests, TypeScript/build/four APIs and12 emulator tests pass. Hobby Standard Protection verified/documented, no account/settings/liveDB changes. Activation12UTC/19Bangkok date pending; no stepB/bump/main release. See docs/ai/ECO-04-stepA-review.md; push dev-test-id then stop.
 - 2026-10-30 · Codex · Free rods after04d1c3a: server-owned sequential0..3 upgrades at Gen600/1800/4500, KEY row/icons, per-cast20/24/27/30% net and .28 fill. Bamboo1920 non-rhythm sweeps pass;323 tests, tsc/build/four APIs and11 emulator tests pass. Casual model534/30min,1089/60min median supports600 first upgrade. No reset/main/sharedDB/release; phone review pending. See docs/ai/ECO-03-rods-review.md; push dev-test-id then stop.
 - 2026-10-30 · Codex · Pulled4f9fd27, implemented free-only iPhone rhythm fixes: falling taps lift, event-time yellow-zone gate, bonus from×2, fish/net beat cue, first3 teaching hints and bar-side Perfect pop. Primed gesture audio, bite deadline independent of draw frames, dev latency diagnostics; guarded input-time completion against duplicate catch.319 tests (polling for EMFILE), tsc/build/four APIs and10 emulator tests pass;1920 non-rhythm sweeps/Dalbit trace pass. No reset/sharedDB/main/release; iPhone retest pending, push dev-test-id and stop.
