@@ -263,7 +263,7 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 - Teams are called by short codes; rulebooks live in `docs/agents/` so any AI can follow them.
 - **1141336 = Story Team** (active): keeps every NPC's story in `docs/characters/<id>/story.md`, index in `docs/stories/README.md`, Dalbit canon in `docs/stories/dalbit.md`. **Teera is the author**; the team keeps files, finds gaps, proposes ideas in a Proposals section, never decides canon.
 - **1141201 = Card Team** (active 2026-11-04, ChatGPT + Midjourney): locked story → card text + MJ prompts → Teera generates → ChatGPT checks and fixes the art → hand-off block → Claude builds the card and puts it in the game. Rulebook `docs/agents/1141201-card-team.md`. Next card: **SAP-B002 "The First Cup" (Pan, Craft)**.
-- Story work: Gemini + Teera in `docs/stories/swimming_pool_npc_story_bible.xlsx`; Claude saves locked NPCs to `story.md` (the canon). **Pan (barista) LOCKED 2026-11-04.**
+- Story work: Gemini + Teera in the Google Sheet "swimming_pool NPC Story Bible" (https://docs.google.com/spreadsheets/d/1jAdmKQ00QnqzoicGAIOdjHNbk4lgxeJvOmuzfZcg4vs/edit); Claude saves locked NPCs to `story.md` (the canon). **Pan (barista) LOCKED 2026-11-04.**
 - Status ladder for stories: gathered → draft → approved → locked.
 - **Core (Teera, 2026-11-04): `docs/stories/world.md`.** Lumen Bay = the real world (talk, chat, real-world updates). Other worlds open through **the Creator = the Spirit NPC** (Teera's bridge to the worlds inside him; not a god, a creator to talk with; the app's forecaster). In story worlds the player is the main character; Dalbit (hero Yunseul) is just one world, unfinished.
 

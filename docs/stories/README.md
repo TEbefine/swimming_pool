@@ -11,8 +11,8 @@ Status ladder: gathered → draft → approved → locked.
 - locked = never change without Teera saying so.
 
 ## Where the truth lives
-- **Gemini works in the workbook** `swimming_pool_npc_story_bible.xlsx` (this folder). It's Teera's workspace with Gemini: drafts, A/B ideas, PROPOSED rows.
-- **The repo's `story.md` files are the canon.** When Teera locks an NPC in the workbook, he brings it to Claude with `1141336 save <id>`: Claude writes that NPC's `story.md` and replaces the workbook here with the newest copy.
+- **Gemini works in the Google Sheet [swimming_pool NPC Story Bible](https://docs.google.com/spreadsheets/d/1jAdmKQ00QnqzoicGAIOdjHNbk4lgxeJvOmuzfZcg4vs/edit)** in Teera's Google Drive (sheet id `1jAdmKQ00QnqzoicGAIOdjHNbk4lgxeJvOmuzfZcg4vs`). Tabs: `NPC Master Bible` (row 1 = headers, NPC ID in column B, Status in column E: LOCKED / PROPOSED / OPEN) and `World Rules & Card Guide`. It's Teera's workspace with Gemini: drafts, A/B ideas.
+- **The repo's `story.md` files are the canon.** When Teera locks an NPC in the workbook, he brings it to Claude with `1141336 save <id>`: Claude reads that row straight from the Sheet (Google Sheets connector), writes the NPC's `story.md`, and pushes. Nothing to upload.
 - If the workbook and a `story.md` ever disagree, **`story.md` wins** until Teera says otherwise.
 - 1141201 (Card Team) only makes cards from NPCs whose `story.md` says **approved** or **locked**.
 
@@ -62,3 +62,4 @@ Planned NPCs with no file yet: the town "mayor" (VAT board), Gu's men, Governor 
 - 2026-11-04 · Claude (1141336 first run): gathered canon for 24 NPCs from the repo docs and the claude.ai Project docs.
 - 2026-11-04 · Claude: Teera set the core — world.md (two layers), Spirit = Creator (forecaster, not a god), Yunseul = Dalbit only.
 - 2026-11-04 · Claude: saved Pan (barista) as LOCKED from the Gemini workbook; Sun got Gemini's proposals; workbook added to this folder.
+- 2026-11-04 · Claude: the story bible moved to Google Sheets (Gemini made it); the old .xlsx copy was removed from the repo.

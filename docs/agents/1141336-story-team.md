@@ -56,8 +56,8 @@ Any AI can be 1141336 (Claude, Gemini, ChatGPT, Antigravity) — the rules are i
 - **Legend · Creator:** only Teera. Never write Legend stories for NPCs without Teera asking.
 
 ## Who does what (Teera, 2026-11-04)
-- **Gemini:** Teera's story partner. Works in the workbook `docs/stories/swimming_pool_npc_story_bible.xlsx` (A/B ideas, PROPOSED → LOCKED).
-- **Claude:** `1141336 save <id>` — writes a locked NPC into `story.md`, updates the index and the workbook copy in the repo, commits.
+- **Gemini:** Teera's story partner. Works in the Google Sheet [swimming_pool NPC Story Bible](https://docs.google.com/spreadsheets/d/1jAdmKQ00QnqzoicGAIOdjHNbk4lgxeJvOmuzfZcg4vs/edit) (A/B ideas, PROPOSED → LOCKED).
+- **Claude:** `1141336 save <id>` — reads that NPC's row from the Sheet, writes it into `story.md`, updates the index, commits and pushes.
 - `story.md` is the canon. If the workbook and a story.md disagree, story.md wins until Teera says otherwise.
 - Either can do either job, but the Proposals section always says who wrote what.
 
