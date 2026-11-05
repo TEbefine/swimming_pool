@@ -262,7 +262,8 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 ## AG-01 · Agent teams (started 2026-11-04)
 - Teams are called by short codes; rulebooks live in `docs/agents/` so any AI can follow them.
 - **1141336 = Story Team** (active): keeps every NPC's story in `docs/characters/<id>/story.md`, index in `docs/stories/README.md`, Dalbit canon in `docs/stories/dalbit.md`. **Teera is the author**; the team keeps files, finds gaps, proposes ideas in a Proposals section, never decides canon.
-- **1141201 = Card Team** (planned): makes cards only from stories marked approved or locked.
+- **1141201 = Card Team** (active 2026-11-04, ChatGPT + Midjourney): locked story → card text + MJ prompts → Teera generates → ChatGPT checks and fixes the art → hand-off block → Claude builds the card and puts it in the game. Rulebook `docs/agents/1141201-card-team.md`. Next card: **SAP-B002 "The First Cup" (Pan, Craft)**.
+- Story work: Gemini + Teera in the Google Sheet "swimming_pool NPC Story Bible" (https://docs.google.com/spreadsheets/d/1jAdmKQ00QnqzoicGAIOdjHNbk4lgxeJvOmuzfZcg4vs/edit); Claude saves locked NPCs to `story.md` (the canon). **Pan (barista) LOCKED 2026-11-04.**
 - Status ladder for stories: gathered → draft → approved → locked.
 - **Core (Teera, 2026-11-04): `docs/stories/world.md`.** Lumen Bay = the real world (talk, chat, real-world updates). Other worlds open through **the Creator = the Spirit NPC** (Teera's bridge to the worlds inside him; not a god, a creator to talk with; the app's forecaster). In story worlds the player is the main character; Dalbit (hero Yunseul) is just one world, unfinished.
 
@@ -277,6 +278,8 @@ Files: `docs/cards/legend/` (live page `creator-orbit.html`, source template, ar
 6. **Test-only things never reach the real game**: test IDs, test saves, test badges/tools/hooks must be guarded (e.g. `import.meta.env.DEV`, `?test=`) so they have no effect and leave no trace in the production build — check the built bundle when adding one.
 
 ## Log
+- 2026-11-04 · Claude · AG-01: 1141201 simplified (Teera): `common card <npc>` → 3 ideas + Midjourney prompts at once, `improve` = ChatGPT detail fix, `note:` = style notes (docs/agents/1141201-style-notes.md), `done` = hand-off. Old Pan-only prompt removed.
+- 2026-11-04 · Claude · AG-01: Pan (barista) story LOCKED and saved (story.md, profile name, character.json displayName); Sun got Gemini proposals; Gemini story workbook added to docs/stories/; 1141201 Card Team rulebook + ChatGPT prompt for SAP-B002 The First Cup.
 - 2026-11-04 · Claude · AG-01 core: world.md (two layers), Spirit = Creator, Yunseul = Dalbit only; spirit story → draft.
 - 2026-11-04 · Claude · AG-01: started agent teams. 1141336 Story Team rulebook (docs/agents/), 24 NPC story files gathered from repo + claude.ai Project docs (docs/characters/<id>/story.md, status gathered), story index + Dalbit canon (docs/stories/). No code changed.
 - 2026-10-31 · Codex · ECO-04 stepA: merged updated main PR24 before building. Epoch1 lazy reset/old-Book repair/closing entry, epoch-bound new intents and exact historical Retry, cache invalidation/quarantined pending. Transactional runtime control +60s advisory load/deck cache; client gate unchanged.330 tests, TypeScript/build/four APIs and12 emulator tests pass. Hobby Standard Protection verified/documented, no account/settings/liveDB changes. Activation12UTC/19Bangkok date pending; no stepB/bump/main release. See docs/ai/ECO-04-stepA-review.md; push dev-test-id then stop.

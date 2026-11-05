@@ -10,6 +10,12 @@ Status ladder: gathered → draft → approved → locked.
 - approved = Teera says OK; 1141201 (Card Team) may use it.
 - locked = never change without Teera saying so.
 
+## Where the truth lives
+- **Gemini works in the Google Sheet [swimming_pool NPC Story Bible](https://docs.google.com/spreadsheets/d/1jAdmKQ00QnqzoicGAIOdjHNbk4lgxeJvOmuzfZcg4vs/edit)** in Teera's Google Drive (sheet id `1jAdmKQ00QnqzoicGAIOdjHNbk4lgxeJvOmuzfZcg4vs`). Tabs: `NPC Master Bible` (row 1 = headers, NPC ID in column B, Status in column E: LOCKED / PROPOSED / OPEN) and `World Rules & Card Guide`. It's Teera's workspace with Gemini: drafts, A/B ideas.
+- **The repo's `story.md` files are the canon.** When Teera locks an NPC in the workbook, he brings it to Claude with `1141336 save <id>`: Claude reads that row straight from the Sheet (Google Sheets connector), writes the NPC's `story.md`, and pushes. Nothing to upload.
+- If the workbook and a `story.md` ever disagree, **`story.md` wins** until Teera says otherwise.
+- 1141201 (Card Team) only makes cards from NPCs whose `story.md` says **approved** or **locked**.
+
 ## World files
 - **[world.md](world.md) — THE CORE: two layers (Lumen Bay = real world, other worlds through the Creator). Read first.**
 - [dalbit.md](dalbit.md) — The Heir of Dalbit (story world #1, behind the Spirit's door)
@@ -18,7 +24,7 @@ Status ladder: gathered → draft → approved → locked.
 ## NPCs (24)
 | id | Name | World | Status | Before card | Dream card | Gaps |
 |---|---|---|---|---|---|---|
-| [barista](../characters/barista/story.md) | Barista (name not decided) | Lumen Bay | gathered | idea | — | 5 |
+| [barista](../characters/barista/story.md) | **Pan** (ปัน) | Lumen Bay | **locked** | The First Cup | Coffee BAO on Top of the Sky | 0 |
 | [server](../characters/server/story.md) | Sun (nickname หมาเด็ก) | Lumen Bay | gathered | — | — | 4 |
 | [lifeguard](../characters/lifeguard/story.md) | Lifeguard (name not decided) | Lumen Bay | gathered | idea | — | 3 |
 | [dj](../characters/dj/story.md) | DJ (name not decided) | Lumen Bay | gathered | idea | — | 3 |
@@ -47,7 +53,7 @@ Not NPC stories: the player (the main character of every story world except Dalb
 Planned NPCs with no file yet: the town "mayor" (VAT board), Gu's men, Governor Yeom, Magistrate Nam (story-only, see dalbit.md).
 
 ## Biggest gaps across the cast
-1. **Names.** 9 Lumen Bay NPCs still have placeholder or missing names (barista, server confirm, lifeguard, DJ, Sir Ledger, Nova, Clara, Envoy, Spirit).
+1. **Names.** 8 Lumen Bay NPCs still have placeholder or missing names (server confirm, lifeguard, DJ, Sir Ledger, Nova, Clara, Envoy, Spirit).
 2. **Before stories.** Only Sir Ledger has a finished Common card. Seeds exist for the barista, lifeguard, DJ and Nagisa.
 3. **Yunseul's personality** is not written yet (he is Dalbit's hero only; Dalbit isn't finished).
 4. **Dream stories.** No NPC has a Dream written yet (Dream High exists as art only).
@@ -55,3 +61,5 @@ Planned NPCs with no file yet: the town "mayor" (VAT board), Gu's men, Governor 
 ## Updated
 - 2026-11-04 · Claude (1141336 first run): gathered canon for 24 NPCs from the repo docs and the claude.ai Project docs.
 - 2026-11-04 · Claude: Teera set the core — world.md (two layers), Spirit = Creator (forecaster, not a god), Yunseul = Dalbit only.
+- 2026-11-04 · Claude: saved Pan (barista) as LOCKED from the Gemini workbook; Sun got Gemini's proposals; workbook added to this folder.
+- 2026-11-04 · Claude: the story bible moved to Google Sheets (Gemini made it); the old .xlsx copy was removed from the repo.

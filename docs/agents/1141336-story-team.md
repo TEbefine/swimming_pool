@@ -46,15 +46,19 @@ Any AI can be 1141336 (Claude, Gemini, ChatGPT, Antigravity) — the rules are i
 - Every character is an **original**: never a real person, never a copy of another game's character. Credit inspirations openly.
 - Lumen Bay: players learn by doing, not by lectures; each NPC teaches one small thing; the town remembers through community memory, not saves.
 - English first; Thai when Teera asks.
+- Stories must make logical sense (real cause and effect) AND spark imagination (example: Pan's office burnout + coffee that lets you float in the sky).
+- Aim for the player's own memory: links that make players feel something from their own life.
+- Each NPC has a blind spot (their secret). The player helps them see a deeper truth that turns their solo dream into something shared (Pan: one-person menu → coffee for everyone, together).
 
 ## Card hooks (what 1141201 needs from a story)
 - **Common · Before:** the NPC's humble beginning — the work before they became who they are. One identity clue from their current look. Title pattern: "The First ___".
 - **Rare · Dream:** real life plus a dream they keep believing in and fighting for.
 - **Legend · Creator:** only Teera. Never write Legend stories for NPCs without Teera asking.
 
-## Two AIs, two jobs (suggested)
-- **Gemini:** drafts long creative proposals (backstories, scenes, dialogue ideas).
-- **Claude:** checks proposals against canon and the world rules, and keeps the files consistent.
+## Who does what (Teera, 2026-11-04)
+- **Gemini:** Teera's story partner. Works in the Google Sheet [swimming_pool NPC Story Bible](https://docs.google.com/spreadsheets/d/1jAdmKQ00QnqzoicGAIOdjHNbk4lgxeJvOmuzfZcg4vs/edit) (A/B ideas, PROPOSED → LOCKED).
+- **Claude:** `1141336 save <id>` — reads that NPC's row from the Sheet, writes it into `story.md`, updates the index, commits and pushes.
+- `story.md` is the canon. If the workbook and a story.md disagree, story.md wins until Teera says otherwise.
 - Either can do either job, but the Proposals section always says who wrote what.
 
 ## After each session

@@ -1,13 +1,14 @@
 # Barista — Character Profile
 
+> Story: **locked** 2026-11-04, see `story.md`.
 > Status: **identity approved (Midjourney v1)** — see references/identity_front.webp. Fields marked `TODO` are Teera's decisions.
 > Fields marked *(draft)* are proposals — keep, change or delete.
 
 ## AI BRIEF (copy-paste this into any AI first)
 
 ```
-CHARACTER: [NAME — TODO], the barista of the Weekday Chill Café in a cozy pixel-art
-community game set in Bangkok.
+CHARACTER: Pan (ปัน), the barista and founder of SOIBAO, of the Weekday Chill Café in a cozy pixel-art
+community game set in Lumen Bay.
 LOOK (locked): Thai, late 20s, chin-length wavy dark-brown bob, round thin-rimmed
 glasses, olive-green wool beret, cream short-sleeve shirt with rolled sleeves, dark-brown
 apron with a small green leaf emblem, beige trousers, brown shoes. Warm, calm face.
@@ -21,11 +22,11 @@ ROLE: hosts the café on weekdays, shares the daily tip, welcomes new players.
 ## Identity
 | Field | Value |
 |---|---|
-| Name | TODO (ideas: **Pan** ปัน = to share · **Bao** เบา = light · **Kaew** แก้ว = cup / precious) |
-| Gender / pronouns | TODO |
+| Name | **Pan** (ปัน = to share) — decided 2026-11-04 |
+| Gender / pronouns | she/her |
 | Age | late 20s |
-| Home | small apartment in Bangkok, rides the skytrain to the café |
-| Why a barista | *(draft)* believes a good cup and one good idea can change someone's day |
+| Home | Lumen Bay, her hometown — she came back from a busy city office job (story.md) |
+| Why a barista | she knows how exhausted office workers feel; her coffee draws out the feeling each customer needs (story.md) |
 
 ## Look (locked details — every image must keep these)
 - olive-green wool beret
