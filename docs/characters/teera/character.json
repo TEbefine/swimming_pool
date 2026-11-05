@@ -1,0 +1,62 @@
+{
+  "id": "teera",
+  "displayName": "Teera",
+  "role": "Host of LUMEN FM 78.6 (the creator of the game, himself). Studio centre chair.",
+  "room": "radio_studio",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "black, full straight fringe",
+    "tee": "beige crew-neck",
+    "trousers": "charcoal",
+    "shoes": "white sneakers"
+  },
+  "sheets": [
+    [
+      "idle",
+      "side_idle",
+      "back_idle",
+      "walk1",
+      "walk2",
+      "wave",
+      "talk",
+      "blink",
+      "happy",
+      "thinking",
+      "controller",
+      "point",
+      "bow",
+      "wai",
+      "thumbsup",
+      "stretch"
+    ],
+    [
+      "sit:idle",
+      "sit:nod",
+      "sit:look",
+      "sit:smile",
+      "sit:wave",
+      "sit:talk",
+      "sit:talk2",
+      "sit:laugh",
+      "sit:thinking",
+      "sit:nod2",
+      "sit:look2",
+      "sit:happy",
+      "sit:blink",
+      "sit:scratch",
+      "sit:look3",
+      "sit:wave2"
+    ]
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/teera/",
+    "seated": "/sprites/npc/teera_sit/",
+    "sheetSource": [
+      "src/assets/npc_teera_walk_sheet.webp",
+      "src/assets/npc_teera_sit_sheet.webp"
+    ],
+    "portraits": "/sprites/npc/teera/portrait/",
+    "references": "docs/characters/teera/references/"
+  },
+  "docs": "claude.ai Project: world/lumen-fm.md"
+}

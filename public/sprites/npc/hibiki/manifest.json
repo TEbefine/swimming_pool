@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/idle.webp"
+  },
+  "side_idle": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/back_idle.webp"
+  },
+  "walk1": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/walk1.webp"
+  },
+  "walk2": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/walk2.webp"
+  },
+  "wave": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/wave.webp"
+  },
+  "talk": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/talk.webp"
+  },
+  "blink": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/blink.webp"
+  },
+  "work": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/work.webp"
+  },
+  "headphones_back": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/headphones_back.webp"
+  },
+  "over_shoulder": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/over_shoulder.webp"
+  },
+  "talkback": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/talkback.webp"
+  },
+  "shh": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/shh.webp"
+  },
+  "thumbsup": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/thumbsup.webp"
+  },
+  "headphones_on": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/headphones_on.webp"
+  },
+  "controller": {
+    "width": 104,
+    "height": 155,
+    "path": "/sprites/npc/hibiki/controller.webp"
+  }
+}

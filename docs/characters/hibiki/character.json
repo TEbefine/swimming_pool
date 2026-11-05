@@ -1,0 +1,43 @@
+{
+  "id": "hibiki",
+  "displayName": "Hibiki",
+  "role": "Sound engineer (~27): cool introvert, gamer girl + weekend DJ. Control room, works facing the monitor.",
+  "room": "radio",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "black bob, blunt bangs, wine-red underlayer",
+    "headphones": "black, red cups, around the neck",
+    "tee": "grey raglan ringer",
+    "cargo": "black, controller keychain"
+  },
+  "sheets": [
+    [
+      "idle",
+      "side_idle",
+      "back_idle",
+      "walk1",
+      "walk2",
+      "wave",
+      "talk",
+      "blink",
+      "work",
+      "headphones_back",
+      "over_shoulder",
+      "talkback",
+      "shh",
+      "thumbsup",
+      "headphones_on",
+      "controller"
+    ]
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/hibiki/",
+    "seated": null,
+    "sheetSource": [
+      "src/assets/npc_hibiki_sheet.webp"
+    ],
+    "portraits": "/sprites/npc/hibiki/portrait/",
+    "references": "docs/characters/hibiki/references/"
+  },
+  "docs": "claude.ai Project: world/lumen-fm.md"
+}

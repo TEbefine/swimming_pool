@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/idle.webp"
+  },
+  "nod": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/nod.webp"
+  },
+  "look": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/look.webp"
+  },
+  "smile": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/smile.webp"
+  },
+  "wave": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/wave.webp"
+  },
+  "talk": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/talk.webp"
+  },
+  "talk2": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/talk2.webp"
+  },
+  "laugh": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/laugh.webp"
+  },
+  "thinking": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/thinking.webp"
+  },
+  "nod2": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/nod2.webp"
+  },
+  "look2": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/look2.webp"
+  },
+  "happy": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/happy.webp"
+  },
+  "blink": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/blink.webp"
+  },
+  "scratch": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/scratch.webp"
+  },
+  "look3": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/look3.webp"
+  },
+  "wave2": {
+    "width": 100,
+    "height": 146,
+    "path": "/sprites/npc/teera_sit/wave2.webp"
+  }
+}

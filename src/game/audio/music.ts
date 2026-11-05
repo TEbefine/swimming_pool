@@ -23,6 +23,8 @@ export const ROOM_MUSIC: Record<string, string | null> = {
   town: '/audio/lumen_bay_morning.m4a',
   woods_1: '/audio/lumen_bay_morning.m4a',
   cafe: '/audio/cafe_hours.m4a',
+  radio: '/audio/cafe_hours.m4a',          // LUMEN FM: the lo-fi café track until it has its own
+  radio_studio: '/audio/cafe_hours.m4a',
 };
 
 const STORAGE_KEY = 'pixel_pool_music';

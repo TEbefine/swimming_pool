@@ -1,0 +1,82 @@
+{
+  "idle": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/idle.webp"
+  },
+  "side_idle": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/back_idle.webp"
+  },
+  "walk1": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/walk1.webp"
+  },
+  "walk2": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/walk2.webp"
+  },
+  "wave": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/wave.webp"
+  },
+  "talk": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/talk.webp"
+  },
+  "blink": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/blink.webp"
+  },
+  "happy": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/happy.webp"
+  },
+  "thinking": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/thinking.webp"
+  },
+  "controller": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/controller.webp"
+  },
+  "point": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/point.webp"
+  },
+  "bow": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/bow.webp"
+  },
+  "wai": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/wai.webp"
+  },
+  "thumbsup": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/thumbsup.webp"
+  },
+  "stretch": {
+    "width": 116,
+    "height": 156,
+    "path": "/sprites/npc/teera/stretch.webp"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "idle": {
+    "width": 100,
+    "height": 153,
+    "path": "/sprites/npc/rin_sit/idle.webp"
+  },
+  "talk": {
+    "width": 100,
+    "height": 153,
+    "path": "/sprites/npc/rin_sit/talk.webp"
+  },
+  "talk2": {
+    "width": 100,
+    "height": 153,
+    "path": "/sprites/npc/rin_sit/talk2.webp"
+  },
+  "smirk": {
+    "width": 100,
+    "height": 153,
+    "path": "/sprites/npc/rin_sit/smirk.webp"
+  },
+  "nod": {
+    "width": 100,
+    "height": 153,
+    "path": "/sprites/npc/rin_sit/nod.webp"
+  },
+  "thinking": {
+    "width": 100,
+    "height": 153,
+    "path": "/sprites/npc/rin_sit/thinking.webp"
+  },
+  "hair": {
+    "width": 100,
+    "height": 153,
+    "path": "/sprites/npc/rin_sit/hair.webp"
+  },
+  "blink": {
+    "width": 100,
+    "height": 153,
+    "path": "/sprites/npc/rin_sit/blink.webp"
+  }
+}

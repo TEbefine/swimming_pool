@@ -152,7 +152,8 @@ function buildWanderCycle(npc: NpcDef, actorScale: number): NpcWanderCycle | nul
     const totalMs = walkMs + pauseMs;
     const poseIdx = Math.floor(rng() * wander.idlePoses.length);
     const idlePose = wander.idlePoses[poseIdx] || 'idle';
-    const facing: 1 | -1 = tx >= prevX ? 1 : -1;
+    // a seated NPC (zero-size area, e.g. the radio studio chairs) never moves: keep its own facing
+    const facing: 1 | -1 = tx > prevX ? 1 : tx < prevX ? -1 : (segments.length ? segments[segments.length - 1].facing : npc.facing);
 
     segments.push({
       startX: prevX,

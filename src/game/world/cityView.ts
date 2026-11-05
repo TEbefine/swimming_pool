@@ -32,6 +32,19 @@ export const ROOM_LIGHTS: Record<string, { x: number; y: number; radius: number;
     { x: 772, y: 200, radius: 46, color: [255, 220, 150] },
     { x: 60, y: 180, radius: 70, color: [255, 205, 140] },
   ],
+  // LUMEN FM control room: three green pendant lamps, the ON AIR light, the monitor glow
+  radio: [
+    { x: 333, y: 46, radius: 120, color: [255, 214, 150] },
+    { x: 511, y: 40, radius: 120, color: [255, 214, 150] },
+    { x: 690, y: 46, radius: 120, color: [255, 214, 150] },
+    { x: 916, y: 61, radius: 44, color: [255, 110, 90] },
+    { x: 514, y: 160, radius: 170, color: [190, 205, 255] },
+  ],
+  // LUMEN FM studio: the two floor lamps by the chairs
+  radio_studio: [
+    { x: 266, y: 142, radius: 130, color: [255, 210, 140] },
+    { x: 903, y: 142, radius: 130, color: [255, 210, 140] },
+  ],
   cafe: [
     { x: 170, y: 58, radius: 140, color: [255, 214, 150] },
     { x: 555, y: 58, radius: 140, color: [255, 214, 150] },

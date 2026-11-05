@@ -23,6 +23,10 @@ export const NPC_NAMES: Record<string, string> = {
   phu: 'Phu',
   gen: 'Gen',
   minato: 'Minato',
+  hibiki: 'Hibiki',
+  teera: 'Teera',
+  rin: 'Rin',
+  momo: 'Momo',
 };
 
 export function npcName(id: string): string {

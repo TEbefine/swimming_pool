@@ -1,0 +1,42 @@
+{
+  "id": "rin",
+  "displayName": "Rin",
+  "role": "Co-host: knows a lot, explains simply (\"handsome girl\", ~26). Not every episode. Studio left chair.",
+  "room": "radio_studio",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "fluffy layered dark brown, long curtain fringe",
+    "glasses": "thin silver round",
+    "shirt": "off-white linen mandarin collar"
+  },
+  "sheets": [
+    [
+      "idle",
+      "side_idle",
+      "back_idle",
+      "walk1",
+      "walk2",
+      "wave",
+      "talk",
+      "blink",
+      "sit:idle",
+      "sit:talk",
+      "sit:talk2",
+      "sit:smirk",
+      "sit:nod",
+      "sit:thinking",
+      "sit:hair",
+      "sit:blink"
+    ]
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/rin/",
+    "seated": "/sprites/npc/rin_sit/",
+    "sheetSource": [
+      "src/assets/npc_rin_sheet.webp"
+    ],
+    "portraits": "/sprites/npc/rin/portrait/",
+    "references": "docs/characters/rin/references/"
+  },
+  "docs": "claude.ai Project: world/lumen-fm.md"
+}

@@ -1,0 +1,42 @@
+{
+  "idle": {
+    "width": 96,
+    "height": 154,
+    "path": "/sprites/npc/momo/idle.webp"
+  },
+  "side_idle": {
+    "width": 96,
+    "height": 154,
+    "path": "/sprites/npc/momo/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 96,
+    "height": 154,
+    "path": "/sprites/npc/momo/back_idle.webp"
+  },
+  "walk1": {
+    "width": 96,
+    "height": 154,
+    "path": "/sprites/npc/momo/walk1.webp"
+  },
+  "walk2": {
+    "width": 96,
+    "height": 154,
+    "path": "/sprites/npc/momo/walk2.webp"
+  },
+  "wave": {
+    "width": 96,
+    "height": 154,
+    "path": "/sprites/npc/momo/wave.webp"
+  },
+  "talk": {
+    "width": 96,
+    "height": 154,
+    "path": "/sprites/npc/momo/talk.webp"
+  },
+  "blink": {
+    "width": 96,
+    "height": 154,
+    "path": "/sprites/npc/momo/blink.webp"
+  }
+}

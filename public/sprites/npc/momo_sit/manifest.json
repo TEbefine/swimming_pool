@@ -1,0 +1,42 @@
+{
+  "idle": {
+    "width": 96,
+    "height": 152,
+    "path": "/sprites/npc/momo_sit/idle.webp"
+  },
+  "talk": {
+    "width": 96,
+    "height": 152,
+    "path": "/sprites/npc/momo_sit/talk.webp"
+  },
+  "laugh": {
+    "width": 96,
+    "height": 152,
+    "path": "/sprites/npc/momo_sit/laugh.webp"
+  },
+  "wink": {
+    "width": 96,
+    "height": 152,
+    "path": "/sprites/npc/momo_sit/wink.webp"
+  },
+  "nod": {
+    "width": 96,
+    "height": 152,
+    "path": "/sprites/npc/momo_sit/nod.webp"
+  },
+  "giggle": {
+    "width": 96,
+    "height": 152,
+    "path": "/sprites/npc/momo_sit/giggle.webp"
+  },
+  "heart": {
+    "width": 96,
+    "height": 152,
+    "path": "/sprites/npc/momo_sit/heart.webp"
+  },
+  "blink": {
+    "width": 96,
+    "height": 152,
+    "path": "/sprites/npc/momo_sit/blink.webp"
+  }
+}

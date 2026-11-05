@@ -12,6 +12,8 @@ import { lakePierRoom } from './lakePier';
 import { arrivalHallRoom } from './arrivalHall';
 import { fishShopRoom } from './fishShop';
 import { woodsRoom } from './woods';
+import { radioRoom } from './radio';
+import { radioStudioRoom } from './radioStudio';
 
 export const rooms: Record<string, RoomDefinition> = {
   town: townRoom,
@@ -27,6 +29,8 @@ export const rooms: Record<string, RoomDefinition> = {
   arrival_hall: arrivalHallRoom,
   fish_shop: fishShopRoom, // ECO-04: open to everyone (the server decides if Gen is trading today)
   woods_1: woodsRoom, // tall grass + random animal encounters (WOODS-01)
+  radio: radioRoom, // LUMEN FM 78.6 control room (podcast / YouTube set, 2026-11-05)
+  radio_studio: radioStudioRoom, // its recording studio (walk in through the padded door)
 };
 
 /** All room IDs in display order for the scene selector. */

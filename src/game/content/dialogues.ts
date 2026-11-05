@@ -986,6 +986,228 @@ export const dialogues: Record<string, DialogScript> = {
     },
   },
 
+  // ---- LUMEN FM 78.6 (radio + studio, 2026-11-05) — lines are a first draft for Teera to rewrite ----
+  hibiki: {
+    name: npcName('hibiki'),
+    portraitDir: '/sprites/npc/hibiki/portrait',
+    faces: ['neutral', 'secret', 'confident', 'listen', 'pleased'],
+    accent: '#8A2E3E',
+    closePose: 'thumbsup',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: '...Oh. Hi.', pose: 'over_shoulder', face: 'neutral' },
+          { text: "I'm Hibiki. I run the sound here.", pose: 'talk', face: 'neutral' },
+        ],
+        choices: [
+          { label: 'What is this place?', next: 'place' },
+          { label: "What's on the screen?", next: 'screen' },
+          { label: 'Can I go in?', next: 'studio' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      place: {
+        lines: [
+          { text: 'Lumen FM, 78.6. The town\'s little radio.', pose: 'talk', face: 'confident' },
+          { text: 'This is the control room. Guests wait on the sofa. The studio is through that door.', pose: 'talk', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      screen: {
+        lines: [
+          { text: 'The studio camera. Teera, Rin and Momo, on cam one.', pose: 'talk', face: 'neutral' },
+          { text: 'When the ON AIR light is on... keep your voice down.', pose: 'shh', face: 'secret' },
+        ],
+        next: 'more',
+      },
+      studio: {
+        lines: [
+          { text: 'Sure. The padded door, on the right.', pose: 'talk', face: 'neutral' },
+          { text: "Just don't tap the mics. I hear everything.", pose: 'headphones_on', face: 'listen' },
+        ],
+        next: 'more',
+      },
+      more: {
+        lines: [{ text: 'Anything else?', pose: 'idle', face: 'neutral' }],
+        choices: [
+          { label: 'What is this place?', next: 'place' },
+          { label: "What's on the screen?", next: 'screen' },
+          { label: 'Can I go in?', next: 'studio' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [{ text: 'Mm. See you.', pose: 'thumbsup', face: 'pleased' }],
+      },
+    },
+  },
+  teera: {
+    name: npcName('teera'),
+    portraitDir: '/sprites/npc/teera/portrait',
+    faces: ['neutral', 'explain', 'laugh', 'thinking', 'happy'],
+    accent: '#B98E62',
+    closePose: 'smile',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: '{greeting}! Welcome to the studio.', pose: 'wave', face: 'happy' },
+          { text: "I'm Teera. I made Lumen Bay, and this is where we talk about it.", pose: 'talk', face: 'explain' },
+        ],
+        choices: [
+          { label: "What's this show?", next: 'show' },
+          { label: 'Who are they?', next: 'cast' },
+          { label: 'Why make this town?', next: 'why' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      show: {
+        lines: [
+          { text: 'Our little podcast. We record here, and it goes out on YouTube too.', pose: 'talk2', face: 'explain' },
+          { text: 'Real talk, small stories, a few laughs. Like friends on a sofa.', pose: 'smile', face: 'happy' },
+        ],
+        next: 'more',
+      },
+      cast: {
+        lines: [
+          { text: "Rin knows a lot and explains it simply. She's not here every time.", pose: 'talk', face: 'explain' },
+          { text: "Momo is the funny one. Careful, she'll get you.", pose: 'laugh', face: 'laugh' },
+          { text: 'And Hibiki keeps the sound perfect, from the control room.', pose: 'nod', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      why: {
+        lines: [
+          { text: 'I wanted a quiet place where people can learn, rest and meet each other.', pose: 'thinking', face: 'thinking' },
+          { text: 'Every map here started as a small idea. Thanks for walking around in it.', pose: 'smile', face: 'happy' },
+        ],
+        next: 'more',
+      },
+      more: {
+        lines: [{ text: 'Anything else?', pose: 'idle', face: 'neutral' }],
+        choices: [
+          { label: "What's this show?", next: 'show' },
+          { label: 'Who are they?', next: 'cast' },
+          { label: 'Why make this town?', next: 'why' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [{ text: 'Thanks for coming by. Sit with us any time.', pose: 'wave', face: 'happy' }],
+      },
+    },
+  },
+  rin: {
+    name: npcName('rin'),
+    portraitDir: '/sprites/npc/rin/portrait',
+    faces: ['neutral', 'explain', 'soft', 'thinking', 'confident'],
+    accent: '#6F7F8E',
+    closePose: 'smirk',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Hey.', pose: 'nod', face: 'neutral' },
+          { text: "I'm Rin. I come in when there's something worth explaining.", pose: 'talk', face: 'explain' },
+        ],
+        choices: [
+          { label: 'Explain something', next: 'explain' },
+          { label: 'Not here every time?', next: 'away' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      explain: {
+        lines: [
+          { text: 'A trick. If something feels hard, explain it to a friend in three sentences.', pose: 'talk2', face: 'explain' },
+          { text: "Where you get stuck is the part you don't understand yet. Start there.", pose: 'thinking', face: 'thinking' },
+        ],
+        next: 'more',
+      },
+      away: {
+        lines: [
+          { text: 'I have other work. When I\'m away, a guest from town takes my chair.', pose: 'hair', face: 'confident' },
+          { text: 'Good for the show. New voices.', pose: 'smirk', face: 'soft' },
+        ],
+        next: 'more',
+      },
+      more: {
+        lines: [{ text: 'Something else?', pose: 'idle', face: 'neutral' }],
+        choices: [
+          { label: 'Explain something', next: 'explain' },
+          { label: 'Not here every time?', next: 'away' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [{ text: 'Later.', pose: 'smirk', face: 'soft' }],
+      },
+    },
+  },
+  momo: {
+    name: npcName('momo'),
+    portraitDir: '/sprites/npc/momo/portrait',
+    faces: ['neutral', 'idea', 'laugh', 'wink', 'finger_heart'],
+    accent: '#9584B8',
+    closePose: 'heart',
+    start: 'greet',
+    nodes: {
+      greet: {
+        lines: [
+          { text: 'Ooh, a new face! Hi hi!', pose: 'talk', face: 'idea' },
+          { text: "I'm Momo. I'm here so nobody gets too serious.", pose: 'wink', face: 'wink' },
+        ],
+        choices: [
+          { label: 'Tell me a joke', next: 'joke' },
+          { label: 'What do you do here?', next: 'role' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      joke: {
+        lines: [
+          { text: 'I wanted to start a podcast about putting things off.', pose: 'talk', face: 'idea' },
+          { text: "I'll tell you the rest next episode.", pose: 'laugh', face: 'laugh' },
+          { text: "...Hibiki didn't laugh either.", pose: 'giggle', face: 'neutral' },
+        ],
+        next: 'more',
+      },
+      role: {
+        lines: [
+          { text: 'I keep it light. Teera talks, Rin explains, and I poke holes in it.', pose: 'talk', face: 'idea' },
+          { text: 'If you learn something AND laugh, my job is done.', pose: 'heart', face: 'finger_heart' },
+        ],
+        next: 'more',
+      },
+      more: {
+        lines: [{ text: 'Anything else?', pose: 'idle', face: 'neutral' }],
+        choices: [
+          { label: 'Tell me a joke', next: 'joke' },
+          { label: 'What do you do here?', next: 'role' },
+          { label: 'Bye', next: 'bye' },
+        ],
+      },
+      bye: {
+        lines: [{ text: 'Byeee! Come back for the next episode!', pose: 'heart', face: 'finger_heart' }],
+      },
+    },
+  },
+  // The cork board in the control room (Read): the program schedule.
+  radio_board: {
+    name: 'Lumen FM 78.6',
+    accent: '#8A2E3E',
+    closePose: 'none',
+    start: 'read',
+    nodes: {
+      read: {
+        lines: [
+          { text: 'LUMEN FM 78.6 · PROGRAM' },
+          { text: 'In the studio: Teera, Rin and Momo. Sound: Hibiki.' },
+          { text: 'Morning show and song requests (the red post box): coming soon.' },
+        ],
+      },
+    },
+  },
+
 };
 
 const GENRE_LABELS: Record<string, string> = {

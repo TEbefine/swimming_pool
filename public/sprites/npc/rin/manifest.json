@@ -1,0 +1,42 @@
+{
+  "idle": {
+    "width": 98,
+    "height": 154,
+    "path": "/sprites/npc/rin/idle.webp"
+  },
+  "side_idle": {
+    "width": 98,
+    "height": 154,
+    "path": "/sprites/npc/rin/side_idle.webp"
+  },
+  "back_idle": {
+    "width": 98,
+    "height": 154,
+    "path": "/sprites/npc/rin/back_idle.webp"
+  },
+  "walk1": {
+    "width": 98,
+    "height": 154,
+    "path": "/sprites/npc/rin/walk1.webp"
+  },
+  "walk2": {
+    "width": 98,
+    "height": 154,
+    "path": "/sprites/npc/rin/walk2.webp"
+  },
+  "wave": {
+    "width": 98,
+    "height": 154,
+    "path": "/sprites/npc/rin/wave.webp"
+  },
+  "talk": {
+    "width": 98,
+    "height": 154,
+    "path": "/sprites/npc/rin/talk.webp"
+  },
+  "blink": {
+    "width": 98,
+    "height": 154,
+    "path": "/sprites/npc/rin/blink.webp"
+  }
+}

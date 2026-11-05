@@ -1,0 +1,43 @@
+{
+  "id": "momo",
+  "displayName": "Momo",
+  "role": "The sweet, clever joke-maker (~24). Studio right chair.",
+  "room": "radio_studio",
+  "status": "sprite-approved",
+  "look": {
+    "hair": "shoulder-length wavy wine-brown, two pearl clips",
+    "vest": "lavender knit",
+    "shirt": "white collared",
+    "trousers": "beige"
+  },
+  "sheets": [
+    [
+      "idle",
+      "side_idle",
+      "back_idle",
+      "walk1",
+      "walk2",
+      "wave",
+      "talk",
+      "blink",
+      "sit:idle",
+      "sit:talk",
+      "sit:laugh",
+      "sit:wink",
+      "sit:nod",
+      "sit:giggle",
+      "sit:heart",
+      "sit:blink"
+    ]
+  ],
+  "assets": {
+    "sprites": "/sprites/npc/momo/",
+    "seated": "/sprites/npc/momo_sit/",
+    "sheetSource": [
+      "src/assets/npc_momo_sheet.webp"
+    ],
+    "portraits": "/sprites/npc/momo/portrait/",
+    "references": "docs/characters/momo/references/"
+  },
+  "docs": "claude.ai Project: world/lumen-fm.md"
+}
